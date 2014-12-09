@@ -2,12 +2,15 @@
 (function(window, angular) {
     "use strict";
 
-    angular.module('jsflap', []);
+    angular.module('jsflap', ['mm.foundation']);
     angular.module('jsflap')
         .directive('jflapBoard', function() {
             return {
                 link: function(scope, elm, attrs) {
 
+                    elm[0].addEventListener('contextmenu', function() {
+                        return false;
+                    });
                     var nodeCount = 0;
 
                     var initalStatePathO = 'M-10,10 L0,5 L-10,-10 Z';
@@ -18,30 +21,46 @@
                     ];
                     var svgContainer = d3.select(elm[0])
                         .on('mouseup', function() {
-                            svgContainer.on("mousemove", null);
+                            //svgContainer.on("mousemove", null);
                             var m = d3.event;
-                            var testPoint;
+                            var posPoints = d3.mouse(this);
+                            var posX = posPoints[0];
+                            var posY = posPoints[1];
+                            if(line) {
+                                posX = +line.attr('x2');
+                                posY = +line.attr('y2');
+                            }
                             d3.event.preventDefault();
                             if(m.which > 1) {
                                 return false;
                             } else {
-                                var closetCircle = getNearestCircleBy(m.x, m.y, 20);
-                                if(!closetCircle) {
+                                var closetCircle = getNearestCircleBy(posX, posY, 29);
+                                if(!closetCircle && !lineIsSnapping) {
                                     nodeCount++;
                                     svgContainer.append("circle")
-                                        .attr("cx", m.x)
-                                        .attr("cy", m.y)
+                                        .attr("cx", posX)
+                                        .attr("cy", posY)
                                         .attr("r", 20)
                                         .attr('fill', "LightGoldenrodYellow")
                                         .attr('stroke', "#333333")
                                         .attr('opacity', 0)
                                         .transition()
                                         .attr('opacity', 1);
+                                    svgContainer.append("text")
+                                        .text("q"+ (nodeCount - 1))
+                                        .attr("x", posX - ((nodeCount <= 10)? 11: 15))
+                                        .attr("y", posY + 5)
+                                        .attr("font-family", "sans-serif")
+                                        .attr("font-size", "18px")
+                                        .attr("fill", "#333")
+                                        .attr('opacity', 0)
+                                        .transition()
+                                        .attr('opacity', 1);
 
                                     if(nodeCount === 1) {
                                         var lineFunction = d3.svg.line()
-                                            .x(function(d) { return d.x + m.x - 20 })
-                                            .y(function(d) { return d.y + m.y})
+                                            .x(function(d) { return d.x + posX - 20 })
+                                            .y(function(d) { return d.y + posY})
                                             .interpolate("linear");
                                         svgContainer.append('path')
                                             .attr('d', lineFunction(initalStatePath))
@@ -54,27 +73,31 @@
                                     }
 
                                     closetCircle = {
-                                        cx: m.x,
-                                        cy: m.y,
+                                        cx: posX,
+                                        cy: posY,
                                         r: 20
                                     };
                                 }
 
                                 if(line) {
+                                    line.transition()
+                                        .attr('stroke', "#333333")
+                                        .attr('style', "marker-end:url(#markerArrow)");
 
-                                    testPoint = {
-                                        x: +line.attr('x1'),
-                                        y: +line.attr('y1')
-                                    };
-
-                                    var point = getCircleIntersectionPoint(closetCircle, testPoint, true);
-                                    line.attr('x2', point.x)
-                                        .attr('y2', point.y);
+                                    //if(!straightLineMode) {
+                                        var point = getCircleIntersectionPoint(closetCircle, {
+                                            x: +line.attr('x1'),
+                                            y: +line.attr('y1')
+                                        }, true);
+                                        line.attr('x2', point.x)
+                                            .attr('y2', point.y)
+                                    //}
                                 }
                             }
 
                             lineNearestCircle = null;
                             line = null;
+                            lineIsSnapping = false;
                         })
                         .on("mousedown", mousedown)
 
@@ -145,12 +168,13 @@
                     }
 
                     var line;
+                    var lineIsSnapping = false;
                     var lineNearestCircle = null;
                     function mousedown() {
-                        var m = d3.event;
                         lineNearestCircle = null;
-                        var lineStartX = m.x,
-                            lineStartY = m.y,
+                        var lineStartPoint = d3.mouse(this);
+                        var lineStartX = lineStartPoint[0],
+                            lineStartY = lineStartPoint[1],
                             nearestCircle = getNearestCircleBy(lineStartX, lineStartY, 50);
                         if(nearestCircle) {
                             var nearPoint = getCircleIntersectionPoint(nearestCircle, {
@@ -165,27 +189,91 @@
                                 .attr("y1", lineStartY)
                                 .attr("x2", lineStartX)
                                 .attr("y2", lineStartY)
-                                .attr('stroke', "#333333")
-                                .attr('style', "marker-end:url(#markerArrow)");
+                                .attr('stroke', "#888");
                         }
-                        svgContainer.on("mousemove", mousemove);
                     }
 
+                    svgContainer.on("mousemove", mousemove);
+
+                    var straightLineMode = false;
+                    document.body.addEventListener("keydown", function(event) {
+                        if (line) {
+                            if (event.which === 16 && !straightLineMode) {
+                                straightLineMode = true;
+                            }
+                        }
+                    });
+
+                    document.body.addEventListener("keyup", function(event) {
+
+                        if (event.which === 16) {
+                            straightLineMode = false;
+                        }
+                    });
+
+                    var lastDTheta = null;
                     function mousemove() {
                         if(line) {
                             var m = d3.mouse(this);
-                            line.attr("x2", m[0])
-                                .attr("y2", m[1]);
+                            if(straightLineMode) {
+                                var x1 = +line.attr('x1'),
+                                    x2 = m[0],
+                                    y1 = +line.attr('y1'),
+                                    y2 = m[1],
+                                    dx = x2 - x1,
+                                    dy = y2 - y1,
+                                    theta = Math.atan(dy/dx),
+                                    dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4),
+                                    distance = Math.sqrt(
+                                        Math.pow(y2 - y1, 2) +
+                                        Math.pow(x2 - x1, 2)
+                                    );
 
-                            if (lineNearestCircle) {
-                                var point = getCircleIntersectionPoint(lineNearestCircle, {
-                                    x: m[0],
-                                    y: m[1]
-                                });
-                                line.attr("x1", point.x)
-                                    .attr("y1", point.y);
-
+                                if(dx >= 0) {
+                                    m[0] = x1 + distance * Math.cos(dTheta);
+                                    m[1] = y1 + distance * Math.sin(dTheta);
+                                } else {
+                                    m[0] = x1 - distance * Math.cos(dTheta);
+                                    m[1] = y1 - distance * Math.sin(dTheta);
+                                }
                             }
+
+                            if (lineNearestCircle && !lineIsSnapping) {
+
+                                if(!straightLineMode || (straightLineMode && (lastDTheta === null || lastDTheta !== theta))) {
+                                    var point = getCircleIntersectionPoint(lineNearestCircle, {
+                                        x: m[0],
+                                        y: m[1]
+                                    });
+                                    line.attr("x1", point.x)
+                                        .attr("y1", point.y);
+                                }
+                            }
+
+                            if(Math.abs(lineNearestCircle.cx - m[0]) > lineNearestCircle.r + 30 ||
+                                Math.abs(lineNearestCircle.cy - m[1]) > lineNearestCircle.r + 30) {
+                                var snapCircle = getNearestCircleBy(m[0], m[1], 29);
+                                if(snapCircle) {
+                                    if(!lineIsSnapping) {
+                                        var point2 = getCircleIntersectionPoint(snapCircle, {
+                                            x: point.x,
+                                            y: point.y
+                                        });
+                                        line.attr("x2", point2.x)
+                                            .attr("y2", point2.y);
+                                        lineIsSnapping = true;
+                                    }
+                                } else {
+                                    line.attr("x2", m[0])
+                                        .attr("y2", m[1]);
+                                    lineIsSnapping = false;
+                                }
+                            } else {
+                                line.attr("x2", m[0])
+                                    .attr("y2", m[1]);
+                                lineIsSnapping = false;
+                            }
+
                         }
                     }
                 }

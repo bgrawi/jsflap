@@ -3,19 +3,61 @@
 <head lang="en">
     <meta charset="UTF-8">
     <title>jsflap</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/5.4.7/css/normalize.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/5.4.7/css/foundation.min.css">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
     <link rel="stylesheet" href="jsflap.css">
 </head>
 <body ng-app="jsflap" ng-controller="AppController">
+<nav class="top-bar" data-topbar role="navigation">
+    <ul class="title-area">
+        <li class="name">
+            <h1><a href="#"><i class="fa fa-flag"></i> JSFLAP</a></h1>
+        </li>
+        <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
+    </ul>
+
+    <section class="top-bar-section">
+        <!-- Right Nav Section -->
+        <ul class="right">
+            <li class="has-dropdown">
+                <a href="#">NPDA</a>
+                <ul class="dropdown">
+                    <li class="active"><a href="#">NFA</a></li>
+                    <li><a href="#">DFA</a></li>
+                    <li><a href="#">NPDA</a></li>
+                    <li><a href="#">DPDA</a></li>
+                    <li><a href="#">Turing Machine</a></li>
+                </ul>
+            </li>
+            <li class="has-dropdown">
+                <a href="#"><i class="fa fa-flash"></i> Test</a>
+                <ul class="dropdown">
+                    <li><a href="#">Single Run</a></li>
+                    <li><a href="#">Multiple Run</a></li>
+                    <li><a href="#">Simulate...</a></li>
+                </ul>
+            </li>
+            <li class="active"><a href="#"><i class="fa fa-save"></i> Save</a></li>
+        </ul>
+
+        <!-- Left Nav Section -->
+        <ul class="left">
+            <li class="active"><a href="#"><i class="fa fa-pencil"></i> Draw</a></li>
+            <li><a href="#"><i class="fa fa-arrows"></i> Move</a></li>
+            <li><a href="#"><i class="fa fa-eraser"></i> Eraser</a></li>
+        </ul>
+    </section>
+</nav>
 <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="500" jflap-board>
     <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
             orient="auto">
         <path d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;" />
     </marker>
 </svg>
-{{message}}
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.6/angular.min.js"></script>
+<script src="vendor/mm-foundation-tpls-0.5.1.min.js"></script>
 <script src="jsflap.js"></script>
 </body>
 </html>

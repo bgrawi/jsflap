@@ -4,9 +4,15 @@
     <meta charset="UTF-8">
     <title>jsflap</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="jsflap.css">
 </head>
 <body ng-app="jsflap" ng-controller="AppController">
-<div jflap-board></div>
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="500" jflap-board>
+    <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
+            orient="auto">
+        <path d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;" />
+    </marker>
+</svg>
 {{message}}
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.6/angular.min.js"></script>

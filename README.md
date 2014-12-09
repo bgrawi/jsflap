@@ -1,4 +1,4 @@
 jsflap
 ======
 
-JS Implementation vor visualizting Formal Languages and Automata Theory
+JS Implementation for visualizing Formal Languages and Automata Theory

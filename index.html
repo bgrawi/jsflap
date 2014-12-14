@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/5.4.7/css/normalize.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/5.4.7/css/foundation.min.css">
     <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="jsflap.css">
+    <link rel="stylesheet" href="dist/css/jsflap.css">
 </head>
 <body ng-app="jsflap" ng-controller="AppController">
 <nav class="top-bar" data-topbar role="navigation">
@@ -49,15 +49,19 @@
         </ul>
     </section>
 </nav>
-<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="500" jflap-board>
-    <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
-            orient="auto">
-        <path d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;" />
-    </marker>
-</svg>
+<section class="board-container">
+    <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" jsflap-board>
+        <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
+                orient="auto">
+            <path d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;" />
+        </marker>
+    </svg>
+</section>
+<div jsflap-board-context-menu="">
+</div>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.6/angular.min.js"></script>
 <script src="vendor/mm-foundation-tpls-0.5.1.min.js"></script>
-<script src="jsflap.js"></script>
+<script src="dist/js/jsflap.js"></script>
 </body>
 </html>

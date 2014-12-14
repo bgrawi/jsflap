@@ -2,15 +2,16 @@
 (function(window, angular) {
     "use strict";
 
-    angular.module('jsflap', ['mm.foundation']);
+    angular.module('jsflap', []);
     angular.module('jsflap')
-        .directive('jflapBoard', function() {
+        .directive('jsflapBoard', function($rootScope) {
             return {
                 link: function(scope, elm, attrs) {
+                    var board = new jsflap.Board(elm[0]);
 
-                    elm[0].addEventListener('contextmenu', function() {
-                        return false;
-                    });
+                    // For debugging
+                    window.boardInstance = board;
+
                     var nodeCount = 0;
 
                     var initalStatePathO = 'M-10,10 L0,5 L-10,-10 Z';
@@ -276,10 +277,42 @@
 
                         }
                     }
+
+                    elm[0].addEventListener("contextmenu", function(event) {
+                        $rootScope.$broadcast('contextmenu', event);
+                        event.preventDefault();
+                    });
                 }
             }
         })
+        .directive('jsflapBoardContextMenu', function() {
+            return {
+                scope: {},
+                restrict: 'A',
+                template: '<ul id="contextMenu"  class="side-nav" ng-style="{top: posTop, left: posLeft}" ng-show="show">' +
+                '<li><a href="#">Make Initial {{posTop}}</a></li>' +
+                '<li><a href="#">Make Final</a></li>' +
+                '</ul>',
+                link: {
+                    pre: function(scope) {
+                        scope.show = false;
+                        scope.posLeft = 0;
+                        scope.posTop = 0;
+                    },
+                    post: function (scope, elm, attrs) {
+                        scope.$on("contextmenu", function(event, DOMevent) {
+                            scope.show = true;
+                            scope.posLeft = DOMevent.x;
+                            scope.posTop = DOMevent.y;
+                        });
+                    }
+                }
+            };
+        })
         .controller('AppController', function($scope) {
             $scope.message = 'Welcome to jsflap!';
+        })
+        .controller('ContextController', function($scope) {
+            $scope.message2 = 'the context';
         });
 }(window, window.angular));

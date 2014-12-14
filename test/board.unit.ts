@@ -1,9 +1,10 @@
-describe("Base Structure", () => {
-    var board, svgElm;
+describe("Board", () => {
+    var board, svgElm, graph;
 
     beforeEach(() => {
         svgElm = document.createElement('svg');
-        board = new jsflap.Board(svgElm);
+        graph = new jsflap.Graph.NFAGraph();
+        board = new jsflap.Board(svgElm, graph);
     });
 
     it("should exist", () => {

@@ -1,38 +1,91 @@
 module jsflap {
+
+    export interface NodeOptions {
+        initial?: boolean;
+        final?: boolean;
+        fromEdges?: EdgeList;
+        toEdges?: EdgeList;
+    }
+
     export class Node {
+
+        /**
+         * The label of this node/state
+         */
+        public label: string;
+
+        /**
+         * If the node is an initial node
+         */
+        public initial: boolean;
+
+        /**
+         * If the node is a final node
+         */
+        public final: boolean;
 
         /**
          * The edges that this node comes from
          */
         public fromEdges: EdgeList;
 
+        /**
+         * The edges that this label goes to
+         */
         public toEdges: EdgeList;
 
         /**
          * Creates a new node
          * @param label
-         * @param fromEdges
-         * @param toEdges
+         * @param options
          */
-        constructor(label: string, fromEdges?: EdgeList, toEdges?: EdgeList) {
-            this.fromEdges = new EdgeList();
-            this.toEdges = new EdgeList();
+        constructor(label: string, options?: NodeOptions) {
+
+            this.label = label;
+
+            if(options) {
+                this.initial = (options.initial)? options.initial: false;
+                this.final = (options.final)? options.final: false;
+                this.fromEdges = (options.fromEdges)? options.fromEdges: new EdgeList();
+                this.toEdges = (options.toEdges)? options.toEdges: new EdgeList();
+            } else {
+                this.initial = false;
+                this.final = false;
+                this.fromEdges = new EdgeList();
+                this.toEdges = new EdgeList();
+            }
         }
 
         /**
          * Adds an edge to the from list
          * @param edge
          */
-        addFromEdge(edge: Edge) {
-            this.fromEdges.push(edge);
+        addFromEdge(edge: Edge): Edge {
+            if(edge.to.toString() === this.toString()) {
+                return this.fromEdges.add(edge);
+            } else {
+                return null;
+            }
         }
 
         /**
          * Adds an edge to the to list
          * @param edge
          */
-        addToEdge(edge: Edge) {
-            this.toEdges.push(edge);
+        addToEdge(edge: Edge): Edge {
+            if(edge.from.toString() === this.toString()) {
+                return this.toEdges.add(edge);
+            } else {
+                return null;
+            }
+        }
+
+        /**
+         * Gets the label of this current node
+         * @returns {string}
+         */
+        toString() {
+            return this.label;
         }
     }
 }

@@ -8,14 +8,14 @@ module jsflap {
          */
         private svg: Element;
 
-        private nodes: Array<Node>;
-        private edges: EdgeList;
+        /**
+         * The graph containing the edges and nodes
+         */
+        private graph: Graph.IGraph;
 
-        constructor(svg: Element) {
+        constructor(svg: Element, graph: Graph.IGraph) {
             this.svg = svg;
-
-            this.nodes = [];
-            this.edges = new EdgeList();
+            this.graph = graph;
         }
     }
 }

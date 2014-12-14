@@ -319,18 +319,9 @@
 var jsflap;
 (function (jsflap) {
     var Board = (function () {
-        function Board(svg) {
+        function Board(svg, graph) {
             this.svg = svg;
-            this.nodes = [];
-            this.edges = new jsflap.EdgeList();
-            // TESTING
-            var N1 = new jsflap.Node('N1');
-            var N2 = new jsflap.Node('N2');
-            var T1 = new jsflap.Transition.NFATransition('a');
-            var E1 = new jsflap.Edge(N1, N2, T1);
-            this.nodes.push(N1);
-            this.nodes.push(N2);
-            this.edges.push(E1);
+            this.graph = graph;
         }
         return Board;
     })();
@@ -340,13 +331,27 @@ var jsflap;
 var jsflap;
 (function (jsflap) {
     var Edge = (function () {
+        /**
+         * Creates a new directed edge with a transition
+         * @param from
+         * @param to
+         * @param transition
+         */
         function Edge(from, to, transition) {
             this.from = from;
             this.to = to;
             this.transition = transition;
+            // Add this edge to the other nodes
             from.addToEdge(this);
             to.addFromEdge(this);
         }
+        /**
+         * Gets the configuration state as a string
+         * @returns {string}
+         */
+        Edge.prototype.toString = function () {
+            return '(' + this.from.toString() + ', ' + this.to.toString() + ', ' + this.transition.toString() + ')';
+        };
         return Edge;
     })();
     jsflap.Edge = Edge;
@@ -360,28 +365,71 @@ var jsflap;
          * @param edges
          */
         function EdgeList(edges) {
+            var _this = this;
+            this.edges = [];
+            this.edgeMap = {};
             if (edges) {
-                this.edges = edges;
-            }
-            else {
-                this.edges = [];
+                edges.forEach(function (edge) {
+                    _this.add(edge);
+                });
             }
         }
         /**
          * Adds a new edge to the list
          * @param edge
          */
-        EdgeList.prototype.push = function (edge) {
-            this.edges.push(edge);
+        EdgeList.prototype.add = function (edge) {
+            if (!this.has(edge)) {
+                this.edges.push(edge);
+                this.edgeMap[edge.toString()] = edge;
+                return edge;
+            }
+            else {
+                return this.edgeMap[edge.toString()];
+            }
         };
         /**
-         * Checks if the edge exists already
-         * @param edge
+         * Checks if the edge list has a edge
          * @returns {boolean}
+         * @param edge
          */
         EdgeList.prototype.has = function (edge) {
-            return this.edges.indexOf(edge) !== -1;
+            if (typeof edge === 'string') {
+                return this.edgeMap.hasOwnProperty(edge);
+            }
+            else if (edge instanceof jsflap.Edge) {
+                return this.edgeMap.hasOwnProperty(edge.toString());
+            }
         };
+        /**
+         * Gets an edge by a similar edge object
+         * @param edge
+         * @returns {*}
+         */
+        EdgeList.prototype.getEdge = function (edge) {
+            if (this.has(edge)) {
+                if (typeof edge === 'string') {
+                    return this.edgeMap[edge];
+                }
+                else if (edge instanceof jsflap.Edge) {
+                    return this.edgeMap[edge.toString()];
+                }
+            }
+            else {
+                return null;
+            }
+        };
+        Object.defineProperty(EdgeList.prototype, "size", {
+            /**
+             * Gets the number of edges
+             * @returns {number}
+             */
+            get: function () {
+                return this.edges.length;
+            },
+            enumerable: true,
+            configurable: true
+        });
         return EdgeList;
     })();
     jsflap.EdgeList = EdgeList;
@@ -393,30 +441,205 @@ var jsflap;
         /**
          * Creates a new node
          * @param label
-         * @param fromEdges
-         * @param toEdges
+         * @param options
          */
-        function Node(label, fromEdges, toEdges) {
-            this.fromEdges = new jsflap.EdgeList();
-            this.toEdges = new jsflap.EdgeList();
+        function Node(label, options) {
+            this.label = label;
+            if (options) {
+                this.initial = (options.initial) ? options.initial : false;
+                this.final = (options.final) ? options.final : false;
+                this.fromEdges = (options.fromEdges) ? options.fromEdges : new jsflap.EdgeList();
+                this.toEdges = (options.toEdges) ? options.toEdges : new jsflap.EdgeList();
+            }
+            else {
+                this.initial = false;
+                this.final = false;
+                this.fromEdges = new jsflap.EdgeList();
+                this.toEdges = new jsflap.EdgeList();
+            }
         }
         /**
          * Adds an edge to the from list
          * @param edge
          */
         Node.prototype.addFromEdge = function (edge) {
-            this.fromEdges.push(edge);
+            if (edge.to.toString() === this.toString()) {
+                return this.fromEdges.add(edge);
+            }
+            else {
+                return null;
+            }
         };
         /**
          * Adds an edge to the to list
          * @param edge
          */
         Node.prototype.addToEdge = function (edge) {
-            this.toEdges.push(edge);
+            if (edge.from.toString() === this.toString()) {
+                return this.toEdges.add(edge);
+            }
+            else {
+                return null;
+            }
+        };
+        /**
+         * Gets the label of this current node
+         * @returns {string}
+         */
+        Node.prototype.toString = function () {
+            return this.label;
         };
         return Node;
     })();
     jsflap.Node = Node;
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var NodeList = (function () {
+        /**
+         * Create a new node list
+         * @param nodes
+         */
+        function NodeList(nodes) {
+            var _this = this;
+            /**
+             * The internal size
+             * @type {number}
+             * @private
+             */
+            this._size = 0;
+            this.nodes = {};
+            if (nodes) {
+                nodes.forEach(function (node) {
+                    _this.add(node);
+                });
+            }
+        }
+        Object.defineProperty(NodeList.prototype, "size", {
+            /**
+             * Gets the size of the list
+             * @returns {number}
+             */
+            get: function () {
+                return this._size;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        /**
+         * Adds a new node to the list
+         * @param node
+         */
+        NodeList.prototype.add = function (node) {
+            if (!this.has(node)) {
+                this.nodes[node.toString()] = node;
+                this._size++;
+                return node;
+            }
+            else {
+                return this.nodes[node.toString()];
+            }
+        };
+        /**
+         * Checks if the node exists already
+         * @param node
+         * @returns {boolean}
+         */
+        NodeList.prototype.has = function (node) {
+            if (typeof node === 'string') {
+                return this.nodes.hasOwnProperty(node);
+            }
+            else if (node instanceof jsflap.Node) {
+                return this.nodes.hasOwnProperty(node.toString());
+            }
+        };
+        /**
+         * Gets an node by a similar node object
+         * @param node
+         * @returns {*}
+         */
+        NodeList.prototype.getNode = function (node) {
+            if (this.has(node)) {
+                if (typeof node === 'string') {
+                    return this.nodes[node];
+                }
+                else if (node instanceof jsflap.Node) {
+                    return this.nodes[node.toString()];
+                }
+            }
+            else {
+                return null;
+            }
+        };
+        return NodeList;
+    })();
+    jsflap.NodeList = NodeList;
+})(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Graph;
+    (function (Graph) {
+        var NFAGraph = (function () {
+            /**
+             * Create a new graph
+             * @param nodes
+             * @param edges
+             */
+            function NFAGraph(nodes, edges) {
+                this.nodes = new jsflap.NodeList(nodes);
+                this.edges = new jsflap.EdgeList(edges);
+            }
+            /**
+             * Gets the nodes from the graph
+             * @returns {NodeList}
+             */
+            NFAGraph.prototype.getNodes = function () {
+                return this.nodes;
+            };
+            /**
+             * Gets the edges from the graph
+             * @returns {EdgeList}
+             */
+            NFAGraph.prototype.getEdges = function () {
+                return this.edges;
+            };
+            /**
+             * Adds a node based on a label
+             * @returns {jsflap.Node|any}
+             * @param node
+             * @param options
+             */
+            NFAGraph.prototype.addNode = function (node, options) {
+                if (typeof node === 'string') {
+                    return this.nodes.add(new jsflap.Node(node, options));
+                }
+                else if (node instanceof jsflap.Node) {
+                    return this.nodes.add(node);
+                }
+            };
+            /**
+             * Adds an edge to the graph
+             * @param from
+             * @param to
+             * @param transition
+             * @returns {jsflap.Edge|any}
+             */
+            NFAGraph.prototype.addEdge = function (from, to, transition) {
+                if (from instanceof jsflap.Edge && to instanceof jsflap.Edge && transition) {
+                    return this.edges.add(new jsflap.Edge(from, to, transition));
+                }
+                else if (from instanceof jsflap.Edge) {
+                    return this.edges.add(from);
+                }
+            };
+            return NFAGraph;
+        })();
+        Graph.NFAGraph = NFAGraph;
+    })(Graph = jsflap.Graph || (jsflap.Graph = {}));
 })(jsflap || (jsflap = {}));
 
 
@@ -496,15 +719,28 @@ var jsflap;
         /**
          * A Transition of a single character in an NFA
          */
-        var NFATransition = (function () {
-            function NFATransition(character) {
+        var CharacterTransition = (function () {
+            /**
+             * Creates a new single char transition
+             * @param character
+             */
+            function CharacterTransition(character) {
                 this.character = character;
             }
-            return NFATransition;
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            CharacterTransition.prototype.toString = function () {
+                return this.character;
+            };
+            return CharacterTransition;
         })();
-        Transition.NFATransition = NFATransition;
+        Transition.CharacterTransition = CharacterTransition;
     })(Transition = jsflap.Transition || (jsflap.Transition = {}));
 })(jsflap || (jsflap = {}));
+
+
 
 var jsflap;
 (function (jsflap) {

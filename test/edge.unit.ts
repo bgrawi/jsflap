@@ -6,7 +6,7 @@ describe("Edge", () => {
         NodeA = new jsflap.Node('A');
         NodeB = new jsflap.Node('B');
         NodeC = new jsflap.Node('C');
-        Transition1 = new jsflap.Transition.NFATransition('a');
+        Transition1 = new jsflap.Transition.CharacterTransition('a');
     });
 
     it("should exist", () => {

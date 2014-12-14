@@ -25,5 +25,14 @@ module jsflap {
         public push(edge: Edge) {
             this.edges.push(edge);
         }
+
+        /**
+         * Checks if the edge exists already
+         * @param edge
+         * @returns {boolean}
+         */
+        public has(edge: Edge) {
+            return this.edges.indexOf(edge) !== -1;
+        }
     }
 }

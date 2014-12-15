@@ -1,5 +1,6 @@
 describe('FAGraph', () => {
-    var N1, N2, N3, T1, T2, E1, E1copy, E2;
+    var N1, N2, N3, T1, T2, E1, E1copy, E2,
+        graphString = 'NFA:({a, b}, {N1, N2}, {(N1, N1, a), (N1, N2, b)}, N1, {N2})';
 
     beforeEach(() => {
         N1 = new jsflap.Node('N1', {initial: true});
@@ -75,6 +76,55 @@ describe('FAGraph', () => {
 
         expect(finalNodes.has(N3)).toBe(true);
         expect(finalNodes.has(N4)).toBe(true)
+    });
+
+    it("should update the alphabet accordingly", () => {
+        var graph = new jsflap.Graph.FAGraph(false, [N1, N2, N3]),
+            alphabet = graph.getAlphabet();
+
+        graph.addEdge(E1); // Transition on a
+        expect(alphabet.hasOwnProperty('a')).toBe(true);
+
+        graph.addEdge(E2); // Transition on b
+        expect(alphabet.hasOwnProperty('b')).toBe(true);
+    });
+
+
+    it("should be able to output a configuration file", () => {
+        var graph = new jsflap.Graph.FAGraph(false);
+        graph.addNode('N1', {initial: true});
+        graph.addNode('N2', {final: true});
+        graph.addEdge('N1', 'N1', 'a');
+        graph.addEdge('N1', 'N2', 'b');
+        expect(graph.toString()).toBe(graphString);
+    });
+
+    it("should be able to load from configuration file", () => {
+        var graph = new jsflap.Graph.FAGraph(false);
+        expect(graph.fromString(graphString)).toBe(true);
+        expect(graph.toString()).toBe(graphString);
+
+        var graphString2 = 'NFA:({}, {}, {}, , {})';
+        expect(graph.fromString(graphString2)).toBe(true);
+        expect(graph.toString()).toBe(graphString2);
+
+        var graphString3 = 'DFA:({a}, {q0}, {(q0, q0, a)}, q0, {q0})';
+        expect(graph.fromString(graphString3)).toBe(true);
+        expect(graph.toString()).toBe(graphString3);
+    });
+
+    it("should fail on an invalid configuration string", () => {
+        var graph = new jsflap.Graph.FAGraph(false);
+        expect(graph.fromString(graphString + 'a')).toBe(false);
+
+        var graphString2 = 'DPDA:({}, {}, {}, , {})';
+        expect(graph.fromString(graphString2)).toBe(false);
+
+        var graphString3 = 'DFA:({a} {q0}, {(q0, q0, a)}, q0, {q0})';
+        expect(graph.fromString(graphString3)).toBe(false);
+
+        var graphString4 = 'NFA:({a}, {q0}, {(q0, q1, a}, q0, {q0})';
+        expect(graph.fromString(graphString4)).toBe(false);
     });
 
 });

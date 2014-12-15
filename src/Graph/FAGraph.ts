@@ -29,17 +29,18 @@ module jsflap.Graph {
         private finalNodes: NodeList;
 
         /**
+         * The alphabet of all the transitions
+         */
+        private alphabet: Object;
+
+        /**
          * Create a new graph
          * @param deterministic
          * @param nodes
          * @param edges
          */
         constructor(deterministic: boolean, nodes?: Array<Node>, edges?: Array<Edge>) {
-            this.deterministic = deterministic;
-            this.initialNode = null;
-            this.nodes = new NodeList();
-            this.finalNodes = new NodeList();
-            this.edges = new EdgeList();
+            this.init(deterministic);
 
             if(nodes) {
                 nodes.forEach((node) => {
@@ -52,6 +53,19 @@ module jsflap.Graph {
                     this.addEdge(edge);
                 });
             }
+        }
+
+        /**
+         * Initialize the graph
+         * @param deterministic
+         */
+        init(deterministic: boolean) {
+            this.deterministic = deterministic;
+            this.initialNode = null;
+            this.nodes = new NodeList();
+            this.finalNodes = new NodeList();
+            this.edges = new EdgeList();
+            this.alphabet = {};
         }
 
         /**
@@ -162,6 +176,10 @@ module jsflap.Graph {
             if(!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
                 throw new Error('Graph does not have all nodes in in the edge');
             }
+
+            if(!this.alphabet.hasOwnProperty(edge.transition.toString())) {
+                this.alphabet[edge.transition.toString()] = true;
+            }
             return this.edges.add(edge);
         }
 
@@ -197,6 +215,139 @@ module jsflap.Graph {
          */
         getFinalNodes(): NodeList {
             return this.finalNodes;
+        }
+
+        getAlphabet(): Object {
+            return this.alphabet;
+        }
+
+        /**
+         * Generates a representation of this graph as a string
+         * @returns {string}
+         */
+        toString(): string {
+            var str = '';
+
+            // Determinism prefix
+            str += (this.deterministic)? 'D': 'N';
+
+            // Type of graph
+            str += 'FA';
+
+            // Separator and start of definition
+            str += ':(';
+
+            // Alphabet
+            str += '{';
+            str += Object.keys(this.alphabet).join(', ');
+            str += '}, ';
+
+            // Nodes
+            str += '{';
+            str += Object.keys(this.nodes.nodes).join(', ');
+            str += '}, ';
+
+            //Transitions
+            str += '{';
+            str += this.edges.edges.map((edge) => { return edge.toString(); }).join(', ');
+            str += '}, ';
+
+            // Start symbol
+            str += this.initialNode? this.initialNode: '';
+            str += ', ';
+
+            // Final Nodes
+            str += '{';
+            str += Object.keys(this.finalNodes.nodes).join(', ');
+            str += '}';
+
+            // End definition
+            str += ')';
+            return str;
+        }
+
+        fromString(input: string): boolean {
+            var configRegex = /^([D,N])FA:\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\)$/;
+
+            // Check to see if valid config
+            if(!configRegex.test(input)) {
+                return false;
+            }
+            var configParse = configRegex.exec(input),
+                configResult = {
+                    deterministic: null,
+                    alphabet: null,
+                    nodes: null,
+                    edges: null,
+                    initialNode: null,
+                    finalNodes: null
+                };
+
+            try {
+                // Determinism:
+                configResult.deterministic = configParse[1] === 'D';
+
+                // Alphabet:
+                configResult.alphabet = configParse[2].split(', ');
+
+                // Nodes:
+                configResult.nodes = configParse[3].split(', ');
+
+                // Edges
+                // Get rid of leading/trailing parenthesis if not null
+                if (configParse[4].length > 0) {
+                    configParse[4] = configParse[4].substr(1, configParse[4].length - 2);
+                }
+                configResult.edges = configParse[4].split('), (').map((edge) => {
+                    return edge.split(', ')
+                });
+
+                // Initial Nodes:
+                configResult.initialNode = configParse[5];
+
+                // Final Nodes
+                configResult.finalNodes = configParse[6].split(', ');
+
+
+                // Now actually modify the graph
+
+                // Initialize the graph to the set deterministic
+                this.init(configResult.deterministic);
+
+                // Setup the alphabet in case it is an invalid DFA
+                if (configResult.alphabet) {
+                    configResult.alphabet.forEach((letter) => {
+                        this.alphabet[letter] = true;
+                    });
+                }
+
+                // Set up each node
+                if (configResult.nodes) {
+                    configResult.nodes.forEach((node) => {
+                        if (node) {
+                            this.addNode(node, {
+                                initial: configResult.initialNode === node,
+                                final: configResult.finalNodes.indexOf(node) !== -1
+                            });
+                        }
+                    });
+                }
+
+                // Setup each edge
+                if (configResult.edges) {
+                    configResult.edges.forEach((edge) => {
+                        if (edge && edge.length === 3) {
+                            this.addEdge.apply(this, edge);
+                        }
+                    });
+                }
+            } catch(e) {
+                // If any error happened in parsing, forget about it.
+                return false;
+            }
+
+            // If we made it here it was all valid
+            return true;
         }
 
     }

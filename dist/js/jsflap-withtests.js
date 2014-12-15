@@ -288,11 +288,7 @@ var jsflap;
              */
             function FAGraph(deterministic, nodes, edges) {
                 var _this = this;
-                this.deterministic = deterministic;
-                this.initialNode = null;
-                this.nodes = new jsflap.NodeList();
-                this.finalNodes = new jsflap.NodeList();
-                this.edges = new jsflap.EdgeList();
+                this.init(deterministic);
                 if (nodes) {
                     nodes.forEach(function (node) {
                         _this.addNode(node);
@@ -304,6 +300,18 @@ var jsflap;
                     });
                 }
             }
+            /**
+             * Initialize the graph
+             * @param deterministic
+             */
+            FAGraph.prototype.init = function (deterministic) {
+                this.deterministic = deterministic;
+                this.initialNode = null;
+                this.nodes = new jsflap.NodeList();
+                this.finalNodes = new jsflap.NodeList();
+                this.edges = new jsflap.EdgeList();
+                this.alphabet = {};
+            };
             /**
              * Gets the nodes from the graph
              * @returns {NodeList}
@@ -404,6 +412,9 @@ var jsflap;
                 if (!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
                     throw new Error('Graph does not have all nodes in in the edge');
                 }
+                if (!this.alphabet.hasOwnProperty(edge.transition.toString())) {
+                    this.alphabet[edge.transition.toString()] = true;
+                }
                 return this.edges.add(edge);
             };
             /**
@@ -435,6 +446,116 @@ var jsflap;
              */
             FAGraph.prototype.getFinalNodes = function () {
                 return this.finalNodes;
+            };
+            FAGraph.prototype.getAlphabet = function () {
+                return this.alphabet;
+            };
+            /**
+             * Generates a representation of this graph as a string
+             * @returns {string}
+             */
+            FAGraph.prototype.toString = function () {
+                var str = '';
+                // Determinism prefix
+                str += (this.deterministic) ? 'D' : 'N';
+                // Type of graph
+                str += 'FA';
+                // Separator and start of definition
+                str += ':(';
+                // Alphabet
+                str += '{';
+                str += Object.keys(this.alphabet).join(', ');
+                str += '}, ';
+                // Nodes
+                str += '{';
+                str += Object.keys(this.nodes.nodes).join(', ');
+                str += '}, ';
+                //Transitions
+                str += '{';
+                str += this.edges.edges.map(function (edge) {
+                    return edge.toString();
+                }).join(', ');
+                str += '}, ';
+                // Start symbol
+                str += this.initialNode ? this.initialNode : '';
+                str += ', ';
+                // Final Nodes
+                str += '{';
+                str += Object.keys(this.finalNodes.nodes).join(', ');
+                str += '}';
+                // End definition
+                str += ')';
+                return str;
+            };
+            FAGraph.prototype.fromString = function (input) {
+                var _this = this;
+                var configRegex = /^([D,N])FA:\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\)$/;
+                // Check to see if valid config
+                if (!configRegex.test(input)) {
+                    return false;
+                }
+                var configParse = configRegex.exec(input), configResult = {
+                    deterministic: null,
+                    alphabet: null,
+                    nodes: null,
+                    edges: null,
+                    initialNode: null,
+                    finalNodes: null
+                };
+                try {
+                    // Determinism:
+                    configResult.deterministic = configParse[1] === 'D';
+                    // Alphabet:
+                    configResult.alphabet = configParse[2].split(', ');
+                    // Nodes:
+                    configResult.nodes = configParse[3].split(', ');
+                    // Edges
+                    // Get rid of leading/trailing parenthesis if not null
+                    if (configParse[4].length > 0) {
+                        configParse[4] = configParse[4].substr(1, configParse[4].length - 2);
+                    }
+                    configResult.edges = configParse[4].split('), (').map(function (edge) {
+                        return edge.split(', ');
+                    });
+                    // Initial Nodes:
+                    configResult.initialNode = configParse[5];
+                    // Final Nodes
+                    configResult.finalNodes = configParse[6].split(', ');
+                    // Now actually modify the graph
+                    // Initialize the graph to the set deterministic
+                    this.init(configResult.deterministic);
+                    // Setup the alphabet in case it is an invalid DFA
+                    if (configResult.alphabet) {
+                        configResult.alphabet.forEach(function (letter) {
+                            _this.alphabet[letter] = true;
+                        });
+                    }
+                    // Set up each node
+                    if (configResult.nodes) {
+                        configResult.nodes.forEach(function (node) {
+                            if (node) {
+                                _this.addNode(node, {
+                                    initial: configResult.initialNode === node,
+                                    final: configResult.finalNodes.indexOf(node) !== -1
+                                });
+                            }
+                        });
+                    }
+                    // Setup each edge
+                    if (configResult.edges) {
+                        configResult.edges.forEach(function (edge) {
+                            if (edge && edge.length === 3) {
+                                _this.addEdge.apply(_this, edge);
+                            }
+                        });
+                    }
+                }
+                catch (e) {
+                    // If any error happened in parsing, forget about it.
+                    return false;
+                }
+                // If we made it here it was all valid
+                return true;
             };
             return FAGraph;
         })();
@@ -814,7 +935,7 @@ describe("EdgeList", function () {
 });
 
 describe('FAGraph', function () {
-    var N1, N2, N3, T1, T2, E1, E1copy, E2;
+    var N1, N2, N3, T1, T2, E1, E1copy, E2, graphString = 'NFA:({a, b}, {N1, N2}, {(N1, N1, a), (N1, N2, b)}, N1, {N2})';
     beforeEach(function () {
         N1 = new jsflap.Node('N1', { initial: true });
         N2 = new jsflap.Node('N2');
@@ -876,6 +997,42 @@ describe('FAGraph', function () {
         var N4 = new jsflap.Node('N4', { final: true }), graph = new jsflap.Graph.FAGraph(false, [N1, N2, N3, N4]), finalNodes = graph.getFinalNodes();
         expect(finalNodes.has(N3)).toBe(true);
         expect(finalNodes.has(N4)).toBe(true);
+    });
+    it("should update the alphabet accordingly", function () {
+        var graph = new jsflap.Graph.FAGraph(false, [N1, N2, N3]), alphabet = graph.getAlphabet();
+        graph.addEdge(E1); // Transition on a
+        expect(alphabet.hasOwnProperty('a')).toBe(true);
+        graph.addEdge(E2); // Transition on b
+        expect(alphabet.hasOwnProperty('b')).toBe(true);
+    });
+    it("should be able to output a configuration file", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        graph.addNode('N1', { initial: true });
+        graph.addNode('N2', { final: true });
+        graph.addEdge('N1', 'N1', 'a');
+        graph.addEdge('N1', 'N2', 'b');
+        expect(graph.toString()).toBe(graphString);
+    });
+    it("should be able to load from configuration file", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        expect(graph.fromString(graphString)).toBe(true);
+        expect(graph.toString()).toBe(graphString);
+        var graphString2 = 'NFA:({}, {}, {}, , {})';
+        expect(graph.fromString(graphString2)).toBe(true);
+        expect(graph.toString()).toBe(graphString2);
+        var graphString3 = 'DFA:({a}, {q0}, {(q0, q0, a)}, q0, {q0})';
+        expect(graph.fromString(graphString3)).toBe(true);
+        expect(graph.toString()).toBe(graphString3);
+    });
+    it("should fail on an invalid configuration string", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        expect(graph.fromString(graphString + 'a')).toBe(false);
+        var graphString2 = 'DPDA:({}, {}, {}, , {})';
+        expect(graph.fromString(graphString2)).toBe(false);
+        var graphString3 = 'DFA:({a} {q0}, {(q0, q0, a)}, q0, {q0})';
+        expect(graph.fromString(graphString3)).toBe(false);
+        var graphString4 = 'NFA:({a}, {q0}, {(q0, q1, a}, q0, {q0})';
+        expect(graph.fromString(graphString4)).toBe(false);
     });
 });
 

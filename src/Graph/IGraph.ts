@@ -25,5 +25,10 @@ module jsflap.Graph {
 
         getInitialNode(): Node;
         getFinalNodes(): NodeList;
+
+        getAlphabet(): Object;
+
+        toString(): string;
+        fromString(input: string): boolean;
     }
 }

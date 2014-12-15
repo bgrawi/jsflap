@@ -45,7 +45,8 @@ module jsflap.Machine {
                     // See if we can follow this edge
                     var transition = <Transition.CharacterTransition> edge.transition;
                     if(transition.canFollowOn(this.input)) {
-                        nextStates.push(new FAMachineState(this.input.substr(1), edge.to));
+                        var inputLength = transition.character.length === 1 && transition.character !== LAMBDA? 1: 0;
+                        nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
                     }
                 }
             }

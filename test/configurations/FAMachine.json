@@ -1,0 +1,41 @@
+[
+  {
+    "config": "DFA:({a}, {q0}, {(q0, q0, a)}, q0, {q0})",
+    "accept": [
+      "a",
+      "aa",
+      ""
+    ],
+    "reject": [
+      "b",
+      "aaaab"
+    ]
+  },
+  {
+    "config": "NFA:({a, b}, {q0, q1, q2, q3}, {(q0, q1, λ), (q0, q2, λ), (q1, q1, b), (q1, q3, a), (q2, q2, a), (q2, q3, b)}, q0, {q3})",
+    "accept": [
+      "b",
+      "a",
+      "ab",
+      "ba",
+      "aaaaaab",
+      "bbbbbba"
+    ],
+    "reject": [
+      "baa",
+      "aab",
+      "",
+      "aba"
+    ]
+  },
+  {
+    "config": "NFA:({a, b}, {q0, q1, q2, q3}, {(q0, q0, a), (q0, q1, a), (q1, q2, b), (q2, q3, b)}, q0, {q2, q3})",
+    "accept": [
+      "ab",
+      "aaabb"
+    ],
+    "reject": [
+      "ba"
+    ]
+  }
+]

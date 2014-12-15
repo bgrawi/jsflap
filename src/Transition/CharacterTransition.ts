@@ -36,7 +36,7 @@ module jsflap.Transition {
          * @returns {boolean}
          */
         canFollowOn(input: string): boolean {
-            return input.charAt(0) === this.character;
+            return this.character === LAMBDA? true: (input.charAt(0) === this.character);
         }
     }
 }

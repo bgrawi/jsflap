@@ -177,8 +177,9 @@ module jsflap.Graph {
                 throw new Error('Graph does not have all nodes in in the edge');
             }
 
-            if(!this.alphabet.hasOwnProperty(edge.transition.toString())) {
-                this.alphabet[edge.transition.toString()] = true;
+            var transitionChar = edge.transition.toString();
+            if(!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== LAMBDA && transitionChar !== BLANK) {
+                this.alphabet[transitionChar] = true;
             }
             return this.edges.add(edge);
         }
@@ -253,7 +254,7 @@ module jsflap.Graph {
             str += '}, ';
 
             // Start symbol
-            str += this.initialNode? this.initialNode: '';
+            str += this.initialNode? this.initialNode.toString(): '';
             str += ', ';
 
             // Final Nodes
@@ -350,5 +351,60 @@ module jsflap.Graph {
             return true;
         }
 
+        /**
+         * Checks if the current graph is valid
+         * @returns {boolean}
+         */
+        isValid(): boolean {
+            var isValid = true;
+
+            // It's not valid if there is either no start node or no end nodes
+            if(!this.initialNode || this.getFinalNodes().size === 0) {
+                isValid = false;
+            }
+
+
+            if(this.deterministic) {
+
+                if(!isValid) {
+                    return false;
+                }
+
+                // Loop through each node
+                for (var nodeString in this.nodes.nodes) {
+                    if(this.nodes.nodes.hasOwnProperty(nodeString)) {
+
+                        var node: Node = this.nodes.nodes[nodeString];
+                        var alphabet = angular.copy(this.alphabet);
+
+                        // Loop through each of the node's outward edges
+                        node.toEdges.edges.forEach((edge) => {
+                            var transitionChar = edge.transition.toString();
+
+                            // There MUST be one transition for every node
+                            if(transitionChar !== BLANK &&
+                                transitionChar !== LAMBDA &&
+                                alphabet.hasOwnProperty(transitionChar)) {
+                                delete alphabet[transitionChar];
+                            } else {
+                                isValid = false;
+                            }
+                        });
+
+                        if(!isValid) {
+                            break;
+                        }
+
+                        if(Object.keys(alphabet).length > 0) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                return isValid;
+            } else {
+                return isValid;
+            }
+        }
     }
 }

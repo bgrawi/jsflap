@@ -342,8 +342,12 @@ var jsflap;
             this.to = to;
             this.transition = transition;
             // Add this edge to the other nodes
-            from.addToEdge(this);
-            to.addFromEdge(this);
+            if (from) {
+                from.addToEdge(this);
+            }
+            if (to) {
+                to.addFromEdge(this);
+            }
         }
         /**
          * Gets the configuration state as a string
@@ -400,19 +404,25 @@ var jsflap;
             else if (edge instanceof jsflap.Edge) {
                 return this.edgeMap.hasOwnProperty(edge.toString());
             }
+            else {
+                return false;
+            }
         };
         /**
          * Gets an edge by a similar edge object
          * @param edge
          * @returns {*}
          */
-        EdgeList.prototype.getEdge = function (edge) {
+        EdgeList.prototype.get = function (edge) {
             if (this.has(edge)) {
                 if (typeof edge === 'string') {
                     return this.edgeMap[edge];
                 }
                 else if (edge instanceof jsflap.Edge) {
                     return this.edgeMap[edge.toString()];
+                }
+                else {
+                    return null;
                 }
             }
             else {
@@ -553,19 +563,25 @@ var jsflap;
             else if (node instanceof jsflap.Node) {
                 return this.nodes.hasOwnProperty(node.toString());
             }
+            else {
+                return false;
+            }
         };
         /**
          * Gets an node by a similar node object
          * @param node
          * @returns {*}
          */
-        NodeList.prototype.getNode = function (node) {
+        NodeList.prototype.get = function (node) {
             if (this.has(node)) {
                 if (typeof node === 'string') {
                     return this.nodes[node];
                 }
                 else if (node instanceof jsflap.Node) {
                     return this.nodes[node.toString()];
+                }
+                else {
+                    return null;
                 }
             }
             else {
@@ -577,34 +593,55 @@ var jsflap;
     jsflap.NodeList = NodeList;
 })(jsflap || (jsflap = {}));
 
-
-
 var jsflap;
 (function (jsflap) {
     var Graph;
     (function (Graph) {
-        var NFAGraph = (function () {
+        var FAGraph = (function () {
             /**
              * Create a new graph
+             * @param deterministic
              * @param nodes
              * @param edges
              */
-            function NFAGraph(nodes, edges) {
-                this.nodes = new jsflap.NodeList(nodes);
-                this.edges = new jsflap.EdgeList(edges);
+            function FAGraph(deterministic, nodes, edges) {
+                var _this = this;
+                this.init(deterministic);
+                if (nodes) {
+                    nodes.forEach(function (node) {
+                        _this.addNode(node);
+                    });
+                }
+                if (edges) {
+                    edges.forEach(function (edge) {
+                        _this.addEdge(edge);
+                    });
+                }
             }
+            /**
+             * Initialize the graph
+             * @param deterministic
+             */
+            FAGraph.prototype.init = function (deterministic) {
+                this.deterministic = deterministic;
+                this.initialNode = null;
+                this.nodes = new jsflap.NodeList();
+                this.finalNodes = new jsflap.NodeList();
+                this.edges = new jsflap.EdgeList();
+                this.alphabet = {};
+            };
             /**
              * Gets the nodes from the graph
              * @returns {NodeList}
              */
-            NFAGraph.prototype.getNodes = function () {
+            FAGraph.prototype.getNodes = function () {
                 return this.nodes;
             };
             /**
              * Gets the edges from the graph
              * @returns {EdgeList}
              */
-            NFAGraph.prototype.getEdges = function () {
+            FAGraph.prototype.getEdges = function () {
                 return this.edges;
             };
             /**
@@ -613,13 +650,44 @@ var jsflap;
              * @param node
              * @param options
              */
-            NFAGraph.prototype.addNode = function (node, options) {
+            FAGraph.prototype.addNode = function (node, options) {
+                var newNode;
                 if (typeof node === 'string') {
-                    return this.nodes.add(new jsflap.Node(node, options));
+                    newNode = new jsflap.Node(node, options);
                 }
                 else if (node instanceof jsflap.Node) {
-                    return this.nodes.add(node);
+                    newNode = node;
                 }
+                var result = this.nodes.add(newNode);
+                // If unique node that is initial, make this one the new initial
+                if (result === newNode) {
+                    if (result.initial) {
+                        if (this.initialNode) {
+                            this.initialNode.initial = false;
+                        }
+                        this.initialNode = result;
+                    }
+                    if (result.final) {
+                        this.finalNodes.add(result);
+                    }
+                }
+                return result;
+            };
+            /**
+             * Gets a node from the node list
+             * @param node
+             * @returns {any}
+             */
+            FAGraph.prototype.getNode = function (node) {
+                return this.nodes.get(node);
+            };
+            /**
+             * Determines if the graph has the node
+             * @param node
+             * @returns {any}
+             */
+            FAGraph.prototype.hasNode = function (node) {
+                return this.nodes.has(node);
             };
             /**
              * Adds an edge to the graph
@@ -628,19 +696,308 @@ var jsflap;
              * @param transition
              * @returns {jsflap.Edge|any}
              */
-            NFAGraph.prototype.addEdge = function (from, to, transition) {
-                if (from instanceof jsflap.Edge && to instanceof jsflap.Edge && transition) {
-                    return this.edges.add(new jsflap.Edge(from, to, transition));
+            FAGraph.prototype.addEdge = function (from, to, transition) {
+                var edge;
+                if (from && to && transition) {
+                    // Determine if we need to make objects or not
+                    var fromObj, toObj, transitionObj;
+                    if (typeof from === 'string') {
+                        fromObj = this.getNode(from);
+                    }
+                    else if (from instanceof jsflap.Node) {
+                        fromObj = from;
+                    }
+                    if (typeof to === 'string') {
+                        toObj = this.getNode(to);
+                    }
+                    else if (to instanceof jsflap.Node) {
+                        toObj = to;
+                    }
+                    if (typeof transition === 'string') {
+                        transitionObj = new jsflap.Transition.CharacterTransition(transition);
+                    }
+                    else if (transition instanceof jsflap.Transition.CharacterTransition) {
+                        transitionObj = transition;
+                    }
+                    edge = new jsflap.Edge(fromObj, toObj, transitionObj);
                 }
                 else if (from instanceof jsflap.Edge) {
-                    return this.edges.add(from);
+                    edge = from;
                 }
+                else {
+                    throw new Error('Invalid Arguments for creating an edge');
+                }
+                if (!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
+                    throw new Error('Graph does not have all nodes in in the edge');
+                }
+                if (!this.alphabet.hasOwnProperty(edge.transition.toString())) {
+                    this.alphabet[edge.transition.toString()] = true;
+                }
+                return this.edges.add(edge);
             };
-            return NFAGraph;
+            /**
+             * Gets an edge from the edge list
+             * @param edge
+             * @returns {any}
+             */
+            FAGraph.prototype.getEdge = function (edge) {
+                return this.edges.get(edge);
+            };
+            /**
+             * Determines if the graph has the edge or not
+             * @param edge
+             * @returns {boolean}
+             */
+            FAGraph.prototype.hasEdge = function (edge) {
+                return this.edges.has(edge);
+            };
+            /**
+             * Gets the initial node for the graph
+             * @returns {Node}
+             */
+            FAGraph.prototype.getInitialNode = function () {
+                return this.initialNode;
+            };
+            /**
+             * Gets the list of final nodes
+             * @returns {NodeList}
+             */
+            FAGraph.prototype.getFinalNodes = function () {
+                return this.finalNodes;
+            };
+            FAGraph.prototype.getAlphabet = function () {
+                return this.alphabet;
+            };
+            /**
+             * Generates a representation of this graph as a string
+             * @returns {string}
+             */
+            FAGraph.prototype.toString = function () {
+                var str = '';
+                // Determinism prefix
+                str += (this.deterministic) ? 'D' : 'N';
+                // Type of graph
+                str += 'FA';
+                // Separator and start of definition
+                str += ':(';
+                // Alphabet
+                str += '{';
+                str += Object.keys(this.alphabet).join(', ');
+                str += '}, ';
+                // Nodes
+                str += '{';
+                str += Object.keys(this.nodes.nodes).join(', ');
+                str += '}, ';
+                //Transitions
+                str += '{';
+                str += this.edges.edges.map(function (edge) {
+                    return edge.toString();
+                }).join(', ');
+                str += '}, ';
+                // Start symbol
+                str += this.initialNode ? this.initialNode.toString() : '';
+                str += ', ';
+                // Final Nodes
+                str += '{';
+                str += Object.keys(this.finalNodes.nodes).join(', ');
+                str += '}';
+                // End definition
+                str += ')';
+                return str;
+            };
+            FAGraph.prototype.fromString = function (input) {
+                var _this = this;
+                var configRegex = /^([D,N])FA:\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\)$/;
+                // Check to see if valid config
+                if (!configRegex.test(input)) {
+                    return false;
+                }
+                var configParse = configRegex.exec(input), configResult = {
+                    deterministic: null,
+                    alphabet: null,
+                    nodes: null,
+                    edges: null,
+                    initialNode: null,
+                    finalNodes: null
+                };
+                try {
+                    // Determinism:
+                    configResult.deterministic = configParse[1] === 'D';
+                    // Alphabet:
+                    configResult.alphabet = configParse[2].split(', ');
+                    // Nodes:
+                    configResult.nodes = configParse[3].split(', ');
+                    // Edges
+                    // Get rid of leading/trailing parenthesis if not null
+                    if (configParse[4].length > 0) {
+                        configParse[4] = configParse[4].substr(1, configParse[4].length - 2);
+                    }
+                    configResult.edges = configParse[4].split('), (').map(function (edge) {
+                        return edge.split(', ');
+                    });
+                    // Initial Nodes:
+                    configResult.initialNode = configParse[5];
+                    // Final Nodes
+                    configResult.finalNodes = configParse[6].split(', ');
+                    // Now actually modify the graph
+                    // Initialize the graph to the set deterministic
+                    this.init(configResult.deterministic);
+                    // Setup the alphabet in case it is an invalid DFA
+                    if (configResult.alphabet) {
+                        configResult.alphabet.forEach(function (letter) {
+                            _this.alphabet[letter] = true;
+                        });
+                    }
+                    // Set up each node
+                    if (configResult.nodes) {
+                        configResult.nodes.forEach(function (node) {
+                            if (node) {
+                                _this.addNode(node, {
+                                    initial: configResult.initialNode === node,
+                                    final: configResult.finalNodes.indexOf(node) !== -1
+                                });
+                            }
+                        });
+                    }
+                    // Setup each edge
+                    if (configResult.edges) {
+                        configResult.edges.forEach(function (edge) {
+                            if (edge && edge.length === 3) {
+                                _this.addEdge.apply(_this, edge);
+                            }
+                        });
+                    }
+                }
+                catch (e) {
+                    // If any error happened in parsing, forget about it.
+                    return false;
+                }
+                // If we made it here it was all valid
+                return true;
+            };
+            return FAGraph;
         })();
-        Graph.NFAGraph = NFAGraph;
+        Graph.FAGraph = FAGraph;
     })(Graph = jsflap.Graph || (jsflap.Graph = {}));
 })(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachine = (function () {
+            /**
+             * Creates a new machine based on a graph
+             * @param graph
+             */
+            function FAMachine(graph) {
+                this.setGraph(graph);
+            }
+            /**
+             * Sets the graph for the machine
+             * @param graph
+             */
+            FAMachine.prototype.setGraph = function (graph) {
+                this.graph = graph;
+            };
+            /**
+             * Runs a string on the machine to see if it passes or fails
+             * @param input
+             * @returns {boolean}
+             * @param graph
+             */
+            FAMachine.prototype.run = function (input, graph) {
+                if (graph) {
+                    this.graph = graph;
+                }
+                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
+                // Trivial case #1
+                if (!initialNode) {
+                    return false;
+                }
+                // Setup for backtracking
+                this.visitedStates = {};
+                this.visitedStates[initialState.toString()] = initialState;
+                this.queue = [initialState];
+                while (this.queue.length > 0) {
+                    this.currentState = this.queue.shift();
+                    if (this.currentState.isFinal()) {
+                        return true;
+                    }
+                    var nextStates = this.currentState.getNextStates();
+                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
+                        var nextState = nextStates[nextStateIndex];
+                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                            this.visitedStates[nextState.toString()] = nextState;
+                            this.queue.push(nextState);
+                        }
+                    }
+                }
+                return false;
+            };
+            return FAMachine;
+        })();
+        Machine.FAMachine = FAMachine;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachineState = (function () {
+            /**
+             * Create a new NFA Machine state
+             * @param input
+             * @param node
+             */
+            function FAMachineState(input, node) {
+                this.input = input;
+                this.node = node;
+            }
+            /**
+             * Determines if this state is final
+             * @returns {boolean}
+             */
+            FAMachineState.prototype.isFinal = function () {
+                return this.input.length === 0 && this.node.final;
+            };
+            /**
+             * Gets the next possible states
+             * @returns {Array}
+             */
+            FAMachineState.prototype.getNextStates = function () {
+                var edgeList = this.node.toEdges.edges, nextStates = [];
+                for (var edgeName in edgeList) {
+                    if (edgeList.hasOwnProperty(edgeName)) {
+                        var edge = edgeList[edgeName];
+                        // See if we can follow this edge
+                        var transition = edge.transition;
+                        if (transition.canFollowOn(this.input)) {
+                            nextStates.push(new FAMachineState(this.input.substr(1), edge.to));
+                        }
+                    }
+                }
+                return nextStates;
+            };
+            /**
+             * Returns a string representation of the state
+             * @returns {string}
+             */
+            FAMachineState.prototype.toString = function () {
+                return '(' + this.input + ', ' + this.node.toString() + ')';
+            };
+            return FAMachineState;
+        })();
+        Machine.FAMachineState = FAMachineState;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+
 
 
 
@@ -725,7 +1082,12 @@ var jsflap;
              * @param character
              */
             function CharacterTransition(character) {
-                this.character = character;
+                if (character.length > 1) {
+                    throw new Error("Character Transition length must be less than or equal to 1");
+                }
+                else {
+                    this.character = character;
+                }
             }
             /**
              * Gets the string representation of the transition
@@ -734,6 +1096,14 @@ var jsflap;
             CharacterTransition.prototype.toString = function () {
                 return this.character;
             };
+            /**
+             * Determines if the input matches this transition
+             * @param input
+             * @returns {boolean}
+             */
+            CharacterTransition.prototype.canFollowOn = function (input) {
+                return input.charAt(0) === this.character;
+            };
             return CharacterTransition;
         })();
         Transition.CharacterTransition = CharacterTransition;
@@ -741,6 +1111,34 @@ var jsflap;
 })(jsflap || (jsflap = {}));
 
 
+
+var jsflap;
+(function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * A Transition of a multi character in an DFA
+         */
+        var MultiCharacterTransition = (function () {
+            /**
+             * Creates a new multi char transition
+             * @param characters
+             */
+            function MultiCharacterTransition(characters) {
+                this.characters = characters;
+            }
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            MultiCharacterTransition.prototype.toString = function () {
+                return this.characters;
+            };
+            return MultiCharacterTransition;
+        })();
+        Transition.MultiCharacterTransition = MultiCharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
 
 var jsflap;
 (function (jsflap) {

@@ -240,6 +240,7 @@ declare module jasmine {
         toContainHtml(expected: string): boolean;
         toContainText(expected: string): boolean;
         toThrow(expected?: any): boolean;
+        toAcceptString(expected?: any): boolean;
         toThrowError(expected?: any): boolean;
         not: Matchers;
 

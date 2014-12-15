@@ -27,6 +27,8 @@
     "karma-typescript-preprocessor": "0.0.14",
     "jasmine-core": "^2.1.3",
     "karma-jasmine": "^0.3.2",
-    "karma-phantomjs-launcher": "^0.1.4"
+    "karma-phantomjs-launcher": "^0.1.4",
+    "karma-html2js-preprocessor": "^0.1.0",
+    "karma-fixture": "^0.2.1-1"
   }
 }

@@ -30,5 +30,7 @@ module jsflap.Graph {
 
         toString(): string;
         fromString(input: string): boolean;
+
+        isValid(): boolean;
     }
 }

@@ -12,6 +12,12 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
+    jsflap.LAMBDA = 'λ';
+    jsflap.BLANK = '☐';
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
     var Edge = (function () {
         /**
          * Creates a new directed edge with a transition
@@ -412,8 +418,9 @@ var jsflap;
                 if (!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
                     throw new Error('Graph does not have all nodes in in the edge');
                 }
-                if (!this.alphabet.hasOwnProperty(edge.transition.toString())) {
-                    this.alphabet[edge.transition.toString()] = true;
+                var transitionChar = edge.transition.toString();
+                if (!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== jsflap.LAMBDA && transitionChar !== jsflap.BLANK) {
+                    this.alphabet[transitionChar] = true;
                 }
                 return this.edges.add(edge);
             };
@@ -477,7 +484,7 @@ var jsflap;
                 }).join(', ');
                 str += '}, ';
                 // Start symbol
-                str += this.initialNode ? this.initialNode : '';
+                str += this.initialNode ? this.initialNode.toString() : '';
                 str += ', ';
                 // Final Nodes
                 str += '{';
@@ -557,6 +564,50 @@ var jsflap;
                 // If we made it here it was all valid
                 return true;
             };
+            /**
+             * Checks if the current graph is valid
+             * @returns {boolean}
+             */
+            FAGraph.prototype.isValid = function () {
+                var isValid = true;
+                // It's not valid if there is either no start node or no end nodes
+                if (!this.initialNode || this.getFinalNodes().size === 0) {
+                    isValid = false;
+                }
+                if (this.deterministic) {
+                    if (!isValid) {
+                        return false;
+                    }
+                    for (var nodeString in this.nodes.nodes) {
+                        if (this.nodes.nodes.hasOwnProperty(nodeString)) {
+                            var node = this.nodes.nodes[nodeString];
+                            var alphabet = angular.copy(this.alphabet);
+                            // Loop through each of the node's outward edges
+                            node.toEdges.edges.forEach(function (edge) {
+                                var transitionChar = edge.transition.toString();
+                                // There MUST be one transition for every node
+                                if (transitionChar !== jsflap.BLANK && transitionChar !== jsflap.LAMBDA && alphabet.hasOwnProperty(transitionChar)) {
+                                    delete alphabet[transitionChar];
+                                }
+                                else {
+                                    isValid = false;
+                                }
+                            });
+                            if (!isValid) {
+                                break;
+                            }
+                            if (Object.keys(alphabet).length > 0) {
+                                isValid = false;
+                                break;
+                            }
+                        }
+                    }
+                    return isValid;
+                }
+                else {
+                    return isValid;
+                }
+            };
             return FAGraph;
         })();
         Graph.FAGraph = FAGraph;
@@ -570,20 +621,35 @@ var jsflap;
     var Machine;
     (function (Machine) {
         var FAMachine = (function () {
+            /**
+             * Creates a new machine based on a graph
+             * @param graph
+             */
             function FAMachine(graph) {
-                this.graph = graph;
-                this.currentState = null;
-                this.visitedStates = null;
-                this.queue = null;
+                this.setGraph(graph);
             }
+            /**
+             * Sets the graph for the machine
+             * @param graph
+             */
+            FAMachine.prototype.setGraph = function (graph) {
+                this.graph = graph;
+            };
             /**
              * Runs a string on the machine to see if it passes or fails
              * @param input
              * @returns {boolean}
+             * @param graph
              */
-            FAMachine.prototype.run = function (input) {
+            FAMachine.prototype.run = function (input, graph) {
+                if (graph) {
+                    this.graph = graph;
+                }
+                if (!this.graph.isValid()) {
+                    throw new Error('Invalid graph');
+                }
                 var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
-                // Trivial case #1
+                // Trivial case
                 if (!initialNode) {
                     return false;
                 }
@@ -592,19 +658,25 @@ var jsflap;
                 this.visitedStates[initialState.toString()] = initialState;
                 this.queue = [initialState];
                 while (this.queue.length > 0) {
+                    // Get the state off the front of the queue
                     this.currentState = this.queue.shift();
+                    // Check if we are in a final state
                     if (this.currentState.isFinal()) {
                         return true;
                     }
+                    // Get the next possible valid states based on the input
                     var nextStates = this.currentState.getNextStates();
                     for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
                         var nextState = nextStates[nextStateIndex];
+                        // Check if we have already visited this state before
                         if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                            // We haven't, add it to our visited state list and queue
                             this.visitedStates[nextState.toString()] = nextState;
                             this.queue.push(nextState);
                         }
                     }
                 }
+                // If we got here the states were all invalid
                 return false;
             };
             return FAMachine;
@@ -646,7 +718,8 @@ var jsflap;
                         // See if we can follow this edge
                         var transition = edge.transition;
                         if (transition.canFollowOn(this.input)) {
-                            nextStates.push(new FAMachineState(this.input.substr(1), edge.to));
+                            var inputLength = transition.character.length === 1 && transition.character !== jsflap.LAMBDA ? 1 : 0;
+                            nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
                         }
                     }
                 }
@@ -772,7 +845,7 @@ var jsflap;
              * @returns {boolean}
              */
             CharacterTransition.prototype.canFollowOn = function (input) {
-                return input.charAt(0) === this.character;
+                return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
             };
             return CharacterTransition;
         })();
@@ -1037,22 +1110,51 @@ describe('FAGraph', function () {
 });
 
 describe("FA Machine", function () {
-    var graph, machine;
+    var graph, machine, machineTests;
     beforeEach(function () {
-        graph = new jsflap.Graph.FAGraph(false);
-        machine = new jsflap.Machine.FAMachine(graph);
+        machineTests = loadConfigurations('FAMachine');
+        jasmine.addMatchers({
+            toAcceptString: function (util, customEqualityTesters) {
+                return {
+                    compare: function (machine, input) {
+                        var result = {
+                            pass: false,
+                            message: ''
+                        };
+                        result.pass = machine.run(input);
+                        if (result.pass) {
+                            result.message = "Expected machine \"" + machine.graph.toString() + "\" to reject the string \"" + input + "\"";
+                        }
+                        else {
+                            result.message = "Expected machine \"" + machine.graph.toString() + "\" to accept the string \"" + input + "\"";
+                        }
+                        return result;
+                    }
+                };
+            }
+        });
     });
     it("should exist", function () {
+        graph = new jsflap.Graph.FAGraph(false);
+        machine = new jsflap.Machine.FAMachine(graph);
         expect(typeof machine !== 'undefined').toBe(true);
     });
-    it('should accept simple input', function () {
-        graph.addNode('N1', { initial: true });
-        graph.addNode('N2');
-        graph.addNode('N3', { final: true });
-        graph.addEdge('N1', 'N1', 'a');
-        graph.addEdge('N1', 'N2', 'a');
-        graph.addEdge('N2', 'N3', 'b');
-        expect(machine.run('ab')).toBe(true);
+    it('should match all configurations', function () {
+        graph = new jsflap.Graph.FAGraph(false);
+        machine = new jsflap.Machine.FAMachine();
+        machineTests.forEach(function (configuration, index) {
+            // Try to load the configuration, then set the it as the machine's graph
+            expect(graph.fromString(configuration.config)).toBe(true);
+            machine.setGraph(graph);
+            // Try each string that the machine should accept
+            configuration.accept.forEach(function (input) {
+                expect(machine).toAcceptString(input);
+            });
+            // Try each string that the machine should reject
+            configuration.reject.forEach(function (input) {
+                expect(machine).not.toAcceptString(input);
+            });
+        });
     });
 });
 
@@ -1136,3 +1238,12 @@ describe("NodeList", function () {
         expect(nodeAdded).toBe(N1);
     });
 });
+
+/**
+ * Loads all configurations
+ * @param name
+ * @returns {any}
+ */
+function loadConfigurations(name) {
+    return JSON.parse(__html__['test/configurations/' + name + '.json']);
+}

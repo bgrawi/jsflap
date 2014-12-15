@@ -1,6 +1,8 @@
 module jsflap.Machine {
 
-    export interface IMachine<T extends IMachineState> {
-        run(input: string): boolean;
+    export interface IMachine {
+        run(input: string, graph?: Graph.IGraph): boolean;
+        setGraph(graph: Graph.IGraph): void;
+        graph: Graph.IGraph;
     }
 }

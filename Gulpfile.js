@@ -15,7 +15,7 @@ var testFiles = [
 ];
 
 gulp.task('scripts', function () {
-    var tsResult = gulp.src('src/**/*.ts')
+    var tsResult = gulp.src(['defs/*.d.ts', 'src/**/*.ts'])
         .pipe(ts(tsProject));
 
     var jsResult = gulp.src('src/**/*.js');
@@ -29,7 +29,7 @@ gulp.task('scripts', function () {
 });
 
 gulp.task('pretest', function () {
-    return gulp.src(['defs/jasmine.d.ts', 'src/**/*.ts', 'test/**/*.ts'])
+    return gulp.src(['defs/*.d.ts', 'src/**/*.ts', 'test/**/*.ts'])
         .pipe(ts(tsProject))
         .pipe(concat('jsflap-withtests.js'))
         .pipe(gulp.dest('dist/js'));

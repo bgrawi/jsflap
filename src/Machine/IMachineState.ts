@@ -1,4 +1,7 @@
 module jsflap.Machine {
 
-    export interface IMachineState {}
+    export interface IMachineState {
+        isFinal(): boolean;
+        toString(): string;
+    }
 }

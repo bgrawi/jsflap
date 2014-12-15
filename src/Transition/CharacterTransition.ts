@@ -29,5 +29,14 @@ module jsflap.Transition {
         toString(): string {
             return this.character;
         }
+
+        /**
+         * Determines if the input matches this transition
+         * @param input
+         * @returns {boolean}
+         */
+        canFollowOn(input: string): boolean {
+            return input.charAt(0) === this.character;
+        }
     }
 }

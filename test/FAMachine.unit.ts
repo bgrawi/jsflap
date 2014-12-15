@@ -12,8 +12,11 @@ describe("FA Machine", () => {
 
     it('should accept simple input', () => {
         graph.addNode('N1', {initial: true});
-        graph.addNode('N2', {final: true});
+        graph.addNode('N2');
+        graph.addNode('N3', {final: true});
+        graph.addEdge('N1', 'N1', 'a');
         graph.addEdge('N1', 'N2', 'a');
-        machine.run('a');
+        graph.addEdge('N2', 'N3', 'b');
+        expect(machine.run('ab')).toBe(true);
     });
 });

@@ -76,4 +76,5 @@ describe('FAGraph', () => {
         expect(finalNodes.has(N3)).toBe(true);
         expect(finalNodes.has(N4)).toBe(true)
     });
+
 });

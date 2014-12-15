@@ -451,9 +451,40 @@ var jsflap;
         var FAMachine = (function () {
             function FAMachine(graph) {
                 this.graph = graph;
+                this.currentState = null;
+                this.visitedStates = null;
+                this.queue = null;
             }
+            /**
+             * Runs a string on the machine to see if it passes or fails
+             * @param input
+             * @returns {boolean}
+             */
             FAMachine.prototype.run = function (input) {
-                return true;
+                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
+                // Trivial case #1
+                if (!initialNode) {
+                    return false;
+                }
+                // Setup for backtracking
+                this.visitedStates = {};
+                this.visitedStates[initialState.toString()] = initialState;
+                this.queue = [initialState];
+                while (this.queue.length > 0) {
+                    this.currentState = this.queue.shift();
+                    if (this.currentState.isFinal()) {
+                        return true;
+                    }
+                    var nextStates = this.currentState.getNextStates();
+                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
+                        var nextState = nextStates[nextStateIndex];
+                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                            this.visitedStates[nextState.toString()] = nextState;
+                            this.queue.push(nextState);
+                        }
+                    }
+                }
+                return false;
             };
             return FAMachine;
         })();
@@ -468,13 +499,45 @@ var jsflap;
         var FAMachineState = (function () {
             /**
              * Create a new NFA Machine state
-             * @param currentInput
-             * @param currentState
+             * @param input
+             * @param node
              */
-            function FAMachineState(currentInput, currentState) {
-                this.currentInput = currentInput;
-                this.currentState = currentState;
+            function FAMachineState(input, node) {
+                this.input = input;
+                this.node = node;
             }
+            /**
+             * Determines if this state is final
+             * @returns {boolean}
+             */
+            FAMachineState.prototype.isFinal = function () {
+                return this.input.length === 0 && this.node.final;
+            };
+            /**
+             * Gets the next possible states
+             * @returns {Array}
+             */
+            FAMachineState.prototype.getNextStates = function () {
+                var edgeList = this.node.toEdges.edges, nextStates = [];
+                for (var edgeName in edgeList) {
+                    if (edgeList.hasOwnProperty(edgeName)) {
+                        var edge = edgeList[edgeName];
+                        // See if we can follow this edge
+                        var transition = edge.transition;
+                        if (transition.canFollowOn(this.input)) {
+                            nextStates.push(new FAMachineState(this.input.substr(1), edge.to));
+                        }
+                    }
+                }
+                return nextStates;
+            };
+            /**
+             * Returns a string representation of the state
+             * @returns {string}
+             */
+            FAMachineState.prototype.toString = function () {
+                return '(' + this.input + ', ' + this.node.toString() + ')';
+            };
             return FAMachineState;
         })();
         Machine.FAMachineState = FAMachineState;
@@ -581,6 +644,14 @@ var jsflap;
              */
             CharacterTransition.prototype.toString = function () {
                 return this.character;
+            };
+            /**
+             * Determines if the input matches this transition
+             * @param input
+             * @returns {boolean}
+             */
+            CharacterTransition.prototype.canFollowOn = function (input) {
+                return input.charAt(0) === this.character;
             };
             return CharacterTransition;
         })();
@@ -781,7 +852,6 @@ describe('FAGraph', function () {
         graph.addNode('N1');
         graph.addNode('N2');
         graph.addEdge('N1', 'N2', 'a');
-        console.log(E1.toString(), graph.getEdges());
         expect(graph.hasEdge(E1)).toBe(true);
     });
     it("should not be able to add edges with nodes that are not already in the graph", function () {
@@ -820,9 +890,12 @@ describe("FA Machine", function () {
     });
     it('should accept simple input', function () {
         graph.addNode('N1', { initial: true });
-        graph.addNode('N2', { final: true });
+        graph.addNode('N2');
+        graph.addNode('N3', { final: true });
+        graph.addEdge('N1', 'N1', 'a');
         graph.addEdge('N1', 'N2', 'a');
-        machine.run('a');
+        graph.addEdge('N2', 'N3', 'b');
+        expect(machine.run('ab')).toBe(true);
     });
 });
 

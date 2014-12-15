@@ -4,10 +4,18 @@
 
     angular.module('jsflap', []);
     angular.module('jsflap')
-        .directive('jsflapBoard', function($rootScope) {
+        .directive('jsflapBoard', function() {
+            return {
+                link: function (scope, elm, attrs) {
+                    var graph = new jsflap.Graph.FAGraph(false);
+                    var board = new jsflap.Board(elm[0], graph);
+
+                }
+            };
+        })
+        .directive('jsflapBoardOld', function($rootScope) {
             return {
                 link: function(scope, elm, attrs) {
-                    var board = new jsflap.Board(elm[0]);
 
                     // For debugging
                     window.boardInstance = board;

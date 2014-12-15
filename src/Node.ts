@@ -35,6 +35,11 @@ module jsflap {
         public toEdges: EdgeList;
 
         /**
+         * The visualization of the node
+         */
+        public visualization: Visualization.NodeVisualization;
+
+        /**
          * Creates a new node
          * @param label
          * @param options
@@ -78,6 +83,14 @@ module jsflap {
             } else {
                 return null;
             }
+        }
+
+        /**
+         * Set the visualization
+         * @param visualization
+         */
+        setVisualization(visualization: Visualization.NodeVisualization) {
+            this.visualization = visualization;
         }
 
         /**

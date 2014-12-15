@@ -1,10 +1,52 @@
 var jsflap;
 (function (jsflap) {
+    var MouseEvent = (function () {
+        function MouseEvent(event, context) {
+            this.event = event;
+            var rawPoint = d3.mouse(context);
+            this.point = new jsflap.Point.ImmutablePoint(rawPoint[0], rawPoint[1]);
+        }
+        return MouseEvent;
+    })();
+    jsflap.MouseEvent = MouseEvent;
     var Board = (function () {
         function Board(svg, graph) {
-            this.svg = svg;
+            this.svg = d3.select(svg);
             this.graph = graph;
+            this.setupBindings();
         }
+        Board.prototype.setupBindings = function () {
+            var _this = this;
+            this.svg.on('mouseup', function () {
+                _this.mouseup(new MouseEvent(d3.event, this));
+            });
+            this.svg.on('mousedown', function () {
+                _this.mousedown(new MouseEvent(d3.event, this));
+            });
+            this.svg.on('mousemove', function () {
+                _this.mousemove(new MouseEvent(d3.event, this));
+            });
+        };
+        Board.prototype.mouseup = function (event) {
+            if (this.futureEdge) {
+                this.futureEdge = null;
+            }
+            var node = this.graph.addNode('q' + this.graph.getNodes().size);
+            var nodeVisualization = new jsflap.Visualization.NodeVisualization(event.point.getMutablePoint(), node);
+            nodeVisualization.addTo(this.svg);
+        };
+        Board.prototype.mousedown = function (event) {
+            event.event.preventDefault();
+            this.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
+            this.futureEdge.addTo(this.svg);
+        };
+        Board.prototype.mousemove = function (event) {
+            if (this.futureEdge) {
+                console.log('HEHE' + event.point);
+                this.futureEdge.elm.attr('x2', event.point.x);
+                this.futureEdge.elm.attr('y2', event.point.y);
+            }
+        };
         return Board;
     })();
     jsflap.Board = Board;
@@ -179,6 +221,13 @@ var jsflap;
             else {
                 return null;
             }
+        };
+        /**
+         * Set the visualization
+         * @param visualization
+         */
+        Node.prototype.setVisualization = function (visualization) {
+            this.visualization = visualization;
         };
         /**
          * Gets the label of this current node
@@ -783,6 +832,13 @@ var jsflap;
                 enumerable: true,
                 configurable: true
             });
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.MutablePoint}
+             */
+            ImmutablePoint.prototype.getMutablePoint = function () {
+                return new Point.MutablePoint(this._x, this._y);
+            };
             return ImmutablePoint;
         })();
         Point.ImmutablePoint = ImmutablePoint;
@@ -887,26 +943,52 @@ var jsflap;
 (function (jsflap) {
     var Visualization;
     (function (Visualization) {
+        var FutureEdgeVisualization = (function () {
+            /**
+             * Creates the node
+             * @param start
+             * @param end
+             */
+            function FutureEdgeVisualization(start, end) {
+                this.start = start;
+                this.end = end;
+                this.elm = null;
+            }
+            FutureEdgeVisualization.prototype.addTo = function (svg) {
+                this.elm = svg.append('line').attr("x1", this.start.x).attr("y1", this.start.y).attr("x2", this.end.x).attr("y2", this.end.y).attr('stroke', "#888");
+            };
+            return FutureEdgeVisualization;
+        })();
+        Visualization.FutureEdgeVisualization = FutureEdgeVisualization;
+    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Visualization;
+    (function (Visualization) {
         var NodeVisualization = (function () {
             /**
              * Creates the node
              * @param location
-             * @param label
+             * @param node
              */
-            function NodeVisualization(location, label) {
-                /**
-                 * The label for the node
-                 */
-                this.label = 'NL';
+            function NodeVisualization(location, node) {
                 /**
                  * The radius of the circle
                  */
                 this.radius = 20;
                 this.location = location;
-                this.label = label;
+                this.node = node;
+                node.setVisualization(this);
             }
+            NodeVisualization.prototype.addTo = function (svg) {
+                svg.append("circle").attr("cx", this.location.x).attr("cy", this.location.y).attr("r", this.radius).attr('fill', "LightGoldenrodYellow").attr('stroke', "#333333").attr('opacity', 0).transition().attr('opacity', 1);
+                svg.append("text").text(this.node.label).attr("x", this.location.x - ((this.node.label.length <= 2) ? 11 : 15)).attr("y", this.location.y + 5).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#333").attr('opacity', 0).transition().attr('opacity', 1);
+            };
             return NodeVisualization;
         })();
+        Visualization.NodeVisualization = NodeVisualization;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
 })(jsflap || (jsflap = {}));
 

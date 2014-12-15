@@ -32,6 +32,14 @@ module jsflap.Point {
         }
 
         /**
+         * Gets a mutable point from this immutable one
+         * @returns {jsflap.Point.MutablePoint}
+         */
+        getMutablePoint(): Point.MutablePoint {
+            return new Point.MutablePoint(this._x, this._y);
+        }
+
+        /**
          * Create a new immutable point
          * @param x
          * @param y

@@ -24,8 +24,12 @@ var jsflap;
             this.to = to;
             this.transition = transition;
             // Add this edge to the other nodes
-            from.addToEdge(this);
-            to.addFromEdge(this);
+            if (from) {
+                from.addToEdge(this);
+            }
+            if (to) {
+                to.addFromEdge(this);
+            }
         }
         /**
          * Gets the configuration state as a string
@@ -82,19 +86,25 @@ var jsflap;
             else if (edge instanceof jsflap.Edge) {
                 return this.edgeMap.hasOwnProperty(edge.toString());
             }
+            else {
+                return false;
+            }
         };
         /**
          * Gets an edge by a similar edge object
          * @param edge
          * @returns {*}
          */
-        EdgeList.prototype.getEdge = function (edge) {
+        EdgeList.prototype.get = function (edge) {
             if (this.has(edge)) {
                 if (typeof edge === 'string') {
                     return this.edgeMap[edge];
                 }
                 else if (edge instanceof jsflap.Edge) {
                     return this.edgeMap[edge.toString()];
+                }
+                else {
+                    return null;
                 }
             }
             else {
@@ -235,19 +245,25 @@ var jsflap;
             else if (node instanceof jsflap.Node) {
                 return this.nodes.hasOwnProperty(node.toString());
             }
+            else {
+                return false;
+            }
         };
         /**
          * Gets an node by a similar node object
          * @param node
          * @returns {*}
          */
-        NodeList.prototype.getNode = function (node) {
+        NodeList.prototype.get = function (node) {
             if (this.has(node)) {
                 if (typeof node === 'string') {
                     return this.nodes[node];
                 }
                 else if (node instanceof jsflap.Node) {
                     return this.nodes[node.toString()];
+                }
+                else {
+                    return null;
                 }
             }
             else {
@@ -259,34 +275,47 @@ var jsflap;
     jsflap.NodeList = NodeList;
 })(jsflap || (jsflap = {}));
 
-
-
 var jsflap;
 (function (jsflap) {
     var Graph;
     (function (Graph) {
-        var NFAGraph = (function () {
+        var FAGraph = (function () {
             /**
              * Create a new graph
+             * @param deterministic
              * @param nodes
              * @param edges
              */
-            function NFAGraph(nodes, edges) {
-                this.nodes = new jsflap.NodeList(nodes);
-                this.edges = new jsflap.EdgeList(edges);
+            function FAGraph(deterministic, nodes, edges) {
+                var _this = this;
+                this.deterministic = deterministic;
+                this.initialNode = null;
+                this.nodes = new jsflap.NodeList();
+                this.finalNodes = new jsflap.NodeList();
+                this.edges = new jsflap.EdgeList();
+                if (nodes) {
+                    nodes.forEach(function (node) {
+                        _this.addNode(node);
+                    });
+                }
+                if (edges) {
+                    edges.forEach(function (edge) {
+                        _this.addEdge(edge);
+                    });
+                }
             }
             /**
              * Gets the nodes from the graph
              * @returns {NodeList}
              */
-            NFAGraph.prototype.getNodes = function () {
+            FAGraph.prototype.getNodes = function () {
                 return this.nodes;
             };
             /**
              * Gets the edges from the graph
              * @returns {EdgeList}
              */
-            NFAGraph.prototype.getEdges = function () {
+            FAGraph.prototype.getEdges = function () {
                 return this.edges;
             };
             /**
@@ -295,13 +324,44 @@ var jsflap;
              * @param node
              * @param options
              */
-            NFAGraph.prototype.addNode = function (node, options) {
+            FAGraph.prototype.addNode = function (node, options) {
+                var newNode;
                 if (typeof node === 'string') {
-                    return this.nodes.add(new jsflap.Node(node, options));
+                    newNode = new jsflap.Node(node, options);
                 }
                 else if (node instanceof jsflap.Node) {
-                    return this.nodes.add(node);
+                    newNode = node;
                 }
+                var result = this.nodes.add(newNode);
+                // If unique node that is initial, make this one the new initial
+                if (result === newNode) {
+                    if (result.initial) {
+                        if (this.initialNode) {
+                            this.initialNode.initial = false;
+                        }
+                        this.initialNode = result;
+                    }
+                    if (result.final) {
+                        this.finalNodes.add(result);
+                    }
+                }
+                return result;
+            };
+            /**
+             * Gets a node from the node list
+             * @param node
+             * @returns {any}
+             */
+            FAGraph.prototype.getNode = function (node) {
+                return this.nodes.get(node);
+            };
+            /**
+             * Determines if the graph has the node
+             * @param node
+             * @returns {any}
+             */
+            FAGraph.prototype.hasNode = function (node) {
+                return this.nodes.has(node);
             };
             /**
              * Adds an edge to the graph
@@ -310,19 +370,120 @@ var jsflap;
              * @param transition
              * @returns {jsflap.Edge|any}
              */
-            NFAGraph.prototype.addEdge = function (from, to, transition) {
-                if (from instanceof jsflap.Edge && to instanceof jsflap.Edge && transition) {
-                    return this.edges.add(new jsflap.Edge(from, to, transition));
+            FAGraph.prototype.addEdge = function (from, to, transition) {
+                var edge;
+                if (from && to && transition) {
+                    // Determine if we need to make objects or not
+                    var fromObj, toObj, transitionObj;
+                    if (typeof from === 'string') {
+                        fromObj = this.getNode(from);
+                    }
+                    else if (from instanceof jsflap.Node) {
+                        fromObj = from;
+                    }
+                    if (typeof to === 'string') {
+                        toObj = this.getNode(to);
+                    }
+                    else if (to instanceof jsflap.Node) {
+                        toObj = to;
+                    }
+                    if (typeof transition === 'string') {
+                        transitionObj = new jsflap.Transition.CharacterTransition(transition);
+                    }
+                    else if (transition instanceof jsflap.Transition.CharacterTransition) {
+                        transitionObj = transition;
+                    }
+                    edge = new jsflap.Edge(fromObj, toObj, transitionObj);
                 }
                 else if (from instanceof jsflap.Edge) {
-                    return this.edges.add(from);
+                    edge = from;
                 }
+                else {
+                    throw new Error('Invalid Arguments for creating an edge');
+                }
+                if (!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
+                    throw new Error('Graph does not have all nodes in in the edge');
+                }
+                return this.edges.add(edge);
             };
-            return NFAGraph;
+            /**
+             * Gets an edge from the edge list
+             * @param edge
+             * @returns {any}
+             */
+            FAGraph.prototype.getEdge = function (edge) {
+                return this.edges.get(edge);
+            };
+            /**
+             * Determines if the graph has the edge or not
+             * @param edge
+             * @returns {boolean}
+             */
+            FAGraph.prototype.hasEdge = function (edge) {
+                return this.edges.has(edge);
+            };
+            /**
+             * Gets the initial node for the graph
+             * @returns {Node}
+             */
+            FAGraph.prototype.getInitialNode = function () {
+                return this.initialNode;
+            };
+            /**
+             * Gets the list of final nodes
+             * @returns {NodeList}
+             */
+            FAGraph.prototype.getFinalNodes = function () {
+                return this.finalNodes;
+            };
+            return FAGraph;
         })();
-        Graph.NFAGraph = NFAGraph;
+        Graph.FAGraph = FAGraph;
     })(Graph = jsflap.Graph || (jsflap.Graph = {}));
 })(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachine = (function () {
+            function FAMachine(graph) {
+                this.graph = graph;
+            }
+            FAMachine.prototype.run = function (input) {
+                return true;
+            };
+            return FAMachine;
+        })();
+        Machine.FAMachine = FAMachine;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachineState = (function () {
+            /**
+             * Create a new NFA Machine state
+             * @param currentInput
+             * @param currentState
+             */
+            function FAMachineState(currentInput, currentState) {
+                this.currentInput = currentInput;
+                this.currentState = currentState;
+            }
+            return FAMachineState;
+        })();
+        Machine.FAMachineState = FAMachineState;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+
 
 
 
@@ -488,7 +649,7 @@ describe("Board", function () {
     var board, svgElm, graph;
     beforeEach(function () {
         svgElm = document.createElement('svg');
-        graph = new jsflap.Graph.NFAGraph();
+        graph = new jsflap.Graph.FAGraph(false);
         board = new jsflap.Board(svgElm, graph);
     });
     it("should exist", function () {
@@ -558,13 +719,13 @@ describe("EdgeList", function () {
     it("should be able to get an edge by reference", function () {
         var edgeList = new jsflap.EdgeList();
         edgeList.add(E1);
-        var E1get = edgeList.getEdge(E1);
+        var E1get = edgeList.get(E1);
         expect(E1).toBe(E1get);
     });
     it("should be able to get an edge by string", function () {
         var edgeList = new jsflap.EdgeList();
         edgeList.add(E1);
-        var E1get = edgeList.getEdge(E1.toString());
+        var E1get = edgeList.get(E1.toString());
         expect(E1).toBe(E1get);
     });
     it('should not add duplicate edges', function () {
@@ -581,35 +742,87 @@ describe("EdgeList", function () {
     });
 });
 
-describe("Graph", function () {
+describe('FAGraph', function () {
     var N1, N2, N3, T1, T2, E1, E1copy, E2;
     beforeEach(function () {
-        N1 = new jsflap.Node('N1');
+        N1 = new jsflap.Node('N1', { initial: true });
         N2 = new jsflap.Node('N2');
-        N3 = new jsflap.Node('N3');
+        N3 = new jsflap.Node('N3', { final: true });
+        T1 = new jsflap.Transition.CharacterTransition('a');
+        T2 = new jsflap.Transition.CharacterTransition('b');
+        E1 = new jsflap.Edge(N1, N2, T1);
+        E1copy = new jsflap.Edge(N1, N2, T1);
+        E2 = new jsflap.Edge(N2, N3, T2);
     });
-    describe('NFAGraph', function () {
-        beforeEach(function () {
-            T1 = new jsflap.Transition.CharacterTransition('a');
-            T2 = new jsflap.Transition.CharacterTransition('b');
-            E1 = new jsflap.Edge(N1, N2, T1);
-            E1copy = new jsflap.Edge(N1, N2, T1);
-            E2 = new jsflap.Edge(N2, N3, T2);
-        });
-        it("should exist", function () {
-            var graph = new jsflap.Graph.NFAGraph();
-            expect(graph).not.toBe(null);
-            expect(typeof graph !== 'undefined').toBe(true);
-        });
-        it("should be able to add edges and nodes at creation", function () {
-            var graph = new jsflap.Graph.NFAGraph([N1, N2, N3], [E1, E2]);
-            expect(graph.getNodes().size).toBe(3);
-            expect(graph.getEdges().size).toBe(2);
-        });
-        it("should be able to add nodes after creation", function () {
-            var graph = new jsflap.Graph.NFAGraph(), N1 = new jsflap.Node('N1');
-            graph.addNode(N1);
-        });
+    it("should exist", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        expect(graph).not.toBe(null);
+        expect(typeof graph !== 'undefined').toBe(true);
+    });
+    it("should be able to add edges and nodes at creation", function () {
+        var graph = new jsflap.Graph.FAGraph(false, [N1, N2, N3], [E1, E2]);
+        expect(graph.getNodes().size).toBe(3);
+        expect(graph.getEdges().size).toBe(2);
+    });
+    it("should be able to add nodes after creation", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        graph.addNode(N1);
+        expect(graph.getNode('N1')).toBe(N1);
+    });
+    it("should be able to add edges after creation", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        graph.addNode(N1);
+        graph.addNode(N2);
+        graph.addEdge(E1);
+        expect(graph.hasEdge(E1)).toBe(true);
+    });
+    it("should be able to add edges after creation with string transitions", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        graph.addNode('N1');
+        graph.addNode('N2');
+        graph.addEdge('N1', 'N2', 'a');
+        console.log(E1.toString(), graph.getEdges());
+        expect(graph.hasEdge(E1)).toBe(true);
+    });
+    it("should not be able to add edges with nodes that are not already in the graph", function () {
+        var graph = new jsflap.Graph.FAGraph(false);
+        expect(function () {
+            graph.addEdge(E1);
+        }).toThrowError();
+    });
+    it("should be able to get the initial node", function () {
+        var graph = new jsflap.Graph.FAGraph(false, [N2, N1]);
+        expect(graph.getInitialNode()).toBe(N1);
+    });
+    it("should overwrite the initial node if a new one is added", function () {
+        var graph = new jsflap.Graph.FAGraph(false, [N1]);
+        expect(graph.getInitialNode()).toBe(N1);
+        var N4 = new jsflap.Node('N4', { initial: true });
+        graph.addNode(N4);
+        expect(graph.getInitialNode()).toBe(N4);
+        expect(N1.initial).toBe(false);
+    });
+    it("should be able to get the final nodes", function () {
+        var N4 = new jsflap.Node('N4', { final: true }), graph = new jsflap.Graph.FAGraph(false, [N1, N2, N3, N4]), finalNodes = graph.getFinalNodes();
+        expect(finalNodes.has(N3)).toBe(true);
+        expect(finalNodes.has(N4)).toBe(true);
+    });
+});
+
+describe("FA Machine", function () {
+    var graph, machine;
+    beforeEach(function () {
+        graph = new jsflap.Graph.FAGraph(false);
+        machine = new jsflap.Machine.FAMachine(graph);
+    });
+    it("should exist", function () {
+        expect(typeof machine !== 'undefined').toBe(true);
+    });
+    it('should accept simple input', function () {
+        graph.addNode('N1', { initial: true });
+        graph.addNode('N2', { final: true });
+        graph.addEdge('N1', 'N2', 'a');
+        machine.run('a');
     });
 });
 
@@ -671,13 +884,13 @@ describe("NodeList", function () {
     it("should be able to get an node by reference", function () {
         var nodeList = new jsflap.NodeList();
         nodeList.add(N1);
-        var N1get = nodeList.getNode(N1);
+        var N1get = nodeList.get(N1);
         expect(N1).toBe(N1get);
     });
     it("should be able to get an node by string", function () {
         var nodeList = new jsflap.NodeList();
         nodeList.add(N1);
-        var N1get = nodeList.getNode(N1.toString());
+        var N1get = nodeList.get(N1.toString());
         expect(N1).toBe(N1get);
     });
     it("should not be able to add duplicate nodes", function () {

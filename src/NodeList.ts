@@ -3,8 +3,8 @@ module jsflap {
     interface INodeList {
         has(node: Node): boolean;
         has(nodeString: string): boolean;
-        getNode(node: Node): Node;
-        getNode(node: string): Node;
+        get(node: Node): Node;
+        get(node: string): Node;
     }
     
     export class NodeList implements  INodeList {
@@ -66,6 +66,8 @@ module jsflap {
                 return this.nodes.hasOwnProperty(node);
             } else if(node instanceof Node) {
                 return this.nodes.hasOwnProperty(node.toString());
+            } else {
+                return false;
             }
         }
 
@@ -74,12 +76,14 @@ module jsflap {
          * @param node
          * @returns {*}
          */
-        public getNode(node: any) {
+        public get(node: any) {
             if(this.has(node)) {
                 if(typeof node === 'string') {
                     return this.nodes[node];
                 } else if(node instanceof Node) {
                     return this.nodes[node.toString()];
+                } else {
+                    return null;
                 }
             } else {
                 return null;

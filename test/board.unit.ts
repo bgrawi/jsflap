@@ -3,7 +3,7 @@ describe("Board", () => {
 
     beforeEach(() => {
         svgElm = document.createElement('svg');
-        graph = new jsflap.Graph.NFAGraph();
+        graph = new jsflap.Graph.FAGraph(false);
         board = new jsflap.Board(svgElm, graph);
     });
 

@@ -24,14 +24,14 @@ describe("NodeList", () => {
     it("should be able to get an node by reference", () => {
         var nodeList = new jsflap.NodeList();
         nodeList.add(N1);
-        var N1get = nodeList.getNode(N1);
+        var N1get = nodeList.get(N1);
         expect(N1).toBe(N1get);
     });
 
     it("should be able to get an node by string", () => {
         var nodeList = new jsflap.NodeList();
         nodeList.add(N1);
-        var N1get = nodeList.getNode(N1.toString());
+        var N1get = nodeList.get(N1.toString());
         expect(N1).toBe(N1get);
     });
 

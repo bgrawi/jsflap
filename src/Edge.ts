@@ -28,8 +28,12 @@ module jsflap {
             this.transition = transition;
 
             // Add this edge to the other nodes
-            from.addToEdge(this);
-            to.addFromEdge(this);
+            if(from) {
+                from.addToEdge(this);
+            }
+            if(to) {
+                to.addFromEdge(this);
+            }
         }
 
         /**

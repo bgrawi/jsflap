@@ -27,14 +27,14 @@ describe("EdgeList", () => {
     it("should be able to get an edge by reference", () => {
         var edgeList = new jsflap.EdgeList();
         edgeList.add(E1);
-        var E1get = edgeList.getEdge(E1);
+        var E1get = edgeList.get(E1);
         expect(E1).toBe(E1get);
     });
 
     it("should be able to get an edge by string", () => {
         var edgeList = new jsflap.EdgeList();
         edgeList.add(E1);
-        var E1get = edgeList.getEdge(E1.toString());
+        var E1get = edgeList.get(E1.toString());
         expect(E1).toBe(E1get);
     });
 

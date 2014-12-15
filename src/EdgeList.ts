@@ -3,8 +3,8 @@ module jsflap {
     interface IEdgeList {
         has(edge: Edge): boolean;
         has(edge: string): boolean;
-        getEdge(edge: Edge): Edge;
-        getEdge(edge: string): Edge;
+        get(edge: Edge): Edge;
+        get(edge: string): Edge;
     }
 
     export class EdgeList implements IEdgeList {
@@ -57,6 +57,8 @@ module jsflap {
                 return this.edgeMap.hasOwnProperty(edge);
             } else if(edge instanceof Edge) {
                 return this.edgeMap.hasOwnProperty(edge.toString())
+            } else {
+                return false;
             }
         }
 
@@ -65,12 +67,14 @@ module jsflap {
          * @param edge
          * @returns {*}
          */
-        public getEdge(edge: any) {
+        public get(edge: any) {
             if(this.has(edge)) {
                 if(typeof edge === 'string') {
                     return this.edgeMap[edge];
                 } else if(edge instanceof Edge) {
                     return this.edgeMap[edge.toString()];
+                } else {
+                    return null;
                 }
             } else {
                 return null;

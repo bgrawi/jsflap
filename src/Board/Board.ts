@@ -57,6 +57,12 @@ module jsflap.Board {
             this.svg.on('mousemove', function () {
                 _this.mousemove(new MouseEvent(d3.event, this));
             });
+            document.addEventListener('keydown', function (event) {
+                _this.keydown(event);
+            });
+            document.addEventListener('keyup', function (event) {
+                _this.keyup(event);
+            });
         }
 
         /**
@@ -65,12 +71,12 @@ module jsflap.Board {
          */
         private mouseup(event: MouseEvent) {
             if (this.state.futureEdge) {
-                var nearestNode = this.visualizations.getNearestNode(event.point);
+                var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
                 var endingNode;
                 if(nearestNode.node && nearestNode.distance < 40) {
                     endingNode = nearestNode.node;
                 } else {
-                    endingNode = this.addNode(event.point);
+                    endingNode = this.addNode(this.state.futureEdge.end);
                 }
                 this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start);
 
@@ -119,7 +125,6 @@ module jsflap.Board {
             } else {
                 this.addNode(event.point);
             }
-
         }
 
         /**
@@ -127,17 +132,35 @@ module jsflap.Board {
          * @param event
          */
         private mousemove(event: MouseEvent) {
-            if (this.state.futureEdge !== null) {
-                this.state.futureEdge.end = event.point;
+            var point = event.point.getMutablePoint();
 
-                var nearestNode = this.visualizations.getNearestNode(event.point);
-                if(nearestNode.node && nearestNode.distance < 40) {
-                    this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
-                    //this.state.futureEdgeSnapping = true;
-                } else {
-                    //this.state.futureEdgeSnapping = false;
+            if (this.state.futureEdge !== null) {
+                if(this.state.futureEdgeSnapping) {
+                    var x1 = this.state.futureEdge.start.x,
+                        x2 = point.x,
+                        y1 = this.state.futureEdge.start.y,
+                        y2 = point.y,
+                        dx = x2 - x1,
+                        dy = y2 - y1,
+                        theta = Math.atan(dy/dx),
+                        dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4),
+                        distance = Math.sqrt(
+                            Math.pow(y2 - y1, 2) +
+                            Math.pow(x2 - x1, 2)
+                        ),
+                        trigSide = dx >= 0? 1: -1;
+                    if(dx !== 0) {
+                        point.x = x1 + trigSide * distance * Math.cos(dTheta);
+                        point.y = y1 + trigSide * distance * Math.sin(dTheta);
+                    }
                 }
 
+                var nearestNode = this.visualizations.getNearestNode(point);
+                if(nearestNode.node && nearestNode.distance < 40) {
+                    this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
+                } else {
+                    this.state.futureEdge.end = point;
+                }
                 this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
             } else if(this.state.futureEdgeFrom !== null) {
                 if(this.state.futureEdgeFrom.position.getDistanceTo(event.point) > 20) {
@@ -145,6 +168,18 @@ module jsflap.Board {
                     this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
                     this.state.futureEdge.addTo(this.svg);
                 }
+            }
+        }
+
+        private keydown(event) {
+            if(event.which === 16 && !this.state.futureEdgeSnapping) {
+                this.state.futureEdgeSnapping = true;
+            }
+        }
+
+        private keyup(event) {
+            if(event.which === 16 && this.state.futureEdgeSnapping) {
+                this.state.futureEdgeSnapping = false;
             }
         }
     }

@@ -634,6 +634,12 @@ var jsflap;
                 this.svg.on('mousemove', function () {
                     _this.mousemove(new _Board.MouseEvent(d3.event, this));
                 });
+                document.addEventListener('keydown', function (event) {
+                    _this.keydown(event);
+                });
+                document.addEventListener('keyup', function (event) {
+                    _this.keyup(event);
+                });
             };
             /**
              * Mouseup event listener
@@ -641,13 +647,13 @@ var jsflap;
              */
             Board.prototype.mouseup = function (event) {
                 if (this.state.futureEdge) {
-                    var nearestNode = this.visualizations.getNearestNode(event.point);
+                    var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
                     var endingNode;
                     if (nearestNode.node && nearestNode.distance < 40) {
                         endingNode = nearestNode.node;
                     }
                     else {
-                        endingNode = this.addNode(event.point);
+                        endingNode = this.addNode(this.state.futureEdge.end);
                     }
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start);
                     this.addEdge(this.state.futureEdgeFrom, endingNode, this.state.futureEdge);
@@ -695,13 +701,21 @@ var jsflap;
              * @param event
              */
             Board.prototype.mousemove = function (event) {
+                var point = event.point.getMutablePoint();
                 if (this.state.futureEdge !== null) {
-                    this.state.futureEdge.end = event.point;
-                    var nearestNode = this.visualizations.getNearestNode(event.point);
+                    if (this.state.futureEdgeSnapping) {
+                        var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
+                        if (dx !== 0) {
+                            point.x = x1 + trigSide * distance * Math.cos(dTheta);
+                            point.y = y1 + trigSide * distance * Math.sin(dTheta);
+                        }
+                    }
+                    var nearestNode = this.visualizations.getNearestNode(point);
                     if (nearestNode.node && nearestNode.distance < 40) {
                         this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
                     }
                     else {
+                        this.state.futureEdge.end = point;
                     }
                     this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
                 }
@@ -711,6 +725,16 @@ var jsflap;
                         this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
                         this.state.futureEdge.addTo(this.svg);
                     }
+                }
+            };
+            Board.prototype.keydown = function (event) {
+                if (event.which === 16 && !this.state.futureEdgeSnapping) {
+                    this.state.futureEdgeSnapping = true;
+                }
+            };
+            Board.prototype.keyup = function (event) {
+                if (event.which === 16 && this.state.futureEdgeSnapping) {
+                    this.state.futureEdgeSnapping = false;
                 }
             };
             return Board;
@@ -1573,6 +1597,12 @@ var jsflap;
 (function (jsflap) {
     var Visualization;
     (function (Visualization) {
+        var initialStatePath = [
+            { "x": -20, "y": -20 },
+            { "x": 0, "y": 0 },
+            { "x": -20, "y": 20 },
+            { "x": -20, "y": -20 }
+        ];
         var VisualizationCollection = (function () {
             /**
              * Creates a new visualization collection
@@ -1585,8 +1615,8 @@ var jsflap;
                 this.update();
             }
             VisualizationCollection.prototype.update = function () {
-                var circles = this.svg.selectAll("circle").data(this.nodes);
-                circles.enter().append("circle").attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "LightGoldenrodYellow").attr('stroke', "#333").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0).transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
+                var circles = this.svg.selectAll("circle.node").data(this.nodes);
+                circles.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "LightGoldenrodYellow").attr('stroke', "#333").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0).transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
                 circles.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
                 circles.exit().remove();
                 var circleLabels = this.svg.selectAll("text").data(this.nodes);

@@ -1,5 +1,10 @@
 module jsflap.Visualization {
 
+    var initialStatePath = [
+        { "x": -20,   "y": -20},  { "x": 0,  "y": 0},
+        { "x": -20,  "y": 20}, { "x": -20,   "y": -20}
+    ];
+
     /**
      * The information needed to determine the nearest node
      */
@@ -50,11 +55,12 @@ module jsflap.Visualization {
         }
 
         public update() {
-            var circles = this.svg.selectAll("circle")
+            var circles = this.svg.selectAll("circle.node")
                 .data(this.nodes);
 
             circles.enter()
                 .append("circle")
+                .classed('node', true)
                 .attr("cx", (d: NodeVisualization) => d.position.x)
                 .attr("cy", (d: NodeVisualization) => d.position.y)
                 .attr('fill', "LightGoldenrodYellow")

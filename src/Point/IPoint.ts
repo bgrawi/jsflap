@@ -6,5 +6,8 @@ module jsflap.Point {
     export interface IPoint {
         x: number;
         y: number;
+        getMutablePoint(): MutablePoint;
+        getImmutablePoint(): ImmutablePoint;
+        getDistanceTo(point: IPoint): number;
     }
 }

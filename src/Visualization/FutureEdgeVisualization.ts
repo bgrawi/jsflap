@@ -2,14 +2,14 @@ module jsflap.Visualization {
     export class FutureEdgeVisualization {
 
         /**
-         * The location of the node
+         * The start point
          */
-        public start: Point.IPoint;
+        private _start: Point.MutablePoint;
 
         /**
-         * The location of the node
+         * The end point
          */
-        public end: Point.IPoint;
+        private _end: Point.MutablePoint;
 
         /**
          * The actual line elm
@@ -22,18 +22,81 @@ module jsflap.Visualization {
          * @param end
          */
         constructor(start: Point.MutablePoint, end: Point.MutablePoint) {
-            this.start = start;
-            this.end = end;
+            this._start = start;
+            this._end = end;
             this.elm = null;
         }
 
+        /**
+         * Adds the visualization to the svg
+         * @param svg
+         */
         addTo(svg: D3.Selection) {
             this.elm = svg.append('line')
-                .attr("x1", this.start.x)
-                .attr("y1", this.start.y)
-                .attr("x2", this.end.x)
-                .attr("y2", this.end.y)
                 .attr('stroke', "#888");
+            this.update();
+        }
+
+        /**
+         * Removes the element from the svg
+         */
+        remove() {
+            this.elm.remove();
+            this.elm = null;
+        }
+
+        /**
+         * Sets the starting point and updates the element if it exists
+         * @param point
+         */
+        set start(point: Point.IPoint) {
+            this._start.x = point.x;
+            this._start.y = point.y;
+            if(this.elm && point) {
+                this.elm
+                    .attr('x1', point.x)
+                    .attr('y1', point.y);
+            }
+        }
+
+        /**
+         * Gets the starting point
+         * @returns {Point.IPoint}
+         */
+        get start(): Point.IPoint {
+            return this._start;
+        }
+
+        /**
+         * Sets the ending point and updates the element if it exists
+         * @param point
+         */
+        set end(point: Point.IPoint) {
+            this._end.x = point.x;
+            this._end.y = point.y;
+            if(this.elm && point) {
+                this.elm
+                    .attr('x2', point.x)
+                    .attr('y2', point.y);
+            }
+        }
+
+        /**
+         * Gets the ending point
+         * @returns {Point.MutablePoint}
+         */
+        get end(): Point.IPoint {
+            return this._end;
+        }
+
+        /**
+         * Refresh the start and end points
+         */
+        update() {
+
+            // Updates the start/end points
+            this.start = this._start;
+            this.end = this._end;
         }
     }
 }

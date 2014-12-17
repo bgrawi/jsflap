@@ -45,7 +45,8 @@ gulp.task('build', ['scripts', 'styles']);
 
 gulp.task('watch', function () {
     livereload.listen();
-    gulp.watch('build/**', ['build']);
+    gulp.watch('src/**', ['build']);
+    gulp.watch('dist/**').on('change', livereload.changed);
 });
 
 gulp.task('test', function () {

@@ -1,59 +1,5 @@
 var jsflap;
 (function (jsflap) {
-    var MouseEvent = (function () {
-        function MouseEvent(event, context) {
-            this.event = event;
-            var rawPoint = d3.mouse(context);
-            this.point = new jsflap.Point.ImmutablePoint(rawPoint[0], rawPoint[1]);
-        }
-        return MouseEvent;
-    })();
-    jsflap.MouseEvent = MouseEvent;
-    var Board = (function () {
-        function Board(svg, graph) {
-            this.svg = d3.select(svg);
-            this.graph = graph;
-            this.setupBindings();
-        }
-        Board.prototype.setupBindings = function () {
-            var _this = this;
-            this.svg.on('mouseup', function () {
-                _this.mouseup(new MouseEvent(d3.event, this));
-            });
-            this.svg.on('mousedown', function () {
-                _this.mousedown(new MouseEvent(d3.event, this));
-            });
-            this.svg.on('mousemove', function () {
-                _this.mousemove(new MouseEvent(d3.event, this));
-            });
-        };
-        Board.prototype.mouseup = function (event) {
-            if (this.futureEdge) {
-                this.futureEdge = null;
-            }
-            var node = this.graph.addNode('q' + this.graph.getNodes().size);
-            var nodeVisualization = new jsflap.Visualization.NodeVisualization(event.point.getMutablePoint(), node);
-            nodeVisualization.addTo(this.svg);
-        };
-        Board.prototype.mousedown = function (event) {
-            event.event.preventDefault();
-            this.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
-            this.futureEdge.addTo(this.svg);
-        };
-        Board.prototype.mousemove = function (event) {
-            if (this.futureEdge) {
-                console.log('HEHE' + event.point);
-                this.futureEdge.elm.attr('x2', event.point.x);
-                this.futureEdge.elm.attr('y2', event.point.y);
-            }
-        };
-        return Board;
-    })();
-    jsflap.Board = Board;
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
     jsflap.LAMBDA = 'λ';
     jsflap.BLANK = '☐';
 })(jsflap || (jsflap = {}));
@@ -328,6 +274,111 @@ var jsflap;
         return NodeList;
     })();
     jsflap.NodeList = NodeList;
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (_Board) {
+        var Board = (function () {
+            /**
+             * Represents both the visualization and the graph underneath
+             * @param svg
+             * @param graph
+             */
+            function Board(svg, graph) {
+                this.svg = d3.select(svg);
+                this.graph = graph;
+                this.state = new _Board.BoardState();
+                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg);
+                this.registerBindings();
+            }
+            /**
+             * Registers event bindings
+             */
+            Board.prototype.registerBindings = function () {
+                var _this = this;
+                this.svg.on('mouseup', function () {
+                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
+                });
+                this.svg.on('mousedown', function () {
+                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
+                });
+                this.svg.on('mousemove', function () {
+                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
+                });
+            };
+            /**
+             * Mouseup event listener
+             * @param event
+             */
+            Board.prototype.mouseup = function (event) {
+                if (this.state.futureEdge) {
+                    this.state.futureEdge = null;
+                }
+                this.addNode(event.point);
+            };
+            Board.prototype.addNode = function (point) {
+                var node = this.graph.addNode('q' + this.graph.getNodes().size);
+                var nodeV = new jsflap.Visualization.NodeVisualization(point.getMutablePoint(), node);
+                return this.visualizations.addNode(nodeV);
+            };
+            /**
+             * Mousedown event listener
+             * @param event
+             */
+            Board.prototype.mousedown = function (event) {
+                //event.event.preventDefault();
+                //this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
+                //this.state.futureEdge.addTo(this.svg);
+            };
+            /**
+             * Mousemove event listener
+             * @param event
+             */
+            Board.prototype.mousemove = function (event) {
+                if (this.state.futureEdge) {
+                    this.state.futureEdge.end = event.point;
+                }
+            };
+            return Board;
+        })();
+        _Board.Board = Board;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var BoardState = (function () {
+            function BoardState() {
+            }
+            return BoardState;
+        })();
+        Board.BoardState = BoardState;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var MouseEvent = (function () {
+            /**
+             * Creates a new MouseEvent in a given context
+             * @param event
+             * @param context
+             */
+            function MouseEvent(event, context) {
+                this.event = event;
+                var rawPoint = d3.mouse(context);
+                this.point = new jsflap.Point.ImmutablePoint(rawPoint[0], rawPoint[1]);
+            }
+            return MouseEvent;
+        })();
+        Board.MouseEvent = MouseEvent;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -839,6 +890,13 @@ var jsflap;
             ImmutablePoint.prototype.getMutablePoint = function () {
                 return new Point.MutablePoint(this._x, this._y);
             };
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.ImmutablePoint}
+             */
+            ImmutablePoint.prototype.getImmutablePoint = function () {
+                return new Point.ImmutablePoint(this.x, this.y);
+            };
             return ImmutablePoint;
         })();
         Point.ImmutablePoint = ImmutablePoint;
@@ -862,6 +920,20 @@ var jsflap;
                 this.x = x;
                 this.y = y;
             }
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.MutablePoint}
+             */
+            MutablePoint.prototype.getMutablePoint = function () {
+                return new Point.MutablePoint(this.x, this.y);
+            };
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.ImmutablePoint}
+             */
+            MutablePoint.prototype.getImmutablePoint = function () {
+                return new Point.ImmutablePoint(this.x, this.y);
+            };
             return MutablePoint;
         })();
         Point.MutablePoint = MutablePoint;
@@ -943,6 +1015,93 @@ var jsflap;
 (function (jsflap) {
     var Visualization;
     (function (Visualization) {
+        var EdgeVisualization = (function () {
+            /**
+             * Creates the node
+             * @param start
+             * @param end
+             * @param fromElm
+             */
+            function EdgeVisualization(start, end, fromElm) {
+                this._start = start;
+                this._end = end;
+                if (fromElm && fromElm) {
+                    this.elm = fromElm;
+                }
+                else {
+                    this.elm = null;
+                }
+            }
+            /**
+             * Adds the visualization to the svg
+             * @param svg
+             */
+            EdgeVisualization.prototype.addTo = function (svg) {
+                this.elm = svg.append('line').attr('stroke', "#888");
+                this.update();
+            };
+            Object.defineProperty(EdgeVisualization.prototype, "start", {
+                /**
+                 * Gets the starting point
+                 * @returns {Point.MutablePoint}
+                 */
+                get: function () {
+                    return this._start;
+                },
+                /**
+                 * Sets the starting point and updates the element if it exists
+                 * @param point
+                 */
+                set: function (point) {
+                    this._start.x = point.x;
+                    this._start.y = point.y;
+                    if (this.elm && point) {
+                        this.elm.attr('x1', point.x).attr('y1', point.y);
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(EdgeVisualization.prototype, "end", {
+                /**
+                 * Gets the ending point
+                 * @returns {Point.MutablePoint}
+                 */
+                get: function () {
+                    return this._end;
+                },
+                /**
+                 * Sets the ending point and updates the element if it exists
+                 * @param point
+                 */
+                set: function (point) {
+                    this._end.x = point.x;
+                    this._end.y = point.y;
+                    if (this.elm && point) {
+                        this.elm.attr('x2', point.x).attr('y2', point.y);
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            /**
+             * Refresh the start and end points
+             */
+            EdgeVisualization.prototype.update = function () {
+                // Updates the start/end points
+                this.start = this._start;
+                this.end = this._end;
+            };
+            return EdgeVisualization;
+        })();
+        Visualization.EdgeVisualization = EdgeVisualization;
+    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Visualization;
+    (function (Visualization) {
         var FutureEdgeVisualization = (function () {
             /**
              * Creates the node
@@ -954,8 +1113,64 @@ var jsflap;
                 this.end = end;
                 this.elm = null;
             }
+            /**
+             * Adds the visualization to the svg
+             * @param svg
+             */
             FutureEdgeVisualization.prototype.addTo = function (svg) {
-                this.elm = svg.append('line').attr("x1", this.start.x).attr("y1", this.start.y).attr("x2", this.end.x).attr("y2", this.end.y).attr('stroke', "#888");
+                this.elm = svg.append('line').attr('stroke', "#888");
+                this.update();
+            };
+            Object.defineProperty(FutureEdgeVisualization.prototype, "start", {
+                /**
+                 * Gets the starting point
+                 * @returns {Point.IPoint}
+                 */
+                get: function () {
+                    return this._start;
+                },
+                /**
+                 * Sets the starting point and updates the element if it exists
+                 * @param point
+                 */
+                set: function (point) {
+                    this._start.x = point.x;
+                    this._start.y = point.y;
+                    if (this.elm && point) {
+                        this.elm.attr('x1', point.x).attr('y1', point.y);
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(FutureEdgeVisualization.prototype, "end", {
+                /**
+                 * Gets the ending point
+                 * @returns {Point.MutablePoint}
+                 */
+                get: function () {
+                    return this._end;
+                },
+                /**
+                 * Sets the ending point and updates the element if it exists
+                 * @param point
+                 */
+                set: function (point) {
+                    this._end = point;
+                    if (this.elm && point) {
+                        this.elm.attr('x2', point.x).attr('y2', point.y);
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            /**
+             * Refresh the start and end points
+             */
+            FutureEdgeVisualization.prototype.update = function () {
+                // Updates the start/end points
+                this.start = this._start;
+                this.end = this._end;
             };
             return FutureEdgeVisualization;
         })();
@@ -970,25 +1185,81 @@ var jsflap;
         var NodeVisualization = (function () {
             /**
              * Creates the node
-             * @param location
-             * @param node
+             * @param position
+             * @param model
              */
-            function NodeVisualization(location, node) {
+            function NodeVisualization(position, model) {
                 /**
                  * The radius of the circle
                  */
                 this.radius = 20;
-                this.location = location;
-                this.node = node;
-                node.setVisualization(this);
+                this._position = position;
+                this.model = model;
+                model.setVisualization(this);
             }
-            NodeVisualization.prototype.addTo = function (svg) {
-                svg.append("circle").attr("cx", this.location.x).attr("cy", this.location.y).attr("r", this.radius).attr('fill', "LightGoldenrodYellow").attr('stroke', "#333333").attr('opacity', 0).transition().attr('opacity', 1);
-                svg.append("text").text(this.node.label).attr("x", this.location.x - ((this.node.label.length <= 2) ? 11 : 15)).attr("y", this.location.y + 5).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#333").attr('opacity', 0).transition().attr('opacity', 1);
-            };
+            Object.defineProperty(NodeVisualization.prototype, "position", {
+                get: function () {
+                    return this._position;
+                },
+                /**
+                 *
+                 * @param point
+                 */
+                set: function (point) {
+                    this._position.x = point.x;
+                    this._position.y = point.y;
+                },
+                enumerable: true,
+                configurable: true
+            });
             return NodeVisualization;
         })();
         Visualization.NodeVisualization = NodeVisualization;
+    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Visualization;
+    (function (Visualization) {
+        var VisualizationCollection = (function () {
+            /**
+             * Creates a new visualization collection
+             * @param svg
+             */
+            function VisualizationCollection(svg) {
+                this.svg = svg;
+                this.nodes = [];
+                this.edges = [];
+                this.update();
+            }
+            VisualizationCollection.prototype.update = function () {
+                var circles = this.svg.selectAll("circle").data(this.nodes);
+                circles.enter().append("circle").attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr("r", function (d) { return d.radius; }).attr('fill', "LightGoldenrodYellow").attr('stroke', "#333333").attr('opacity', 0).transition().attr('opacity', 1);
+                circles.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
+                var circleLabels = this.svg.selectAll("text").data(this.nodes);
+                circleLabels.enter().append('text').text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#333").attr('opacity', 0).transition().attr('opacity', 1);
+                circleLabels.attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
+            };
+            /**
+             * Adds a node to the visualization collection
+             * @param node
+             */
+            VisualizationCollection.prototype.addNode = function (node) {
+                this.nodes.push(node);
+                return node;
+            };
+            /**
+             * Adds an edge to the visualization collection
+             * @param edge
+             */
+            VisualizationCollection.prototype.addEdge = function (edge) {
+                this.edges.push(edge);
+                return edge;
+            };
+            return VisualizationCollection;
+        })();
+        Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
 })(jsflap || (jsflap = {}));
 
@@ -997,7 +1268,7 @@ describe("Board", function () {
     beforeEach(function () {
         svgElm = document.createElement('svg');
         graph = new jsflap.Graph.FAGraph(false);
-        board = new jsflap.Board(svgElm, graph);
+        board = new jsflap.Board.Board(svgElm, graph);
     });
     it("should exist", function () {
         expect(board).not.toBe(null);

@@ -4,7 +4,7 @@ module jsflap.Visualization {
         /**
          * The actual node in the graph
          */
-        public node: Node;
+        public model: Node;
 
         /**
          * The radius of the circle
@@ -14,40 +14,36 @@ module jsflap.Visualization {
         /**
          * The location of the node
          */
-        public location: Point.IPoint;
+        public position: Point.MutablePoint;
 
         /**
          * Creates the node
-         * @param location
-         * @param node
+         * @param position
+         * @param model
          */
-        constructor(location: Point.MutablePoint, node: Node) {
-            this.location = location;
-            this.node = node;
-            node.setVisualization(this);
+        constructor(position: Point.MutablePoint, model: Node) {
+            this.position = position;
+            this.model = model;
+            model.setVisualization(this);
         }
 
-        addTo(svg: D3.Selection) {
-            svg.append("circle")
-                .attr("cx", this.location.x)
-                .attr("cy", this.location.y)
-                .attr("r", this.radius)
-                .attr('fill', "LightGoldenrodYellow")
-                .attr('stroke', "#333333")
-                .attr('opacity', 0)
-                .transition()
-                .attr('opacity', 1);
 
-            svg.append("text")
-                .text(this.node.label)
-                .attr("x", this.location.x - ((this.node.label.length <= 2)? 11: 15))
-                .attr("y", this.location.y + 5)
-                .attr("font-family", "sans-serif")
-                .attr("font-size", "18px")
-                .attr("fill", "#333")
-                .attr('opacity', 0)
-                .transition()
-                .attr('opacity', 1);
+        /**
+         * Gets an anchor point on the edge of the circle from any other given point
+         * @param point
+         * @returns {jsflap.Point.MutablePoint}
+         */
+        public getAnchorPointFrom(point: Point.IPoint) {
+            var posX = this.position.x,
+                posY = this.position.y,
+                r = this.radius,
+                dx = point.x - posX,
+                dy = point.y - posY,
+                theta = Math.atan(dy/dx),
+                trigSide = (dx >= 0)? 1: -1,
+                anchorX = posX + trigSide * r * Math.cos(theta),
+                anchorY = posY + trigSide * r * Math.sin(theta);
+            return new Point.MutablePoint(anchorX, anchorY);
         }
     }
 }

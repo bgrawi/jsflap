@@ -8,7 +8,7 @@
             return {
                 link: function (scope, elm, attrs) {
                     var graph = new jsflap.Graph.FAGraph(false);
-                    var board = new jsflap.Board(elm[0], graph);
+                    var board = new jsflap.Board.Board(elm[0], graph);
 
                 }
             };

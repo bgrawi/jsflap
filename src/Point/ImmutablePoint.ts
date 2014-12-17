@@ -40,6 +40,14 @@ module jsflap.Point {
         }
 
         /**
+         * Gets a mutable point from this immutable one
+         * @returns {jsflap.Point.ImmutablePoint}
+         */
+        getImmutablePoint(): Point.ImmutablePoint {
+            return new Point.ImmutablePoint(this.x, this.y);
+        }
+
+        /**
          * Create a new immutable point
          * @param x
          * @param y
@@ -47,6 +55,18 @@ module jsflap.Point {
         constructor(x: number, y: number) {
             this._x = x;
             this._y = y;
+        }
+
+        /**
+         * Gets the distance between two points
+         * @param point
+         * @returns {number}
+         */
+        getDistanceTo(point: Point.IPoint): number {
+            return Math.sqrt(
+                Math.pow(this.x - point.x, 2) +
+                Math.pow(this.y - point.y, 2)
+            );
         }
     }
 }

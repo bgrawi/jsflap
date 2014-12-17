@@ -120,7 +120,7 @@ module jsflap.Board {
             event.event.preventDefault();
 
             var nearestNode = this.visualizations.getNearestNode(event.point);
-            if(nearestNode.node && nearestNode.distance < 100) {
+            if(nearestNode.node && nearestNode.distance < 70) {
                 this.state.futureEdgeFrom = nearestNode.node;
             } else {
                 this.addNode(event.point);

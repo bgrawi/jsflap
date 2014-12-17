@@ -14,7 +14,7 @@ module jsflap.Visualization {
         /**
          * The actual model that this is representing
          */
-        private model: Edge;
+        public model: Edge;
 
         /**
          * The path value for the visualization
@@ -34,15 +34,12 @@ module jsflap.Visualization {
         }
 
         get pathCoords() {
+            var midpointX =  (this.start.x + this.end.x) / 2,
+                midpointY =  (this.start.y + this.end.y) / 2;
             return [
-                {
-                    x: this.start.x,
-                    y: this.start.y
-                },
-                {
-                    x: this.end.x,
-                    y: this.end.y
-                }
+                this.start,
+                new Point.MutablePoint(midpointX, midpointY),
+                this.end
             ];
         }
     }

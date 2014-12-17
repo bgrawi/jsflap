@@ -29,3 +29,22 @@ svg[jsflap-board], svg[jsflap-board] > * {
     background-color: #eee;
     border: 1px solid #ddd;
 }
+
+section.board-container path.edge {
+    fill: transparent;
+}
+
+section.board-container input.transition {
+    position: absolute;
+    font-size: 12px;
+    height: 30px;
+    width: 30px;
+    border: 0 solid #333;
+    text-align: center;
+    box-shadow: none;
+    border-radius: 100%;
+}
+
+section.board-container input.transition:focus {
+    box-shadow: none;
+}

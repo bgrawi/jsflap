@@ -689,7 +689,7 @@ var jsflap;
             Board.prototype.mousedown = function (event) {
                 event.event.preventDefault();
                 var nearestNode = this.visualizations.getNearestNode(event.point);
-                if (nearestNode.node && nearestNode.distance < 100) {
+                if (nearestNode.node && nearestNode.distance < 70) {
                     this.state.futureEdgeFrom = nearestNode.node;
                 }
                 else {
@@ -1451,15 +1451,11 @@ var jsflap;
             }
             Object.defineProperty(EdgeVisualization.prototype, "pathCoords", {
                 get: function () {
+                    var midpointX = (this.start.x + this.end.x) / 2, midpointY = (this.start.y + this.end.y) / 2;
                     return [
-                        {
-                            x: this.start.x,
-                            y: this.start.y
-                        },
-                        {
-                            x: this.end.x,
-                            y: this.end.y
-                        }
+                        this.start,
+                        new jsflap.Point.MutablePoint(midpointX, midpointY),
+                        this.end
                     ];
                 },
                 enumerable: true,
@@ -1627,6 +1623,17 @@ var jsflap;
                 var edgePath = d3.svg.line().interpolate('cardinal').x(function (d) { return d.x; }).y(function (d) { return d.y; });
                 edgePaths.enter().append('path').classed('edge', true).attr('d', function (d) { return edgePath(d.pathCoords); }).attr('stroke', '#333').attr('stroke-width', '1').attr('opacity', .8).transition().duration(300).attr('opacity', 1).attr('style', "marker-end:url(#markerArrow)");
                 edgePaths.exit().remove();
+                var edgeTransitions = d3.select(document.querySelector('section.board-container')).selectAll('input.transition').data(this.edges);
+                edgeTransitions.enter().append('input').classed('transition', true).attr('type', 'text').attr('maxlength', '1').style({
+                    top: function (d) { return d.pathCoords[1].y - 15 + 'px'; },
+                    left: function (d) { return d.pathCoords[1].x - 30 + 'px'; }
+                }).attr('value', function (d) { return d.model.transition.toString(); }).on('keypress', function (edge) {
+                    var target = d3.event.target;
+                    edge.model.transition.character = target.value;
+                    if (d3.event.which === 13) {
+                        target.blur();
+                    }
+                });
             };
             /**
              * Adds a node to the visualization collection

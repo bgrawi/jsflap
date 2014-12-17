@@ -1,8 +1,8 @@
 module jsflap.Visualization {
 
     var initialStatePath = [
-        { "x": -20,   "y": -20},  { "x": 0,  "y": 0},
-        { "x": -20,  "y": 20}, { "x": -20,   "y": -20}
+        {"x": -20, "y": -20}, {"x": 0, "y": 0},
+        {"x": -20, "y": 20}, {"x": -20, "y": -20}
     ];
 
     /**
@@ -86,7 +86,7 @@ module jsflap.Visualization {
                 .enter()
                 .append('text')
                 .text((d: NodeVisualization) => d.model.label)
-                .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2)? 11: 15))
+                .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
                 .attr("y", (d: NodeVisualization) => d.position.y + 5)
                 .attr("font-family", "sans-serif")
                 .attr("font-size", "18px")
@@ -98,7 +98,7 @@ module jsflap.Visualization {
                 .attr('opacity', 1);
 
             circleLabels
-                .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2)? 11: 15))
+                .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
                 .attr("y", (d: NodeVisualization) => d.position.y + 5);
 
             circleLabels.exit().remove();
@@ -124,6 +124,30 @@ module jsflap.Visualization {
                 .attr('style', "marker-end:url(#markerArrow)");
 
             edgePaths.exit().remove();
+
+            var edgeTransitions = d3.select(document.querySelector('section.board-container')).selectAll('input.transition')
+                .data(this.edges);
+
+            edgeTransitions
+                .enter()
+                .append('input')
+                .classed('transition', true)
+                .attr('type', 'text')
+                .attr('maxlength', '1')
+                .style({
+                    top: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].y - 15 + 'px',
+                    left: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].x - 30 + 'px'
+                })
+                .attr('value', (d: Visualization.EdgeVisualization) => d.model.transition.toString())
+                .on('keypress', (edge: Visualization.EdgeVisualization) => {
+                    var target = (<HTMLInputElement> d3.event.target);
+                    (<Transition.CharacterTransition> edge.model.transition).character = target.value;
+
+                    if ((<KeyboardEvent> d3.event).which === 13) {
+                        target.blur();
+                    }
+                });
+
         }
 
         /**
@@ -161,7 +185,7 @@ module jsflap.Visualization {
 
             this.nodes.forEach((node) => {
                 var distance = point.getDistanceTo(node.position);
-                if(distance < nearestNode.distance) {
+                if (distance < nearestNode.distance) {
                     nearestNode.node = node;
                     nearestNode.distance = distance;
                     nearestNode.hover = nearestNode.distance <= node.radius;

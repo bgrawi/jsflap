@@ -71,6 +71,8 @@ module jsflap.Visualization {
                 .attr("cx", (d: NodeVisualization) => d.position.x)
                 .attr("cy", (d: NodeVisualization) => d.position.y);
 
+            circles.exit().remove();
+
             var circleLabels = this.svg.selectAll("text")
                 .data(this.nodes);
 
@@ -93,12 +95,29 @@ module jsflap.Visualization {
                 .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2)? 11: 15))
                 .attr("y", (d: NodeVisualization) => d.position.y + 5);
 
-            //var edgePaths = this.svg.selectAll("path")
-            //    .data(this.edges);
-            //
-            //edgePaths
-            //    .enter()
+            circleLabels.exit().remove();
 
+            var edgePaths = this.svg.selectAll("path.edge")
+                .data(this.edges);
+
+            var edgePath = d3.svg.line().interpolate('cardinal')
+                .x((d) => d.x)
+                .y((d) => d.y);
+
+            edgePaths
+                .enter()
+                .append('path')
+                .classed('edge', true)
+                .attr('d', (d: EdgeVisualization) => edgePath(d.pathCoords))
+                .attr('stroke', '#333')
+                .attr('stroke-width', '1')
+                .attr('opacity', .8)
+                .transition()
+                .duration(300)
+                .attr('opacity', 1)
+                .attr('style', "marker-end:url(#markerArrow)");
+
+            edgePaths.exit().remove();
         }
 
         /**

@@ -9,7 +9,7 @@
                 link: function (scope, elm, attrs) {
                     var graph = new jsflap.Graph.FAGraph(false);
                     var board = new jsflap.Board.Board(elm[0], graph);
-
+                    window.graph = graph;
                 }
             };
         })
@@ -650,6 +650,7 @@ var jsflap;
                         endingNode = this.addNode(event.point);
                     }
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start);
+                    this.addEdge(this.state.futureEdgeFrom, endingNode, this.state.futureEdge);
                     this.state.futureEdge = null;
                     this.state.futureEdgeFrom = null;
                 }
@@ -671,10 +672,9 @@ var jsflap;
              * @param futureEdge
              */
             Board.prototype.addEdge = function (from, to, futureEdge) {
-                var edge = this.graph.addEdge(from.model, to.model, jsflap.LAMBDA);
-                var edgeV = new jsflap.Visualization.EdgeVisualization(futureEdge.start, futureEdge.end, edge);
+                var edge = this.graph.addEdge(from.model, to.model, jsflap.LAMBDA), edgeV = new jsflap.Visualization.EdgeVisualization(futureEdge.start, futureEdge.end, edge);
                 futureEdge.remove();
-                this.visualizations.addEdge(edgeV);
+                return this.visualizations.addEdge(edgeV);
             };
             /**
              * Mousedown event listener
@@ -706,9 +706,11 @@ var jsflap;
                     this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
                 }
                 else if (this.state.futureEdgeFrom !== null) {
-                    this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
-                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                    this.state.futureEdge.addTo(this.svg);
+                    if (this.state.futureEdgeFrom.position.getDistanceTo(event.point) > 20) {
+                        this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
+                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                        this.state.futureEdge.addTo(this.svg);
+                    }
                 }
             };
             return Board;
@@ -1423,6 +1425,22 @@ var jsflap;
                 this.end = end;
                 this.model = model;
             }
+            Object.defineProperty(EdgeVisualization.prototype, "pathCoords", {
+                get: function () {
+                    return [
+                        {
+                            x: this.start.x,
+                            y: this.start.y
+                        },
+                        {
+                            x: this.end.x,
+                            y: this.end.y
+                        }
+                    ];
+                },
+                enumerable: true,
+                configurable: true
+            });
             return EdgeVisualization;
         })();
         Visualization.EdgeVisualization = EdgeVisualization;
@@ -1570,14 +1588,15 @@ var jsflap;
                 var circles = this.svg.selectAll("circle").data(this.nodes);
                 circles.enter().append("circle").attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "LightGoldenrodYellow").attr('stroke', "#333").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0).transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
                 circles.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
+                circles.exit().remove();
                 var circleLabels = this.svg.selectAll("text").data(this.nodes);
                 circleLabels.enter().append('text').text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#333").attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
                 circleLabels.attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
-                //var edgePaths = this.svg.selectAll("path")
-                //    .data(this.edges);
-                //
-                //edgePaths
-                //    .enter()
+                circleLabels.exit().remove();
+                var edgePaths = this.svg.selectAll("path.edge").data(this.edges);
+                var edgePath = d3.svg.line().interpolate('cardinal').x(function (d) { return d.x; }).y(function (d) { return d.y; });
+                edgePaths.enter().append('path').classed('edge', true).attr('d', function (d) { return edgePath(d.pathCoords); }).attr('stroke', '#333').attr('stroke-width', '1').attr('opacity', .8).transition().duration(300).attr('opacity', 1).attr('style', "marker-end:url(#markerArrow)");
+                edgePaths.exit().remove();
             };
             /**
              * Adds a node to the visualization collection

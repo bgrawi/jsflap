@@ -17,6 +17,11 @@ module jsflap.Visualization {
         private model: Edge;
 
         /**
+         * The path value for the visualization
+         */
+        public path;
+
+        /**
          * Creates the node
          * @param start
          * @param end
@@ -26,6 +31,19 @@ module jsflap.Visualization {
             this.start = start;
             this.end = end;
             this.model = model;
+        }
+
+        get pathCoords() {
+            return [
+                {
+                    x: this.start.x,
+                    y: this.start.y
+                },
+                {
+                    x: this.end.x,
+                    y: this.end.y
+                }
+            ];
         }
     }
 }

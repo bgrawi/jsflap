@@ -73,6 +73,8 @@ module jsflap.Board {
                     endingNode = this.addNode(event.point);
                 }
                 this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start);
+
+                this.addEdge(this.state.futureEdgeFrom, endingNode, this.state.futureEdge);
                 this.state.futureEdge = null;
                 this.state.futureEdgeFrom = null;
             }
@@ -98,10 +100,10 @@ module jsflap.Board {
          * @param futureEdge
          */
         public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, futureEdge: Visualization.FutureEdgeVisualization) {
-            var edge = this.graph.addEdge(from.model, to.model, LAMBDA);
-            var edgeV = new Visualization.EdgeVisualization(futureEdge.start, futureEdge.end, edge);
+            var edge = this.graph.addEdge(from.model, to.model, LAMBDA),
+                edgeV = new Visualization.EdgeVisualization(futureEdge.start, futureEdge.end, edge);
             futureEdge.remove();
-            this.visualizations.addEdge(edgeV);
+            return this.visualizations.addEdge(edgeV);
         }
 
         /**
@@ -138,9 +140,11 @@ module jsflap.Board {
 
                 this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
             } else if(this.state.futureEdgeFrom !== null) {
-                this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
-                this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                this.state.futureEdge.addTo(this.svg);
+                if(this.state.futureEdgeFrom.position.getDistanceTo(event.point) > 20) {
+                    this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
+                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                    this.state.futureEdge.addTo(this.svg);
+                }
             }
         }
     }

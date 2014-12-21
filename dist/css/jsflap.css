@@ -20,31 +20,38 @@ svg[jsflap-board], svg[jsflap-board] > * {
     height: 100%;
 }
 
-#contextMenu {
-    width: 120px;
-    height: 100px;
-    position: absolute;
-    top: 10;
-    left: 20;
-    background-color: #eee;
-    border: 1px solid #ddd;
+svg[jsflap-board] text.transition {
+    stroke: #FFF;
+    stroke-width: 5px;
+    paint-order: stroke;
+    stroke-linecap: butt;
+    stroke-linejoin: miter;
+    dominant-baseline: middle;
 }
 
-section.board-container path.edge {
-    fill: transparent;
-}
-
-section.board-container input.transition {
-    position: absolute;
+svg[jsflap-board] input.editTransition {
     font-size: 12px;
-    height: 30px;
-    width: 30px;
     border: 0 solid #333;
     text-align: center;
     box-shadow: none;
     border-radius: 100%;
 }
 
-section.board-container input.transition:focus {
+svg[jsflap-board] path.edge {
+    fill: transparent;
+}
+
+
+svg[jsflap-board] input:focus {
     box-shadow: none;
+}
+
+#contextMenu {
+    width: 120px;
+    height: 100px;
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    background-color: #eee;
+    border: 1px solid #ddd;
 }

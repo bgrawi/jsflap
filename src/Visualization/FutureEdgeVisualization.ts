@@ -4,12 +4,12 @@ module jsflap.Visualization {
         /**
          * The start point
          */
-        private _start: Point.MutablePoint;
+        private _start: Point.MPoint;
 
         /**
          * The end point
          */
-        private _end: Point.MutablePoint;
+        private _end: Point.MPoint;
 
         /**
          * The actual line elm
@@ -21,7 +21,7 @@ module jsflap.Visualization {
          * @param start
          * @param end
          */
-        constructor(start: Point.MutablePoint, end: Point.MutablePoint) {
+        constructor(start: Point.MPoint, end: Point.MPoint) {
             this._start = start;
             this._end = end;
             this.elm = null;
@@ -83,7 +83,7 @@ module jsflap.Visualization {
 
         /**
          * Gets the ending point
-         * @returns {Point.MutablePoint}
+         * @returns {Point.MPoint}
          */
         get end(): Point.IPoint {
             return this._end;

@@ -4,12 +4,16 @@
 
     angular.module('jsflap', []);
     angular.module('jsflap')
-        .directive('jsflapBoard', function() {
+        .directive('jsflapBoard', function($rootScope) {
             return {
                 link: function (scope, elm, attrs) {
                     var graph = new jsflap.Graph.FAGraph(false);
                     var board = new jsflap.Board.Board(elm[0], graph);
                     window.graph = graph;
+                    elm[0].addEventListener("contextmenu", function(event) {
+                        $rootScope.$broadcast('contextmenu', {board: board, graph: graph, event: event});
+                        event.preventDefault();
+                    });
                 }
             };
         })
@@ -297,8 +301,8 @@
             return {
                 scope: {},
                 restrict: 'A',
-                template: '<ul id="contextMenu"  class="side-nav" ng-style="{top: posTop, left: posLeft}" ng-show="show">' +
-                '<li><a href="#">Make Initial {{posTop}}</a></li>' +
+                template: '<ul id="contextMenu"  class="side-nav" ng-style="{top: posTop + \'px\', left: posLeft + \'px\'}" ng-show="show">' +
+                '<li><a href="#">Make Initial</a></li>' +
                 '<li><a href="#">Make Final</a></li>' +
                 '</ul>',
                 link: {
@@ -308,11 +312,20 @@
                         scope.posTop = 0;
                     },
                     post: function (scope, elm, attrs) {
-                        scope.$on("contextmenu", function(event, DOMevent) {
+                        scope.$on("contextmenu", function(event, vars) {
                             scope.show = true;
-                            scope.posLeft = DOMevent.x;
-                            scope.posTop = DOMevent.y;
+                            scope.posLeft = vars.event.x;
+                            scope.posTop = vars.event.y;
+                            scope.$digest();
                         });
+
+                        document.addEventListener('click', function() {
+                            if(scope.show) {
+                                scope.show = false;
+                                scope.$digest();
+                            }
+                        });
+
                     }
                 }
             };
@@ -617,7 +630,7 @@ var jsflap;
                 this.boardBase = this.svg.append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
                 this.graph = graph;
                 this.state = new _Board.BoardState();
-                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg);
+                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg, this.state);
                 this.registerBindings();
             }
             /**
@@ -646,6 +659,7 @@ var jsflap;
              * @param event
              */
             Board.prototype.mouseup = function (event) {
+                var _this = this;
                 if (this.state.futureEdge) {
                     var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
                     var endingNode;
@@ -655,8 +669,15 @@ var jsflap;
                     else {
                         endingNode = this.addNode(this.state.futureEdge.end);
                     }
-                    this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start);
-                    this.addEdge(this.state.futureEdgeFrom, endingNode, this.state.futureEdge);
+                    this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
+                    var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
+                    setTimeout(function () {
+                        var elm = _this.svg.select('text.transition:last-child');
+                        if (elm.length > 0) {
+                            _this.visualizations.editTransition(newEdge, elm.node());
+                        }
+                    }, 10);
+                    this.state.futureEdge.remove();
                     this.state.futureEdge = null;
                     this.state.futureEdgeFrom = null;
                 }
@@ -668,18 +689,17 @@ var jsflap;
              * @returns {jsflap.Visualization.NodeVisualization}
              */
             Board.prototype.addNode = function (point) {
-                var node = this.graph.addNode('q' + this.graph.getNodes().size), nodeV = new jsflap.Visualization.NodeVisualization(point.getMutablePoint(), node);
+                var node = this.graph.addNode('q' + this.graph.getNodes().size), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
                 return this.visualizations.addNode(nodeV);
             };
             /**
              * Adds an edge to the board given two nodes and a future edge
              * @param from
              * @param to
-             * @param futureEdge
+             * @param transition
              */
-            Board.prototype.addEdge = function (from, to, futureEdge) {
-                var edge = this.graph.addEdge(from.model, to.model, jsflap.LAMBDA), edgeV = new jsflap.Visualization.EdgeVisualization(futureEdge.start, futureEdge.end, edge);
-                futureEdge.remove();
+            Board.prototype.addEdge = function (from, to, transition) {
+                var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), edgeV = new jsflap.Visualization.EdgeVisualization(edge, from, to);
                 return this.visualizations.addEdge(edgeV);
             };
             /**
@@ -692,8 +712,13 @@ var jsflap;
                 if (nearestNode.node && nearestNode.distance < 70) {
                     this.state.futureEdgeFrom = nearestNode.node;
                 }
-                else {
+                else if (this.state.modifyEdgeTransition === null) {
+                    // Only add a node if the user is not currently click out of editing a transition OR is near a node
                     this.addNode(event.point);
+                }
+                // If the user was focused on modifying an edge transition, blur it.
+                if (this.state.modifyEdgeTransition !== null) {
+                    this.state.modifyEdgeTransition.blur();
                 }
             };
             /**
@@ -701,7 +726,10 @@ var jsflap;
              * @param event
              */
             Board.prototype.mousemove = function (event) {
-                var point = event.point.getMutablePoint();
+                var point = event.point.getMPoint();
+                if (event.event.which > 1) {
+                    return false;
+                }
                 if (this.state.futureEdge !== null) {
                     if (this.state.futureEdgeSnapping) {
                         var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
@@ -720,18 +748,24 @@ var jsflap;
                     this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
                 }
                 else if (this.state.futureEdgeFrom !== null) {
-                    if (this.state.futureEdgeFrom.position.getDistanceTo(event.point) > 20) {
-                        this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
-                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                        this.state.futureEdge.addTo(this.svg);
-                    }
+                    this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
+                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                    this.state.futureEdge.addTo(this.svg);
                 }
             };
+            /**
+             * The keydown event listener
+             * @param event
+             */
             Board.prototype.keydown = function (event) {
                 if (event.which === 16 && !this.state.futureEdgeSnapping) {
                     this.state.futureEdgeSnapping = true;
                 }
             };
+            /**
+             * The keyup event listener
+             * @param event
+             */
             Board.prototype.keyup = function (event) {
                 if (event.which === 16 && this.state.futureEdgeSnapping) {
                     this.state.futureEdgeSnapping = false;
@@ -759,6 +793,8 @@ var jsflap;
                 this.futureEdge = null;
                 this.futureEdgeFrom = null;
                 this.futureEdgeSnapping = false;
+                this.modifyEdgeTransition = null;
+                this.modifyEdgeControl = null;
             }
             return BoardState;
         })();
@@ -779,7 +815,7 @@ var jsflap;
             function MouseEvent(event, context) {
                 this.event = event;
                 var rawPoint = d3.mouse(context);
-                this.point = new jsflap.Point.ImmutablePoint(rawPoint[0], rawPoint[1]);
+                this.point = new jsflap.Point.IMPoint(rawPoint[0], rawPoint[1]);
             }
             return MouseEvent;
         })();
@@ -1248,75 +1284,6 @@ var jsflap;
 
 
 
-
-
-var jsflap;
-(function (jsflap) {
-    var Point;
-    (function (Point) {
-        /**
-         * The point class which is immutable
-         */
-        var ImmutablePoint = (function () {
-            /**
-             * Create a new immutable point
-             * @param x
-             * @param y
-             */
-            function ImmutablePoint(x, y) {
-                this._x = x;
-                this._y = y;
-            }
-            Object.defineProperty(ImmutablePoint.prototype, "x", {
-                /**
-                 * Gets the x dimension
-                 * @returns {number}
-                 */
-                get: function () {
-                    return this._x;
-                },
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(ImmutablePoint.prototype, "y", {
-                /**
-                 * Gets the y dimension
-                 * @returns {number}
-                 */
-                get: function () {
-                    return this._y;
-                },
-                enumerable: true,
-                configurable: true
-            });
-            /**
-             * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.MutablePoint}
-             */
-            ImmutablePoint.prototype.getMutablePoint = function () {
-                return new Point.MutablePoint(this._x, this._y);
-            };
-            /**
-             * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.ImmutablePoint}
-             */
-            ImmutablePoint.prototype.getImmutablePoint = function () {
-                return new Point.ImmutablePoint(this.x, this.y);
-            };
-            /**
-             * Gets the distance between two points
-             * @param point
-             * @returns {number}
-             */
-            ImmutablePoint.prototype.getDistanceTo = function (point) {
-                return Math.sqrt(Math.pow(this.x - point.x, 2) + Math.pow(this.y - point.y, 2));
-            };
-            return ImmutablePoint;
-        })();
-        Point.ImmutablePoint = ImmutablePoint;
-    })(Point = jsflap.Point || (jsflap.Point = {}));
-})(jsflap || (jsflap = {}));
-
 var jsflap;
 (function (jsflap) {
     var Point;
@@ -1324,42 +1291,435 @@ var jsflap;
         /**
          * The point class
          */
-        var MutablePoint = (function () {
+        var MPoint = (function () {
             /**
              * Create a new mutable point
              * @param x
              * @param y
              */
-            function MutablePoint(x, y) {
+            function MPoint(x, y) {
                 this.x = x;
                 this.y = y;
             }
             /**
              * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.MutablePoint}
+             * @returns {jsflap.Point.MPoint}
              */
-            MutablePoint.prototype.getMutablePoint = function () {
-                return new Point.MutablePoint(this.x, this.y);
+            MPoint.prototype.getMPoint = function () {
+                return new Point.MPoint(this.x, this.y);
             };
             /**
              * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.ImmutablePoint}
+             * @returns {jsflap.Point.IMPoint}
              */
-            MutablePoint.prototype.getImmutablePoint = function () {
-                return new Point.ImmutablePoint(this.x, this.y);
+            MPoint.prototype.getIMPoint = function () {
+                return new Point.IMPoint(this.x, this.y);
             };
             /**
              * Gets the distance between two points
-             * @param point
+             * @param other
              * @returns {number}
              */
-            MutablePoint.prototype.getDistanceTo = function (point) {
-                return Math.sqrt(Math.pow(this.x - point.x, 2) + Math.pow(this.y - point.y, 2));
+            MPoint.prototype.getDistanceTo = function (other) {
+                return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
             };
-            return MutablePoint;
+            /**
+             * Gets the angle between two points
+             * @param other
+             * @returns {number}
+             */
+            MPoint.prototype.getAngleTo = function (other) {
+                return Math.atan((this.y - other.y) / (this.x - other.x));
+            };
+            MPoint.prototype.toString = function () {
+                return this.x + ', ' + this.y;
+            };
+            return MPoint;
         })();
-        Point.MutablePoint = MutablePoint;
+        Point.MPoint = MPoint;
     })(Point = jsflap.Point || (jsflap.Point = {}));
+})(jsflap || (jsflap = {}));
+
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+///<reference path="MPoint.ts"/>
+var jsflap;
+(function (jsflap) {
+    var Point;
+    (function (Point) {
+        /**
+         * The point class
+         */
+        var IMPoint = (function (_super) {
+            __extends(IMPoint, _super);
+            /**
+             * Create a new imutable point
+             * @param x
+             * @param y
+             */
+            function IMPoint(x, y) {
+                _super.call(this, x, y);
+            }
+            Object.defineProperty(IMPoint, "x", {
+                set: function (value) {
+                    throw new Error("Can't change coordinates of an immutable point");
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(IMPoint, "y", {
+                set: function (value) {
+                    throw new Error("Can't change coordinates of an immutable point");
+                },
+                enumerable: true,
+                configurable: true
+            });
+            return IMPoint;
+        })(Point.MPoint);
+        Point.IMPoint = IMPoint;
+    })(Point = jsflap.Point || (jsflap.Point = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Visualization;
+    (function (Visualization) {
+        var EdgeVisualization = (function () {
+            /**
+             * Creates the node
+             * @param start
+             * @param end
+             * @param control
+             * @param model
+             */
+            function EdgeVisualization(model, start, end, control) {
+                this.model = model;
+                if (start !== end) {
+                    this.start = start.getAnchorPointFrom(end.position);
+                    this.end = end.getAnchorPointFrom(start.position);
+                    this.control = control ? control : new jsflap.Point.MPoint((this.start.x + this.end.x) / 2, (this.start.y + this.end.y) / 2);
+                }
+                else {
+                    var anchorPoints = start.getSelfAnchorPoints();
+                    this.start = anchorPoints[0];
+                    this.end = anchorPoints[1];
+                    this.control = control ? control : new jsflap.Point.MPoint((this.start.x + this.end.x) / 2, (this.start.y + this.end.y) / 2 - 80);
+                }
+            }
+            /**
+             * Gets the path string
+             */
+            EdgeVisualization.prototype.getPath = function () {
+                return 'M' + this.start + ' Q' + this.control + ' ' + this.end;
+            };
+            /**
+             * Gets the position of where the transition text should be
+             * @returns {jsflap.Point.IMPoint}
+             */
+            EdgeVisualization.prototype.getTransitionPoint = function () {
+                // Quadratic Bezier Curve formula evaluated halfway
+                var t = 0.5, x = (1 - t) * (1 - t) * this.start.x + 2 * (1 - t) * t * this.control.x + t * t * this.end.x, y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y;
+                return new jsflap.Point.IMPoint(x, y);
+            };
+            return EdgeVisualization;
+        })();
+        Visualization.EdgeVisualization = EdgeVisualization;
+    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Visualization;
+    (function (Visualization) {
+        var FutureEdgeVisualization = (function () {
+            /**
+             * Creates the node
+             * @param start
+             * @param end
+             */
+            function FutureEdgeVisualization(start, end) {
+                this._start = start;
+                this._end = end;
+                this.elm = null;
+            }
+            /**
+             * Adds the visualization to the svg
+             * @param svg
+             */
+            FutureEdgeVisualization.prototype.addTo = function (svg) {
+                this.elm = svg.append('line').attr('stroke', "#888");
+                this.update();
+            };
+            /**
+             * Removes the element from the svg
+             */
+            FutureEdgeVisualization.prototype.remove = function () {
+                this.elm.remove();
+                this.elm = null;
+            };
+            Object.defineProperty(FutureEdgeVisualization.prototype, "start", {
+                /**
+                 * Gets the starting point
+                 * @returns {Point.IPoint}
+                 */
+                get: function () {
+                    return this._start;
+                },
+                /**
+                 * Sets the starting point and updates the element if it exists
+                 * @param point
+                 */
+                set: function (point) {
+                    this._start.x = point.x;
+                    this._start.y = point.y;
+                    if (this.elm && point) {
+                        this.elm.attr('x1', point.x).attr('y1', point.y);
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(FutureEdgeVisualization.prototype, "end", {
+                /**
+                 * Gets the ending point
+                 * @returns {Point.MPoint}
+                 */
+                get: function () {
+                    return this._end;
+                },
+                /**
+                 * Sets the ending point and updates the element if it exists
+                 * @param point
+                 */
+                set: function (point) {
+                    this._end.x = point.x;
+                    this._end.y = point.y;
+                    if (this.elm && point) {
+                        this.elm.attr('x2', point.x).attr('y2', point.y);
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            /**
+             * Refresh the start and end points
+             */
+            FutureEdgeVisualization.prototype.update = function () {
+                // Updates the start/end points
+                this.start = this._start;
+                this.end = this._end;
+            };
+            return FutureEdgeVisualization;
+        })();
+        Visualization.FutureEdgeVisualization = FutureEdgeVisualization;
+    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Visualization;
+    (function (Visualization) {
+        var NodeVisualization = (function () {
+            /**
+             * Creates the node
+             * @param model
+             * @param position
+             */
+            function NodeVisualization(model, position) {
+                /**
+                 * The radius of the circle
+                 */
+                this.radius = 20;
+                this.position = position;
+                this.model = model;
+                model.setVisualization(this);
+            }
+            /**
+             * Gets an anchor point on the edge of the circle from any other given point
+             * @param point
+             * @returns {jsflap.Point.MPoint}
+             */
+            NodeVisualization.prototype.getAnchorPointFrom = function (point) {
+                var posX = this.position.x, posY = this.position.y, r = this.radius, dx = point.x - posX, dy = point.y - posY, theta = Math.atan(dy / dx), trigSide = (dx >= 0) ? 1 : -1, anchorX = posX + trigSide * r * Math.cos(theta), anchorY = posY + trigSide * r * Math.sin(theta);
+                return new jsflap.Point.MPoint(anchorX, anchorY);
+            };
+            /**
+             * Gets the self anchor points if an edge goes to the same node
+             * @returns {any[]}
+             */
+            NodeVisualization.prototype.getSelfAnchorPoints = function () {
+                var posX = this.position.x, posY = this.position.y, r = this.radius, theta1 = 2 * Math.PI / 6, trigSide1 = -1, theta2 = 4 * Math.PI / 6, trigSide2 = -1, anchorX1 = posX + trigSide1 * r * Math.cos(theta1), anchorY1 = posY + trigSide1 * r * Math.sin(theta1), anchorX2 = posX + trigSide2 * r * Math.cos(theta2), anchorY2 = posY + trigSide2 * r * Math.sin(theta2);
+                return [
+                    new jsflap.Point.MPoint(anchorX1, anchorY1),
+                    new jsflap.Point.MPoint(anchorX2, anchorY2),
+                ];
+            };
+            return NodeVisualization;
+        })();
+        Visualization.NodeVisualization = NodeVisualization;
+    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Visualization;
+    (function (Visualization) {
+        var initialStatePath = [
+            { "x": -20, "y": -20 },
+            { "x": 0, "y": 0 },
+            { "x": -20, "y": 20 },
+            { "x": -20, "y": -20 }
+        ];
+        var VisualizationCollection = (function () {
+            /**
+             * Creates a new visualization collection
+             * @param svg
+             */
+            function VisualizationCollection(svg, state) {
+                this.svg = svg;
+                this.state = state;
+                this.nodes = [];
+                this.edges = [];
+                this.update();
+            }
+            /**
+             * Updates the visualizations
+             */
+            VisualizationCollection.prototype.update = function () {
+                var _this = this;
+                var nodes = this.svg.selectAll("circle.node").data(this.nodes);
+                nodes.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "#008cba").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0).transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
+                nodes.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
+                nodes.exit().remove();
+                var nodeLabels = this.svg.selectAll("text.nodeLabel").data(this.nodes);
+                nodeLabels.enter().append('text').classed('nodeLabel', true).text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#FFF").attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
+                nodeLabels.attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
+                nodeLabels.exit().remove();
+                var edgePaths = this.svg.selectAll("path.edge").data(this.edges);
+                edgePaths.enter().append('path').classed('edge', true).attr('d', function (d) { return d.getPath(); }).attr('stroke', '#333').attr('stroke-width', '1').attr('opacity', .8).transition().duration(300).attr('opacity', 1).attr('style', "marker-end:url(#markerArrow)");
+                edgePaths.exit().remove();
+                /*var edgeTransitions = d3.select(document.querySelector('section.board-container')).selectAll('input.transition')
+                 .data(this.edges);
+    
+                 edgeTransitions
+                 .enter()
+                 .append('input')
+                 .classed('transition', true)
+                 .attr('type', 'text')
+                 .attr('maxlength', '1')
+                 .style({
+                 top: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].y - 15 + 'px',
+                 left: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].x - 30 + 'px'
+                 })
+                 .attr('value', (d: Visualization.EdgeVisualization) => d.model.transition.toString())
+                 .on('keypress', (edge: Visualization.EdgeVisualization) => {
+                 var target = (<HTMLInputElement> d3.event.target);
+                 (<Transition.CharacterTransition> edge.model.transition).character = target.value;
+    
+                 if ((<KeyboardEvent> d3.event).which === 13) {
+                 target.blur();
+                 }
+                 });*/
+                var edgeTransitions = this.svg.selectAll('text.transition').data(this.edges);
+                var newEdgeTransitions = edgeTransitions.enter().append('text').classed('transition', true).attr("font-family", "sans-serif").attr("font-size", "16px").attr("text-anchor", "middle").attr("fill", "#000").attr('x', function (d) { return d.getTransitionPoint().x; }).attr('y', function (d) { return d.getTransitionPoint().y; }).text(function (d) { return d.model.transition.toString(); });
+                newEdgeTransitions.on('mousedown', function () {
+                    var event = d3.event;
+                    event.stopPropagation();
+                    event.preventDefault();
+                }).on("mouseup", function (d) {
+                    _this.editTransition(d);
+                });
+                newEdgeTransitions.attr('opacity', 0).transition().duration(300).attr('opacity', 1);
+            };
+            /**
+             * Adds a node to the visualization collection
+             * @param node
+             */
+            VisualizationCollection.prototype.addNode = function (node) {
+                this.nodes.push(node);
+                this.update();
+                return node;
+            };
+            /**
+             * Adds an edge to the visualization collection
+             * @param edge
+             */
+            VisualizationCollection.prototype.addEdge = function (edge) {
+                this.edges.push(edge);
+                this.update();
+                return edge;
+            };
+            /**
+             * Gets the nearest node from a point
+             * @param point
+             * @returns {NearestNode}
+             */
+            VisualizationCollection.prototype.getNearestNode = function (point) {
+                var nearestNode = {
+                    node: null,
+                    distance: Infinity,
+                    hover: false
+                };
+                this.nodes.forEach(function (node) {
+                    var distance = point.getDistanceTo(node.position);
+                    if (distance < nearestNode.distance) {
+                        nearestNode.node = node;
+                        nearestNode.distance = distance;
+                        nearestNode.hover = nearestNode.distance <= node.radius;
+                    }
+                });
+                return nearestNode;
+            };
+            VisualizationCollection.prototype.editTransition = function (d, node) {
+                // Adapted from http://bl.ocks.org/GerHobbelt/2653660
+                var _this = this;
+                // TODO: Generalize this transition editing
+                var target = node || d3.event.target;
+                // Need to figure out positions better
+                var position = target.getBoundingClientRect();
+                var bbox = target.getBBox();
+                var el = d3.select(target);
+                var frm = this.svg.append("foreignObject");
+                el.node();
+                function updateTransition() {
+                    d.model.transition.character = inp.node().value || jsflap.LAMBDA;
+                    el.text(function (d) {
+                        return d.model.transition.toString();
+                    });
+                    _this.svg.select("foreignObject").remove();
+                    _this.state.modifyEdgeTransition = null;
+                }
+                var inp = frm.attr("x", position.left - 3).attr("y", bbox.y - 3).attr("width", 30).attr("height", 25).append("xhtml:form").append("input").attr("value", function () {
+                    this.focus();
+                    _this.state.modifyEdgeTransition = this;
+                    var value = d.model.transition.toString();
+                    return value !== jsflap.LAMBDA ? value : '';
+                }).attr("style", "width: 20px; border: none; padding: 3px; outline: none; background-color: #fff; border-radius: 3px").attr("maxlength", "1");
+                inp.transition().style('background-color', '#eee');
+                inp.on("blur", function () {
+                    updateTransition();
+                    frm.remove();
+                }).on("keypress", function () {
+                    var e = d3.event;
+                    if (e.keyCode == 13 || e.keyCode == 27) {
+                        if (e.stopPropagation)
+                            e.stopPropagation();
+                        e.preventDefault();
+                        updateTransition();
+                        this.remove();
+                    }
+                });
+            };
+            return VisualizationCollection;
+        })();
+        Visualization.VisualizationCollection = VisualizationCollection;
+    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -1431,251 +1791,4 @@ var jsflap;
         })();
         Transition.MultiCharacterTransition = MultiCharacterTransition;
     })(Transition = jsflap.Transition || (jsflap.Transition = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Visualization;
-    (function (Visualization) {
-        var EdgeVisualization = (function () {
-            /**
-             * Creates the node
-             * @param start
-             * @param end
-             * @param model
-             */
-            function EdgeVisualization(start, end, model) {
-                this.start = start;
-                this.end = end;
-                this.model = model;
-            }
-            Object.defineProperty(EdgeVisualization.prototype, "pathCoords", {
-                get: function () {
-                    var midpointX = (this.start.x + this.end.x) / 2, midpointY = (this.start.y + this.end.y) / 2;
-                    return [
-                        this.start,
-                        new jsflap.Point.MutablePoint(midpointX, midpointY),
-                        this.end
-                    ];
-                },
-                enumerable: true,
-                configurable: true
-            });
-            return EdgeVisualization;
-        })();
-        Visualization.EdgeVisualization = EdgeVisualization;
-    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Visualization;
-    (function (Visualization) {
-        var FutureEdgeVisualization = (function () {
-            /**
-             * Creates the node
-             * @param start
-             * @param end
-             */
-            function FutureEdgeVisualization(start, end) {
-                this._start = start;
-                this._end = end;
-                this.elm = null;
-            }
-            /**
-             * Adds the visualization to the svg
-             * @param svg
-             */
-            FutureEdgeVisualization.prototype.addTo = function (svg) {
-                this.elm = svg.append('line').attr('stroke', "#888");
-                this.update();
-            };
-            /**
-             * Removes the element from the svg
-             */
-            FutureEdgeVisualization.prototype.remove = function () {
-                this.elm.remove();
-                this.elm = null;
-            };
-            Object.defineProperty(FutureEdgeVisualization.prototype, "start", {
-                /**
-                 * Gets the starting point
-                 * @returns {Point.IPoint}
-                 */
-                get: function () {
-                    return this._start;
-                },
-                /**
-                 * Sets the starting point and updates the element if it exists
-                 * @param point
-                 */
-                set: function (point) {
-                    this._start.x = point.x;
-                    this._start.y = point.y;
-                    if (this.elm && point) {
-                        this.elm.attr('x1', point.x).attr('y1', point.y);
-                    }
-                },
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(FutureEdgeVisualization.prototype, "end", {
-                /**
-                 * Gets the ending point
-                 * @returns {Point.MutablePoint}
-                 */
-                get: function () {
-                    return this._end;
-                },
-                /**
-                 * Sets the ending point and updates the element if it exists
-                 * @param point
-                 */
-                set: function (point) {
-                    this._end.x = point.x;
-                    this._end.y = point.y;
-                    if (this.elm && point) {
-                        this.elm.attr('x2', point.x).attr('y2', point.y);
-                    }
-                },
-                enumerable: true,
-                configurable: true
-            });
-            /**
-             * Refresh the start and end points
-             */
-            FutureEdgeVisualization.prototype.update = function () {
-                // Updates the start/end points
-                this.start = this._start;
-                this.end = this._end;
-            };
-            return FutureEdgeVisualization;
-        })();
-        Visualization.FutureEdgeVisualization = FutureEdgeVisualization;
-    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Visualization;
-    (function (Visualization) {
-        var NodeVisualization = (function () {
-            /**
-             * Creates the node
-             * @param position
-             * @param model
-             */
-            function NodeVisualization(position, model) {
-                /**
-                 * The radius of the circle
-                 */
-                this.radius = 20;
-                this.position = position;
-                this.model = model;
-                model.setVisualization(this);
-            }
-            /**
-             * Gets an anchor point on the edge of the circle from any other given point
-             * @param point
-             * @returns {jsflap.Point.MutablePoint}
-             */
-            NodeVisualization.prototype.getAnchorPointFrom = function (point) {
-                var posX = this.position.x, posY = this.position.y, r = this.radius, dx = point.x - posX, dy = point.y - posY, theta = Math.atan(dy / dx), trigSide = (dx >= 0) ? 1 : -1, anchorX = posX + trigSide * r * Math.cos(theta), anchorY = posY + trigSide * r * Math.sin(theta);
-                return new jsflap.Point.MutablePoint(anchorX, anchorY);
-            };
-            return NodeVisualization;
-        })();
-        Visualization.NodeVisualization = NodeVisualization;
-    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Visualization;
-    (function (Visualization) {
-        var initialStatePath = [
-            { "x": -20, "y": -20 },
-            { "x": 0, "y": 0 },
-            { "x": -20, "y": 20 },
-            { "x": -20, "y": -20 }
-        ];
-        var VisualizationCollection = (function () {
-            /**
-             * Creates a new visualization collection
-             * @param svg
-             */
-            function VisualizationCollection(svg) {
-                this.svg = svg;
-                this.nodes = [];
-                this.edges = [];
-                this.update();
-            }
-            VisualizationCollection.prototype.update = function () {
-                var circles = this.svg.selectAll("circle.node").data(this.nodes);
-                circles.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "LightGoldenrodYellow").attr('stroke', "#333").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0).transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
-                circles.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
-                circles.exit().remove();
-                var circleLabels = this.svg.selectAll("text").data(this.nodes);
-                circleLabels.enter().append('text').text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#333").attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
-                circleLabels.attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
-                circleLabels.exit().remove();
-                var edgePaths = this.svg.selectAll("path.edge").data(this.edges);
-                var edgePath = d3.svg.line().interpolate('cardinal').x(function (d) { return d.x; }).y(function (d) { return d.y; });
-                edgePaths.enter().append('path').classed('edge', true).attr('d', function (d) { return edgePath(d.pathCoords); }).attr('stroke', '#333').attr('stroke-width', '1').attr('opacity', .8).transition().duration(300).attr('opacity', 1).attr('style', "marker-end:url(#markerArrow)");
-                edgePaths.exit().remove();
-                var edgeTransitions = d3.select(document.querySelector('section.board-container')).selectAll('input.transition').data(this.edges);
-                edgeTransitions.enter().append('input').classed('transition', true).attr('type', 'text').attr('maxlength', '1').style({
-                    top: function (d) { return d.pathCoords[1].y - 15 + 'px'; },
-                    left: function (d) { return d.pathCoords[1].x - 30 + 'px'; }
-                }).attr('value', function (d) { return d.model.transition.toString(); }).on('keypress', function (edge) {
-                    var target = d3.event.target;
-                    edge.model.transition.character = target.value;
-                    if (d3.event.which === 13) {
-                        target.blur();
-                    }
-                });
-            };
-            /**
-             * Adds a node to the visualization collection
-             * @param node
-             */
-            VisualizationCollection.prototype.addNode = function (node) {
-                this.nodes.push(node);
-                this.update();
-                return node;
-            };
-            /**
-             * Adds an edge to the visualization collection
-             * @param edge
-             */
-            VisualizationCollection.prototype.addEdge = function (edge) {
-                this.edges.push(edge);
-                this.update();
-                return edge;
-            };
-            /**
-             * Gets the nearest node from a point
-             * @param point
-             * @returns {NearestNode}
-             */
-            VisualizationCollection.prototype.getNearestNode = function (point) {
-                var nearestNode = {
-                    node: null,
-                    distance: Infinity,
-                    hover: false
-                };
-                this.nodes.forEach(function (node) {
-                    var distance = point.getDistanceTo(node.position);
-                    if (distance < nearestNode.distance) {
-                        nearestNode.node = node;
-                        nearestNode.distance = distance;
-                        nearestNode.hover = nearestNode.distance <= node.radius;
-                    }
-                });
-                return nearestNode;
-            };
-            return VisualizationCollection;
-        })();
-        Visualization.VisualizationCollection = VisualizationCollection;
-    })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
 })(jsflap || (jsflap = {}));

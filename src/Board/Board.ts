@@ -39,7 +39,7 @@ module jsflap.Board {
                 .attr("height", svg.getBoundingClientRect().height);
             this.graph = graph;
             this.state = new BoardState();
-            this.visualizations = new Visualization.VisualizationCollection(this.svg);
+            this.visualizations = new Visualization.VisualizationCollection(this.svg, this.state);
             this.registerBindings();
         }
 
@@ -78,9 +78,16 @@ module jsflap.Board {
                 } else {
                     endingNode = this.addNode(this.state.futureEdge.end);
                 }
-                this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start);
+                this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
-                this.addEdge(this.state.futureEdgeFrom, endingNode, this.state.futureEdge);
+                var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
+                setTimeout(() => {
+                    var elm = this.svg.select('text.transition:last-child');
+                    if(elm.length > 0) {
+                        this.visualizations.editTransition(newEdge, <SVGTextElement> elm.node());
+                    }
+                }, 10);
+                this.state.futureEdge.remove();
                 this.state.futureEdge = null;
                 this.state.futureEdgeFrom = null;
             }
@@ -95,7 +102,7 @@ module jsflap.Board {
          */
         public addNode(point: Point.IPoint): Visualization.NodeVisualization {
             var node = this.graph.addNode('q' + this.graph.getNodes().size),
-                nodeV = new Visualization.NodeVisualization(point.getMutablePoint(), node);
+                nodeV = new Visualization.NodeVisualization(node, point.getMPoint());
             return this.visualizations.addNode(nodeV);
         }
 
@@ -103,12 +110,11 @@ module jsflap.Board {
          * Adds an edge to the board given two nodes and a future edge
          * @param from
          * @param to
-         * @param futureEdge
+         * @param transition
          */
-        public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, futureEdge: Visualization.FutureEdgeVisualization) {
-            var edge = this.graph.addEdge(from.model, to.model, LAMBDA),
-                edgeV = new Visualization.EdgeVisualization(futureEdge.start, futureEdge.end, edge);
-            futureEdge.remove();
+        public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition) {
+            var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
+                edgeV = new Visualization.EdgeVisualization(edge, from, to);
             return this.visualizations.addEdge(edgeV);
         }
 
@@ -119,11 +125,20 @@ module jsflap.Board {
         private mousedown(event: MouseEvent) {
             event.event.preventDefault();
 
+
             var nearestNode = this.visualizations.getNearestNode(event.point);
             if(nearestNode.node && nearestNode.distance < 70) {
                 this.state.futureEdgeFrom = nearestNode.node;
-            } else {
+            } else if (this.state.modifyEdgeTransition === null) {
+
+                // Only add a node if the user is not currently click out of editing a transition OR is near a node
                 this.addNode(event.point);
+            }
+
+
+            // If the user was focused on modifying an edge transition, blur it.
+            if(this.state.modifyEdgeTransition !== null) {
+                this.state.modifyEdgeTransition.blur();
             }
         }
 
@@ -132,7 +147,11 @@ module jsflap.Board {
          * @param event
          */
         private mousemove(event: MouseEvent) {
-            var point = event.point.getMutablePoint();
+            var point = event.point.getMPoint();
+
+            if(event.event.which > 1) {
+                return false;
+            }
 
             if (this.state.futureEdge !== null) {
                 if(this.state.futureEdgeSnapping) {
@@ -163,20 +182,26 @@ module jsflap.Board {
                 }
                 this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
             } else if(this.state.futureEdgeFrom !== null) {
-                if(this.state.futureEdgeFrom.position.getDistanceTo(event.point) > 20) {
-                    this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMutablePoint(), event.point.getMutablePoint());
-                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                    this.state.futureEdge.addTo(this.svg);
-                }
+                this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
+                this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                this.state.futureEdge.addTo(this.svg);
             }
         }
 
+        /**
+         * The keydown event listener
+         * @param event
+         */
         private keydown(event) {
             if(event.which === 16 && !this.state.futureEdgeSnapping) {
                 this.state.futureEdgeSnapping = true;
             }
         }
 
+        /**
+         * The keyup event listener
+         * @param event
+         */
         private keyup(event) {
             if(event.which === 16 && this.state.futureEdgeSnapping) {
                 this.state.futureEdgeSnapping = false;

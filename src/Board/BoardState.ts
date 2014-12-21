@@ -8,8 +8,12 @@ module jsflap.Board {
 
     export class BoardState {
         public mode: BoardMode = BoardMode.DRAW;
+
         public futureEdge: Visualization.FutureEdgeVisualization = null;
         public futureEdgeFrom: Visualization.NodeVisualization = null;
         public futureEdgeSnapping: boolean = false;
+
+        public modifyEdgeTransition: HTMLInputElement = null;
+        public modifyEdgeControl: Visualization.EdgeVisualization = null;
     }
 }

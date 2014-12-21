@@ -4,12 +4,16 @@
 
     angular.module('jsflap', []);
     angular.module('jsflap')
-        .directive('jsflapBoard', function() {
+        .directive('jsflapBoard', function($rootScope) {
             return {
                 link: function (scope, elm, attrs) {
                     var graph = new jsflap.Graph.FAGraph(false);
                     var board = new jsflap.Board.Board(elm[0], graph);
                     window.graph = graph;
+                    elm[0].addEventListener("contextmenu", function(event) {
+                        $rootScope.$broadcast('contextmenu', {board: board, graph: graph, event: event});
+                        event.preventDefault();
+                    });
                 }
             };
         })
@@ -297,8 +301,8 @@
             return {
                 scope: {},
                 restrict: 'A',
-                template: '<ul id="contextMenu"  class="side-nav" ng-style="{top: posTop, left: posLeft}" ng-show="show">' +
-                '<li><a href="#">Make Initial {{posTop}}</a></li>' +
+                template: '<ul id="contextMenu"  class="side-nav" ng-style="{top: posTop + \'px\', left: posLeft + \'px\'}" ng-show="show">' +
+                '<li><a href="#">Make Initial</a></li>' +
                 '<li><a href="#">Make Final</a></li>' +
                 '</ul>',
                 link: {
@@ -308,11 +312,20 @@
                         scope.posTop = 0;
                     },
                     post: function (scope, elm, attrs) {
-                        scope.$on("contextmenu", function(event, DOMevent) {
+                        scope.$on("contextmenu", function(event, vars) {
                             scope.show = true;
-                            scope.posLeft = DOMevent.x;
-                            scope.posTop = DOMevent.y;
+                            scope.posLeft = vars.event.x;
+                            scope.posTop = vars.event.y;
+                            scope.$digest();
                         });
+
+                        document.addEventListener('click', function() {
+                            if(scope.show) {
+                                scope.show = false;
+                                scope.$digest();
+                            }
+                        });
+
                     }
                 }
             };

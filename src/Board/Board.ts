@@ -19,7 +19,7 @@ module jsflap.Board {
         /**
          * The current state of the board
          */
-        private state: BoardState;
+        public state: BoardState;
 
         /**
          * The visualizations
@@ -30,8 +30,9 @@ module jsflap.Board {
          * Represents both the visualization and the graph underneath
          * @param svg
          * @param graph
+         * @param $rootScope The scope to broadcast events on
          */
-        constructor(svg: Element, graph: Graph.IGraph) {
+        constructor(svg: Element, graph: Graph.IGraph, $rootScope) {
             this.svg = d3.select(svg);
             this.boardBase = this.svg.append("rect")
                 .attr("fill", "#FFFFFF")
@@ -39,14 +40,14 @@ module jsflap.Board {
                 .attr("height", svg.getBoundingClientRect().height);
             this.graph = graph;
             this.state = new BoardState();
-            this.visualizations = new Visualization.VisualizationCollection(this.svg, this.state);
-            this.registerBindings();
+            this.visualizations = new Visualization.VisualizationCollection(this.svg, this);
+            this.registerBindings($rootScope);
         }
 
         /**
          * Registers event bindings
          */
-        private registerBindings() {
+        private registerBindings($rootScope) {
             var _this = this;
             this.svg.on('mouseup', function () {
                 _this.mouseup(new MouseEvent(d3.event, this));
@@ -56,6 +57,11 @@ module jsflap.Board {
             });
             this.svg.on('mousemove', function () {
                 _this.mousemove(new MouseEvent(d3.event, this));
+            });
+            this.svg.on("contextmenu", function() {
+                $rootScope.$broadcast('contextmenu', {options: _this.state.contextMenuOptions, event: d3.event});
+                _this.state.contextMenuOptions = null;
+                d3.event.preventDefault();
             });
             document.addEventListener('keydown', function (event) {
                 _this.keydown(event);
@@ -70,6 +76,11 @@ module jsflap.Board {
          * @param event
          */
         private mouseup(event: MouseEvent) {
+
+            if(event.event.which > 1) {
+                return false;
+            }
+
             if (this.state.futureEdge) {
                 var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
                 var endingNode;
@@ -101,8 +112,13 @@ module jsflap.Board {
          * @returns {jsflap.Visualization.NodeVisualization}
          */
         public addNode(point: Point.IPoint): Visualization.NodeVisualization {
-            var node = this.graph.addNode('q' + this.graph.getNodes().size),
+            var nodeCount = this.graph.getNodes().size;
+            var node = this.graph.addNode('q' + nodeCount),
                 nodeV = new Visualization.NodeVisualization(node, point.getMPoint());
+
+            if(nodeCount === 0) {
+                this.setInitialNode(nodeV);
+            }
             return this.visualizations.addNode(nodeV);
         }
 
@@ -118,6 +134,14 @@ module jsflap.Board {
             return this.visualizations.addEdge(edgeV);
         }
 
+        public setInitialNode(node: Visualization.NodeVisualization) {
+            if(node) {
+                this.graph.setInitialNode(node.model);
+            } else {
+                this.graph.setInitialNode(null);
+            }
+        }
+
         /**
          * Mousedown event listener
          * @param event
@@ -125,6 +149,9 @@ module jsflap.Board {
         private mousedown(event: MouseEvent) {
             event.event.preventDefault();
 
+            if(event.event.which > 1) {
+                return false;
+            }
 
             var nearestNode = this.visualizations.getNearestNode(event.point);
             if(nearestNode.node && nearestNode.distance < 70) {

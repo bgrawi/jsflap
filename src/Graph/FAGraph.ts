@@ -102,10 +102,7 @@ module jsflap.Graph {
             // If unique node that is initial, make this one the new initial
             if(result === newNode) {
                 if(result.initial) {
-                    if (this.initialNode) {
-                        this.initialNode.initial = false;
-                    }
-                    this.initialNode = result;
+                    this.setInitialNode(result);
                 }
 
                 if(result.final) {
@@ -208,6 +205,22 @@ module jsflap.Graph {
          */
         getInitialNode(): jsflap.Node {
             return this.initialNode;
+        }
+
+        /**
+         * Sets the node as initial and verifies that there is only ever one initial node
+         * @param node
+         * @returns {jsflap.Node}
+         */
+        setInitialNode(node: jsflap.Node): jsflap.Node {
+            if (this.initialNode) {
+                this.initialNode.initial = false;
+            }
+            if(node) {
+                node.initial = true;
+                this.initialNode = node;
+            }
+            return node;
         }
 
         /**

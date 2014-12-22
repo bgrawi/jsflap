@@ -4,7 +4,7 @@ describe("Board", () => {
     beforeEach(() => {
         svgElm = document.createElement('svg');
         graph = new jsflap.Graph.FAGraph(false);
-        board = new jsflap.Board.Board(svgElm, graph);
+        board = new jsflap.Board.Board(svgElm, graph, jasmine.createSpyObj('$rootScope', ['$broadcast']));
     });
 
     it("should exist", () => {

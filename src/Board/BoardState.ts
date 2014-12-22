@@ -6,6 +6,11 @@ module jsflap.Board {
         ERASE
     }
 
+    export interface ContextMenuOption {
+        display: string;
+        callback: Function;
+    }
+
     export class BoardState {
         public mode: BoardMode = BoardMode.DRAW;
 
@@ -15,5 +20,7 @@ module jsflap.Board {
 
         public modifyEdgeTransition: HTMLInputElement = null;
         public modifyEdgeControl: Visualization.EdgeVisualization = null;
+
+        public contextMenuOptions: ContextMenuOption[] = null;
     }
 }

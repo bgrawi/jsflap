@@ -8,12 +8,8 @@
             return {
                 link: function (scope, elm, attrs) {
                     var graph = new jsflap.Graph.FAGraph(false);
-                    var board = new jsflap.Board.Board(elm[0], graph);
+                    var board = new jsflap.Board.Board(elm[0], graph, $rootScope);
                     window.graph = graph;
-                    elm[0].addEventListener("contextmenu", function(event) {
-                        $rootScope.$broadcast('contextmenu', {board: board, graph: graph, event: event});
-                        event.preventDefault();
-                    });
                 }
             };
         })
@@ -302,8 +298,7 @@
                 scope: {},
                 restrict: 'A',
                 template: '<ul id="contextMenu"  class="side-nav" ng-style="{top: posTop + \'px\', left: posLeft + \'px\'}" ng-show="show">' +
-                '<li><a href="#">Make Initial</a></li>' +
-                '<li><a href="#">Make Final</a></li>' +
+                '<li ng-repeat="option in options"><a href="#" ng-bind="option.display" ng-click="option.callback()"></a></li>' +
                 '</ul>',
                 link: {
                     pre: function(scope) {
@@ -313,9 +308,10 @@
                     },
                     post: function (scope, elm, attrs) {
                         scope.$on("contextmenu", function(event, vars) {
-                            scope.show = true;
                             scope.posLeft = vars.event.x;
                             scope.posTop = vars.event.y;
+                            scope.options = vars.options || [];
+                            scope.show = scope.options.length !== 0;
                             scope.$digest();
                         });
 
@@ -624,19 +620,20 @@ var jsflap;
              * Represents both the visualization and the graph underneath
              * @param svg
              * @param graph
+             * @param $rootScope The scope to broadcast events on
              */
-            function Board(svg, graph) {
+            function Board(svg, graph, $rootScope) {
                 this.svg = d3.select(svg);
                 this.boardBase = this.svg.append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
                 this.graph = graph;
                 this.state = new _Board.BoardState();
-                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg, this.state);
-                this.registerBindings();
+                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg, this);
+                this.registerBindings($rootScope);
             }
             /**
              * Registers event bindings
              */
-            Board.prototype.registerBindings = function () {
+            Board.prototype.registerBindings = function ($rootScope) {
                 var _this = this;
                 this.svg.on('mouseup', function () {
                     _this.mouseup(new _Board.MouseEvent(d3.event, this));
@@ -646,6 +643,11 @@ var jsflap;
                 });
                 this.svg.on('mousemove', function () {
                     _this.mousemove(new _Board.MouseEvent(d3.event, this));
+                });
+                this.svg.on("contextmenu", function () {
+                    $rootScope.$broadcast('contextmenu', { options: _this.state.contextMenuOptions, event: d3.event });
+                    _this.state.contextMenuOptions = null;
+                    d3.event.preventDefault();
                 });
                 document.addEventListener('keydown', function (event) {
                     _this.keydown(event);
@@ -660,6 +662,9 @@ var jsflap;
              */
             Board.prototype.mouseup = function (event) {
                 var _this = this;
+                if (event.event.which > 1) {
+                    return false;
+                }
                 if (this.state.futureEdge) {
                     var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
                     var endingNode;
@@ -689,7 +694,11 @@ var jsflap;
              * @returns {jsflap.Visualization.NodeVisualization}
              */
             Board.prototype.addNode = function (point) {
-                var node = this.graph.addNode('q' + this.graph.getNodes().size), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
+                var nodeCount = this.graph.getNodes().size;
+                var node = this.graph.addNode('q' + nodeCount), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
+                if (nodeCount === 0) {
+                    this.setInitialNode(nodeV);
+                }
                 return this.visualizations.addNode(nodeV);
             };
             /**
@@ -702,12 +711,23 @@ var jsflap;
                 var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), edgeV = new jsflap.Visualization.EdgeVisualization(edge, from, to);
                 return this.visualizations.addEdge(edgeV);
             };
+            Board.prototype.setInitialNode = function (node) {
+                if (node) {
+                    this.graph.setInitialNode(node.model);
+                }
+                else {
+                    this.graph.setInitialNode(null);
+                }
+            };
             /**
              * Mousedown event listener
              * @param event
              */
             Board.prototype.mousedown = function (event) {
                 event.event.preventDefault();
+                if (event.event.which > 1) {
+                    return false;
+                }
                 var nearestNode = this.visualizations.getNearestNode(event.point);
                 if (nearestNode.node && nearestNode.distance < 70) {
                     this.state.futureEdgeFrom = nearestNode.node;
@@ -795,6 +815,7 @@ var jsflap;
                 this.futureEdgeSnapping = false;
                 this.modifyEdgeTransition = null;
                 this.modifyEdgeControl = null;
+                this.contextMenuOptions = null;
             }
             return BoardState;
         })();
@@ -892,10 +913,7 @@ var jsflap;
                 // If unique node that is initial, make this one the new initial
                 if (result === newNode) {
                     if (result.initial) {
-                        if (this.initialNode) {
-                            this.initialNode.initial = false;
-                        }
-                        this.initialNode = result;
+                        this.setInitialNode(result);
                     }
                     if (result.final) {
                         this.finalNodes.add(result);
@@ -988,6 +1006,21 @@ var jsflap;
              */
             FAGraph.prototype.getInitialNode = function () {
                 return this.initialNode;
+            };
+            /**
+             * Sets the node as initial and verifies that there is only ever one initial node
+             * @param node
+             * @returns {jsflap.Node}
+             */
+            FAGraph.prototype.setInitialNode = function (node) {
+                if (this.initialNode) {
+                    this.initialNode.initial = false;
+                }
+                if (node) {
+                    node.initial = true;
+                    this.initialNode = node;
+                }
+                return node;
             };
             /**
              * Gets the list of final nodes
@@ -1388,6 +1421,77 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * A Transition of a single character in an NFA
+         */
+        var CharacterTransition = (function () {
+            /**
+             * Creates a new single char transition
+             * @param character
+             */
+            function CharacterTransition(character) {
+                if (character.length > 1) {
+                    throw new Error("Character Transition length must be less than or equal to 1");
+                }
+                else {
+                    this.character = character;
+                }
+            }
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            CharacterTransition.prototype.toString = function () {
+                return this.character;
+            };
+            /**
+             * Determines if the input matches this transition
+             * @param input
+             * @returns {boolean}
+             */
+            CharacterTransition.prototype.canFollowOn = function (input) {
+                return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
+            };
+            return CharacterTransition;
+        })();
+        Transition.CharacterTransition = CharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * A Transition of a multi character in an DFA
+         */
+        var MultiCharacterTransition = (function () {
+            /**
+             * Creates a new multi char transition
+             * @param characters
+             */
+            function MultiCharacterTransition(characters) {
+                this.characters = characters;
+            }
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            MultiCharacterTransition.prototype.toString = function () {
+                return this.characters;
+            };
+            return MultiCharacterTransition;
+        })();
+        Transition.MultiCharacterTransition = MultiCharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
     var Visualization;
     (function (Visualization) {
         var EdgeVisualization = (function () {
@@ -1580,10 +1684,12 @@ var jsflap;
             /**
              * Creates a new visualization collection
              * @param svg
+             * @param board
              */
-            function VisualizationCollection(svg, state) {
+            function VisualizationCollection(svg, board) {
                 this.svg = svg;
-                this.state = state;
+                this.state = board.state;
+                this.board = board;
                 this.nodes = [];
                 this.edges = [];
                 this.update();
@@ -1594,38 +1700,72 @@ var jsflap;
             VisualizationCollection.prototype.update = function () {
                 var _this = this;
                 var nodes = this.svg.selectAll("circle.node").data(this.nodes);
-                nodes.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "#008cba").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0).transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
+                var newNodes = nodes.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "#008cba").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0);
+                var nodeContextMenu = function (node) {
+                    var event = d3.event;
+                    var initialOption, finalOption;
+                    if (node.model.initial) {
+                        initialOption = {
+                            display: 'Remove Initial',
+                            callback: function () {
+                                _this.board.setInitialNode(null);
+                                _this.update();
+                            }
+                        };
+                    }
+                    else {
+                        initialOption = {
+                            display: 'Make Initial',
+                            callback: function () {
+                                _this.board.setInitialNode(node);
+                                _this.update();
+                            }
+                        };
+                    }
+                    if (node.model.final) {
+                        finalOption = {
+                            display: 'Remove Final',
+                            callback: function () {
+                                node.model.final = false;
+                                _this.update();
+                            }
+                        };
+                    }
+                    else {
+                        finalOption = {
+                            display: 'Make Final',
+                            callback: function () {
+                                node.model.final = true;
+                                _this.update();
+                            }
+                        };
+                    }
+                    _this.state.contextMenuOptions = [finalOption, initialOption];
+                };
+                newNodes.on('contextmenu', nodeContextMenu);
+                newNodes.transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
                 nodes.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
                 nodes.exit().remove();
                 var nodeLabels = this.svg.selectAll("text.nodeLabel").data(this.nodes);
-                nodeLabels.enter().append('text').classed('nodeLabel', true).text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#FFF").attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
+                var newNodeLabels = nodeLabels.enter().append('text').classed('nodeLabel', true).text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#FFF").attr('opacity', 0);
+                newNodeLabels.on('contextmenu', nodeContextMenu);
+                newNodeLabels.transition().delay(100).duration(300).attr('opacity', 1);
                 nodeLabels.attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
                 nodeLabels.exit().remove();
+                var initialNodes = this.svg.selectAll("path.initialPath").data(this.nodes.filter(function (node) { return node.model.initial; }));
+                initialNodes.transition().attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
+                var newInitialNodes = initialNodes.enter().append('path').classed('initialPath', true).attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; }).attr('fill', "#333");
+                newInitialNodes.attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
+                initialNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).remove();
+                var finalNodes = this.svg.selectAll("circle.finalCircle").data(this.nodes.filter(function (node) { return node.model.final; }));
+                finalNodes.attr("r", function (d) { return d.radius - 3; }).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
+                var newFinalNodes = finalNodes.enter().append('circle').classed('finalCircle', true).attr("r", function (d) { return d.radius - 3; }).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('stroke', "#FFF").attr('stroke-width', "1").attr('fill', "none");
+                newFinalNodes.on('contextmenu', nodeContextMenu);
+                newFinalNodes.attr('opacity', 0).transition().attr('opacity', 1);
+                finalNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).remove();
                 var edgePaths = this.svg.selectAll("path.edge").data(this.edges);
                 edgePaths.enter().append('path').classed('edge', true).attr('d', function (d) { return d.getPath(); }).attr('stroke', '#333').attr('stroke-width', '1').attr('opacity', .8).transition().duration(300).attr('opacity', 1).attr('style', "marker-end:url(#markerArrow)");
                 edgePaths.exit().remove();
-                /*var edgeTransitions = d3.select(document.querySelector('section.board-container')).selectAll('input.transition')
-                 .data(this.edges);
-    
-                 edgeTransitions
-                 .enter()
-                 .append('input')
-                 .classed('transition', true)
-                 .attr('type', 'text')
-                 .attr('maxlength', '1')
-                 .style({
-                 top: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].y - 15 + 'px',
-                 left: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].x - 30 + 'px'
-                 })
-                 .attr('value', (d: Visualization.EdgeVisualization) => d.model.transition.toString())
-                 .on('keypress', (edge: Visualization.EdgeVisualization) => {
-                 var target = (<HTMLInputElement> d3.event.target);
-                 (<Transition.CharacterTransition> edge.model.transition).character = target.value;
-    
-                 if ((<KeyboardEvent> d3.event).which === 13) {
-                 target.blur();
-                 }
-                 });*/
                 var edgeTransitions = this.svg.selectAll('text.transition').data(this.edges);
                 var newEdgeTransitions = edgeTransitions.enter().append('text').classed('transition', true).attr("font-family", "sans-serif").attr("font-size", "16px").attr("text-anchor", "middle").attr("fill", "#000").attr('x', function (d) { return d.getTransitionPoint().x; }).attr('y', function (d) { return d.getTransitionPoint().y; }).text(function (d) { return d.model.transition.toString(); });
                 newEdgeTransitions.on('mousedown', function () {
@@ -1720,75 +1860,4 @@ var jsflap;
         })();
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Transition;
-    (function (Transition) {
-        /**
-         * A Transition of a single character in an NFA
-         */
-        var CharacterTransition = (function () {
-            /**
-             * Creates a new single char transition
-             * @param character
-             */
-            function CharacterTransition(character) {
-                if (character.length > 1) {
-                    throw new Error("Character Transition length must be less than or equal to 1");
-                }
-                else {
-                    this.character = character;
-                }
-            }
-            /**
-             * Gets the string representation of the transition
-             * @returns {string}
-             */
-            CharacterTransition.prototype.toString = function () {
-                return this.character;
-            };
-            /**
-             * Determines if the input matches this transition
-             * @param input
-             * @returns {boolean}
-             */
-            CharacterTransition.prototype.canFollowOn = function (input) {
-                return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
-            };
-            return CharacterTransition;
-        })();
-        Transition.CharacterTransition = CharacterTransition;
-    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-var jsflap;
-(function (jsflap) {
-    var Transition;
-    (function (Transition) {
-        /**
-         * A Transition of a multi character in an DFA
-         */
-        var MultiCharacterTransition = (function () {
-            /**
-             * Creates a new multi char transition
-             * @param characters
-             */
-            function MultiCharacterTransition(characters) {
-                this.characters = characters;
-            }
-            /**
-             * Gets the string representation of the transition
-             * @returns {string}
-             */
-            MultiCharacterTransition.prototype.toString = function () {
-                return this.characters;
-            };
-            return MultiCharacterTransition;
-        })();
-        Transition.MultiCharacterTransition = MultiCharacterTransition;
-    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
 })(jsflap || (jsflap = {}));

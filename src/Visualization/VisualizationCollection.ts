@@ -49,12 +49,19 @@ module jsflap.Visualization {
         public state: Board.BoardState;
 
         /**
+         * The board
+         */
+        public board: Board.Board;
+
+        /**
          * Creates a new visualization collection
          * @param svg
+         * @param board
          */
-        constructor(svg: D3.Selection, state: Board.BoardState) {
+        constructor(svg: D3.Selection, board: Board.Board) {
             this.svg = svg;
-            this.state = state;
+            this.state = board.state;
+            this.board = board;
             this.nodes = [];
             this.edges = [];
             this.update();
@@ -68,7 +75,7 @@ module jsflap.Visualization {
             var nodes = this.svg.selectAll("circle.node")
                 .data(this.nodes);
 
-            nodes.enter()
+            var newNodes = nodes.enter()
                 .append("circle")
                 .classed('node', true)
                 .attr("cx", (d: NodeVisualization) => d.position.x)
@@ -76,8 +83,52 @@ module jsflap.Visualization {
                 .attr('fill', "#008cba")
                 //.attr('stroke', "#333")
                 .attr("r", (d: NodeVisualization) => d.radius - 10)
-                .attr('opacity', 0)
-                .transition()
+                .attr('opacity', 0);
+
+            var nodeContextMenu = (node: Visualization.NodeVisualization) => {
+                var event = d3.event;
+                var initialOption, finalOption;
+                if(node.model.initial) {
+                    initialOption = {
+                        display: 'Remove Initial',
+                        callback: () => {
+                            this.board.setInitialNode(null);
+                            this.update();
+                        }
+                    };
+                } else {
+                    initialOption = {
+                        display: 'Make Initial',
+                        callback: () => {
+                            this.board.setInitialNode(node);
+                            this.update();
+                        }
+                    };
+                }
+                
+                if(node.model.final) {
+                    finalOption = {
+                        display: 'Remove Final',
+                        callback: () => {
+                            node.model.final = false;
+                            this.update();
+                        }
+                    };
+                } else {
+                    finalOption = {
+                        display: 'Make Final',
+                        callback: () => {
+                            node.model.final = true;
+                            this.update();
+                        }
+                    };
+                }
+
+                this.state.contextMenuOptions = [finalOption, initialOption];
+            };
+            newNodes.on('contextmenu', nodeContextMenu);
+
+            newNodes.transition()
                 .ease("elastic")
                 .duration(300)
                 .attr("r", (d: NodeVisualization) => d.radius)
@@ -92,7 +143,7 @@ module jsflap.Visualization {
             var nodeLabels = this.svg.selectAll("text.nodeLabel")
                 .data(this.nodes);
 
-            nodeLabels
+            var newNodeLabels = nodeLabels
                 .enter()
                 .append('text')
                 .classed('nodeLabel', true)
@@ -102,8 +153,11 @@ module jsflap.Visualization {
                 .attr("font-family", "sans-serif")
                 .attr("font-size", "18px")
                 .attr("fill", "#FFF")
-                .attr('opacity', 0)
-                .transition()
+                .attr('opacity', 0);
+
+            newNodeLabels.on('contextmenu', nodeContextMenu);
+
+            newNodeLabels.transition()
                 .delay(100)
                 .duration(300)
                 .attr('opacity', 1);
@@ -113,6 +167,65 @@ module jsflap.Visualization {
                 .attr("y", (d: NodeVisualization) => d.position.y + 5);
 
             nodeLabels.exit().remove();
+
+            var initialNodes = this.svg.selectAll("path.initialPath")
+                .data(this.nodes.filter((node: Visualization.NodeVisualization) => node.model.initial));
+
+            initialNodes
+                .transition()
+                .attr('d', (d: Visualization.NodeVisualization) => 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z');
+
+            var newInitialNodes = initialNodes
+                .enter()
+                .append('path')
+                .classed('initialPath', true)
+                .attr('d', (d: Visualization.NodeVisualization) => 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z')
+                .attr('fill', "#333");
+
+            newInitialNodes
+                .attr('opacity', 0)
+                .transition()
+                .delay(100)
+                .duration(300)
+                .attr('opacity', 1);
+
+            initialNodes.exit()
+                .attr('opacity', 1)
+                .transition()
+                .attr('opacity', 0)
+                .remove();
+
+            var finalNodes = this.svg.selectAll("circle.finalCircle")
+                .data(this.nodes.filter((node: Visualization.NodeVisualization) => node.model.final));
+
+            finalNodes
+                .attr("r", (d: NodeVisualization) => d.radius - 3)
+                .attr("cx", (d: NodeVisualization) => d.position.x)
+                .attr("cy", (d: NodeVisualization) => d.position.y);
+
+            var newFinalNodes = finalNodes
+                .enter()
+                .append('circle')
+                .classed('finalCircle', true)
+                .attr("r", (d: NodeVisualization) => d.radius - 3)
+                .attr("cx", (d: NodeVisualization) => d.position.x)
+                .attr("cy", (d: NodeVisualization) => d.position.y)
+                .attr('stroke', "#FFF")
+                .attr('stroke-width', "1")
+                .attr('fill', "none");
+
+            newFinalNodes.on('contextmenu', nodeContextMenu);
+
+            newFinalNodes
+                .attr('opacity', 0)
+                .transition()
+                .attr('opacity', 1);
+
+            finalNodes.exit()
+                .attr('opacity', 1)
+                .transition()
+                .attr('opacity', 0)
+                .remove();
 
             var edgePaths = this.svg.selectAll("path.edge")
                 .data(this.edges);
@@ -132,29 +245,6 @@ module jsflap.Visualization {
 
             edgePaths.exit().remove();
 
-            /*var edgeTransitions = d3.select(document.querySelector('section.board-container')).selectAll('input.transition')
-             .data(this.edges);
-
-             edgeTransitions
-             .enter()
-             .append('input')
-             .classed('transition', true)
-             .attr('type', 'text')
-             .attr('maxlength', '1')
-             .style({
-             top: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].y - 15 + 'px',
-             left: (d: Visualization.EdgeVisualization) =>  d.pathCoords[1].x - 30 + 'px'
-             })
-             .attr('value', (d: Visualization.EdgeVisualization) => d.model.transition.toString())
-             .on('keypress', (edge: Visualization.EdgeVisualization) => {
-             var target = (<HTMLInputElement> d3.event.target);
-             (<Transition.CharacterTransition> edge.model.transition).character = target.value;
-
-             if ((<KeyboardEvent> d3.event).which === 13) {
-             target.blur();
-             }
-             });*/
-
             var edgeTransitions = this.svg.selectAll('text.transition')
                 .data(this.edges);
 
@@ -171,6 +261,7 @@ module jsflap.Visualization {
                 .attr('x', (d: Visualization.EdgeVisualization) =>  d.getTransitionPoint().x)
                 .attr('y', (d: Visualization.EdgeVisualization) =>  d.getTransitionPoint().y)
                 .text((d: Visualization.EdgeVisualization) => d.model.transition.toString());
+
             newEdgeTransitions
                 .on('mousedown', () => {
                     var event = d3.event;

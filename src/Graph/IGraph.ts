@@ -24,6 +24,7 @@ module jsflap.Graph {
         addEdge(edge: Edge): Edge;
 
         getInitialNode(): Node;
+        setInitialNode(node: Node): Node;
         getFinalNodes(): NodeList;
 
         getAlphabet(): Object;

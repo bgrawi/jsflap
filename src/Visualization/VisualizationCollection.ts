@@ -110,7 +110,7 @@ module jsflap.Visualization {
                     finalOption = {
                         display: 'Remove Final',
                         callback: () => {
-                            node.model.final = false;
+                            this.board.unmarkFinalNode(node);
                             this.update();
                         }
                     };
@@ -118,7 +118,7 @@ module jsflap.Visualization {
                     finalOption = {
                         display: 'Make Final',
                         callback: () => {
-                            node.model.final = true;
+                            this.board.markFinalNode(node);
                             this.update();
                         }
                     };
@@ -278,6 +278,10 @@ module jsflap.Visualization {
                 .duration(300)
                 .attr('opacity', 1);
 
+            if(typeof this.board.onBoardUpdateFn === 'function') {
+                this.board.onBoardUpdateFn();
+            }
+
         }
 
         /**
@@ -346,6 +350,9 @@ module jsflap.Visualization {
                 el.text(function(d) { return d.model.transition.toString() });
                 _this.svg.select("foreignObject").remove();
                 _this.state.modifyEdgeTransition = null;
+                if(typeof _this.board.onBoardUpdateFn === 'function') {
+                    _this.board.onBoardUpdateFn();
+                }
             }
 
             var inp = frm

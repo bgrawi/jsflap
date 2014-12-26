@@ -5,6 +5,8 @@ module jsflap {
         has(nodeString: string): boolean;
         get(node: Node): Node;
         get(node: string): Node;
+        remove(node: Node): boolean;
+        remove(node: string): boolean;
     }
     
     export class NodeList implements  INodeList {
@@ -88,6 +90,23 @@ module jsflap {
             } else {
                 return null;
             }
+        }
+
+        /**
+         * Removes a node from the list
+         * @param node
+         */
+        public remove(node: any): boolean {
+            if(this.has(node)) {
+                if(typeof node === 'string') {
+                    delete this.nodes[node];
+                    return true;
+                } else if(node instanceof Node) {
+                    delete this.nodes[node.toString()];
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

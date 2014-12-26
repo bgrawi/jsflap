@@ -182,6 +182,20 @@ module jsflap.Graph {
         }
 
         /**
+         * Updates the alphabet after any changes to the transitions
+         */
+        updateAlphabet() {
+
+            // Update the alphabet
+            this.edges.edges.forEach((edge) => {
+                var transitionChar = edge.transition.toString();
+                if(!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== LAMBDA && transitionChar !== BLANK) {
+                    this.alphabet[transitionChar] = true;
+                }
+            });
+        }
+
+        /**
          * Gets an edge from the edge list
          * @param edge
          * @returns {any}
@@ -219,6 +233,32 @@ module jsflap.Graph {
             if(node) {
                 node.initial = true;
                 this.initialNode = node;
+            }
+            return node;
+        }
+
+        /**
+         * Marks a node as final in the graph
+         * @param node
+         * @returns {jsflap.Node|any}
+         */
+        markFinalNode(node: jsflap.Node): jsflap.Node {
+            node.final = true;
+            if(this.nodes.has(node) && !this.finalNodes.has(node)) {
+                this.finalNodes.add(node);
+            }
+            return node;
+        }
+
+        /**
+         * Unmarks a node as final from the graph
+         * @param node
+         * @returns {jsflap.Node}
+         */
+        unmarkFinalNode(node: jsflap.Node): jsflap.Node {
+            node.final = false;
+            if(this.nodes.has(node) && this.finalNodes.has(node)) {
+                this.finalNodes.remove(node);
             }
             return node;
         }
@@ -376,6 +416,7 @@ module jsflap.Graph {
                 isValid = false;
             }
 
+            this.updateAlphabet();
 
             if(this.deterministic) {
 

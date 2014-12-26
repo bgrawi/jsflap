@@ -8,7 +8,7 @@
     <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
     <link rel="stylesheet" href="dist/css/jsflap.css">
 </head>
-<body ng-app="jsflap" ng-controller="AppController">
+<body ng-app="jsflap" ng-controller="AppController" jsflap-app>
 <nav class="top-bar" data-topbar role="navigation">
     <ul class="title-area">
         <li class="name">
@@ -20,8 +20,27 @@
     <section class="top-bar-section">
         <!-- Right Nav Section -->
         <ul class="right">
+            <li><a href="#"><i class="fa fa-undo"></i></a></li>
+            <li><a href="#"><i class="fa fa-undo fa-flip-horizontal"></i></a></li>
             <li class="has-dropdown">
-                <a href="#">NPDA</a>
+                <a href="#"><i class="fa fa-folder-open"></i> Open...</a>
+                <ul class="dropdown">
+                    <li><a href="#">Local Storage</a></li>
+                    <li><a href="#">JFLAP file (.jff)</a></li>
+                    <li><a href="#">Automatta Definition (.txt)</a></li>
+                </ul>
+            </li>
+            <li class="active"><a href="#"><i class="fa fa-save"></i> Save</a></li>
+
+        </ul>
+
+        <!-- Left Nav Section -->
+        <ul class="left">
+            <li class="active"><a href="#"><i class="fa fa-pencil"></i></a></li>
+            <li><a href="#"><i class="fa fa-arrows"></i></a></li>
+            <li><a href="#"><i class="fa fa-eraser"></i></a></li>
+            <li class="has-dropdown">
+                <a href="#">NFA</a>
                 <ul class="dropdown">
                     <li class="active"><a href="#">NFA</a></li>
                     <li><a href="#">DFA</a></li>
@@ -30,33 +49,46 @@
                     <li><a href="#">Turing Machine</a></li>
                 </ul>
             </li>
-            <li class="has-dropdown">
-                <a href="#"><i class="fa fa-flash"></i> Test</a>
-                <ul class="dropdown">
-                    <li><a href="#">Single Run</a></li>
-                    <li><a href="#">Multiple Run</a></li>
-                    <li><a href="#">Simulate...</a></li>
-                </ul>
-            </li>
-            <li class="active"><a href="#"><i class="fa fa-save"></i> Save</a></li>
-        </ul>
-
-        <!-- Left Nav Section -->
-        <ul class="left">
-            <li class="active"><a href="#"><i class="fa fa-pencil"></i> Draw</a></li>
-            <li><a href="#"><i class="fa fa-arrows"></i> Move</a></li>
-            <li><a href="#"><i class="fa fa-eraser"></i> Eraser</a></li>
         </ul>
     </section>
 </nav>
-<section class="board-container">
-    <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" jsflap-board>
-        <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
-                orient="auto">
-            <path class="markerArrow" d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;"></path>
-        </marker>
-    </svg>
-</section>
+<div class="full main-row">
+    <section class="board-container">
+        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" jsflap-board>
+            <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
+                    orient="auto">
+                <path class="markerArrow" d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;"></path>
+            </marker>
+        </svg>
+    </section>
+    <section class="board-sidebar">
+        <div class="text-heading">
+            Test Machine
+        </div>
+        <form name="testInputsForm" jsflap-test-inputs="">
+            <div class="text-subheading">
+                <div class="row full">
+                    <div class="small-4 columns" style="padding: 5px; color: #fff; background-color: #26A65B;">
+                        {{resultTotals[1]}} Accepted
+                    </div>
+                    <div class="small-4 columns" style="padding: 5px; color: #fff; background-color: #C3272B;">
+                        {{resultTotals[0]}} Rejected
+                    </div>
+                    <div class="small-4 columns" style="padding: 5px; color: #fff; background-color: #AAA;">
+                        {{resultTotals[2]}} Unknown
+                    </div>
+                </div>
+            </div>
+            <label ng-repeat="testInput in testInputs">
+                <input type="text" name="{{$index}}" ng-model="testInput.inputString" jsflap-test-input="" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''" placeholder="Enter test string here">
+            </label>
+            <div class="text-footer">
+                <a href="#" ng-click="addTestInput()"><i class="fa fa-plus"></i> Add</a>
+            </div>
+        </form>
+    </section>
+</div>
+
 <div jsflap-board-context-menu="">
 </div>
 <script src="bower_components/d3/d3.min.js" charset="utf-8"></script>

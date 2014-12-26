@@ -27,6 +27,9 @@ module jsflap.Graph {
         setInitialNode(node: Node): Node;
         getFinalNodes(): NodeList;
 
+        markFinalNode(node: Node): Node;
+        unmarkFinalNode(node: Node): Node;
+
         getAlphabet(): Object;
 
         toString(): string;

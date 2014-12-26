@@ -27,6 +27,11 @@ module jsflap.Board {
         private visualizations: Visualization.VisualizationCollection;
 
         /**
+         * The function to call after the board has been updated
+         */
+        public onBoardUpdateFn: Function = null;
+
+        /**
          * Represents both the visualization and the graph underneath
          * @param svg
          * @param graph
@@ -134,12 +139,32 @@ module jsflap.Board {
             return this.visualizations.addEdge(edgeV);
         }
 
+        /**
+         * Sets the initial node for the graph
+         * @param node
+         */
         public setInitialNode(node: Visualization.NodeVisualization) {
             if(node) {
                 this.graph.setInitialNode(node.model);
             } else {
                 this.graph.setInitialNode(null);
             }
+        }
+
+        /**
+         * Marks the final node for the graph
+         * @param node
+         */
+        public markFinalNode(node: Visualization.NodeVisualization) {
+            this.graph.markFinalNode(node.model);
+        }
+
+        /**
+         * Unmarks the final node for the graph
+         * @param node
+         */
+        public unmarkFinalNode(node: Visualization.NodeVisualization) {
+            this.graph.unmarkFinalNode(node.model);
         }
 
         /**
@@ -159,7 +184,8 @@ module jsflap.Board {
             } else if (this.state.modifyEdgeTransition === null) {
 
                 // Only add a node if the user is not currently click out of editing a transition OR is near a node
-                this.addNode(event.point);
+
+                this.state.futureEdgeFrom = this.addNode(event.point);
             }
 
 

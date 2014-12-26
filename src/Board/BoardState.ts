@@ -20,6 +20,8 @@ module jsflap.Board {
 
         public draggingNode: Visualization.NodeVisualization = null;
 
+        public quickMoveFrom: BoardMode = null;
+
         public modifyEdgeTransition: HTMLInputElement = null;
         public modifyEdgeControl: Visualization.EdgeVisualization = null;
 

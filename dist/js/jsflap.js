@@ -63,11 +63,11 @@
                         ];
 
                         function updateTests() {
-                            console.log('STARTING TESTS');
+                            //console.log('STARTING TESTS');
                             scope.resultTotals[0] = 0;
                             scope.resultTotals[1] = 0;
                             scope.resultTotals[2] = 0;
-                            var t0 = performance.now();
+                            //var t0 = performance.now();
                             scope.testInputs.forEach(function(testInput) {
                                 try {
                                     testInput.result = machine.run(testInput.inputString);
@@ -78,9 +78,9 @@
                                     testInput.result = null;
                                 }
                             });
-                            var t1 = performance.now();
+                            //var t1 = performance.now();
 
-                            console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
+                            //console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
                         }
 
                         scope.testInputs = [
@@ -205,6 +205,13 @@ var jsflap;
                 to.addFromEdge(this);
             }
         }
+        /**
+         * Set the visualization
+         * @param visualization
+         */
+        Edge.prototype.setVisualization = function (visualization) {
+            this.visualization = visualization;
+        };
         /**
          * Gets the configuration state as a string
          * @returns {string}
@@ -517,9 +524,11 @@ var jsflap;
                 });
                 document.addEventListener('keydown', function (event) {
                     _this.keydown(event);
+                    $rootScope.$digest();
                 });
                 document.addEventListener('keyup', function (event) {
                     _this.keyup(event);
+                    $rootScope.$digest();
                 });
             };
             /**
@@ -557,6 +566,7 @@ var jsflap;
                 }
                 else if (this.state.mode === 1 /* MOVE */) {
                     this.state.draggingNode = null;
+                    this.state.modifyEdgeControl = null;
                 }
             };
             /**
@@ -670,8 +680,25 @@ var jsflap;
                         this.state.futureEdge.addTo(this.svg);
                     }
                 }
-                else if (this.state.mode === 1 /* MOVE */ && this.state.draggingNode) {
-                    this.state.draggingNode.position = point.getMPoint();
+                else if (this.state.mode === 1 /* MOVE */ && (this.state.draggingNode || this.state.modifyEdgeControl)) {
+                    var newPoint = point.getMPoint();
+                    if (this.state.futureEdgeSnapping) {
+                        newPoint.x = (Math.round(newPoint.x / 20) * 20);
+                        newPoint.y = (Math.round(newPoint.y / 20) * 20);
+                    }
+                    if (this.state.draggingNode) {
+                        this.state.draggingNode.position = newPoint;
+                        this.state.draggingNode.model.toEdges.edges.forEach(function (edgeModel) {
+                            edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization);
+                        });
+                        this.state.draggingNode.model.fromEdges.edges.forEach(function (edgeModel) {
+                            edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization);
+                        });
+                    }
+                    else {
+                        // Can only be modify Edge control now
+                        this.state.modifyEdgeControl.control = newPoint;
+                    }
                     this.visualizations.update();
                 }
             };
@@ -683,6 +710,36 @@ var jsflap;
                 if (event.which === 16 && !this.state.futureEdgeSnapping) {
                     this.state.futureEdgeSnapping = true;
                 }
+                // if not editing a textbox
+                if (this.state.modifyEdgeTransition === null) {
+                    switch (event.which) {
+                        case 32:
+                            if (this.state.mode !== 1 /* MOVE */) {
+                                this.state.quickMoveFrom = this.state.mode;
+                                this.state.mode = 1 /* MOVE */;
+                                this.visualizations.update();
+                            }
+                            break;
+                        case 68:
+                            if (this.state.mode !== 0 /* DRAW */) {
+                                this.state.mode = 0 /* DRAW */;
+                                this.visualizations.update();
+                            }
+                            break;
+                        case 69:
+                            if (this.state.mode !== 2 /* ERASE */) {
+                                this.state.mode = 2 /* ERASE */;
+                                this.visualizations.update();
+                            }
+                            break;
+                        case 77:
+                            if (this.state.mode !== 1 /* MOVE */) {
+                                this.state.mode = 1 /* MOVE */;
+                                this.visualizations.update();
+                            }
+                            break;
+                    }
+                }
             };
             /**
              * The keyup event listener
@@ -692,6 +749,17 @@ var jsflap;
                 if (event.which === 16 && this.state.futureEdgeSnapping) {
                     this.state.futureEdgeSnapping = false;
                 }
+                //if(this.state.modifyEdgeTransition === null) {
+                if (event.which === 32 && this.state.quickMoveFrom !== null) {
+                    console.log(this.state.quickMoveFrom);
+                    this.state.mode = this.state.quickMoveFrom;
+                    this.state.quickMoveFrom = null;
+                    if (this.state.modifyEdgeControl) {
+                        this.state.modifyEdgeControl = null;
+                    }
+                    this.visualizations.update();
+                }
+                //}
             };
             return Board;
         })();
@@ -716,6 +784,7 @@ var jsflap;
                 this.futureEdgeFrom = null;
                 this.futureEdgeSnapping = false;
                 this.draggingNode = null;
+                this.quickMoveFrom = null;
                 this.modifyEdgeTransition = null;
                 this.modifyEdgeControl = null;
                 this.contextMenuOptions = null;
@@ -1445,6 +1514,16 @@ var jsflap;
              */
             function EdgeVisualization(model, start, end, control) {
                 this.model = model;
+                this.model.setVisualization(this);
+                this.recalculatePath(start, end, control);
+            }
+            /**
+             * Recalculates the path between nodes and a possibly already given control point
+             * @param start
+             * @param end
+             * @param control
+             */
+            EdgeVisualization.prototype.recalculatePath = function (start, end, control) {
                 if (start !== end) {
                     this.start = start.getAnchorPointFrom(end.position);
                     this.end = end.getAnchorPointFrom(start.position);
@@ -1456,7 +1535,7 @@ var jsflap;
                     this.end = anchorPoints[1];
                     this.control = control ? control : new jsflap.Point.MPoint((this.start.x + this.end.x) / 2, (this.start.y + this.end.y) / 2 - 80);
                 }
-            }
+            };
             /**
              * Gets the path string
              */
@@ -1694,7 +1773,13 @@ var jsflap;
                 nodeLabels.attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
                 nodeLabels.exit().remove();
                 var initialNodes = this.svg.selectAll("path.initialPath").data(this.nodes.filter(function (node) { return node.model.initial; }));
-                initialNodes.transition().attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
+                // Only animate the transition if we are not dragging the nodes
+                if (this.board.state.mode === 0 /* DRAW */) {
+                    initialNodes.transition().attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
+                }
+                else {
+                    initialNodes.attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
+                }
                 var newInitialNodes = initialNodes.enter().append('path').classed('initialPath', true).attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; }).attr('fill', "#333");
                 newInitialNodes.attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
                 initialNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).remove();
@@ -1705,16 +1790,36 @@ var jsflap;
                 newFinalNodes.attr('opacity', 0).transition().attr('opacity', 1);
                 finalNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).remove();
                 var edgePaths = this.svg.selectAll("path.edge").data(this.edges);
-                edgePaths.enter().append('path').classed('edge', true).attr('d', function (d) { return d.getPath(); }).attr('stroke', '#333').attr('stroke-width', '1').attr('opacity', .8).transition().duration(300).attr('opacity', 1).attr('style', "marker-end:url(#markerArrow)");
+                edgePaths.attr('d', function (d) { return d.getPath(); }).classed('rightAngle', function (edge) { return ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) || (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1); });
+                edgePaths.enter().append('path').classed('edge', true).classed('rightAngle', function (edge) { return ((Math.abs(edge.start.x - edge.end.x) < 1) && (Math.abs(edge.start.x - edge.control.x) < 1)) || (Math.abs(edge.start.y - edge.end.y) < 1) && (Math.abs(edge.start.y - edge.control.y) < 1); }).attr('d', function (d) { return d.getPath(); }).attr('stroke', '#333').attr('stroke-width', '1').attr('opacity', .8).transition().duration(300).attr('opacity', 1).attr('style', "marker-end:url(#markerArrow)");
                 edgePaths.exit().remove();
+                var edgePathControlPoints = this.svg.selectAll("circle.control").data(this.edges);
+                edgePathControlPoints.attr('opacity', function () { return _this.state.mode === 1 /* MOVE */ ? 1 : 0; }).attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; });
+                edgePathControlPoints.enter().append('circle').classed('control', true).attr('fill', '#999').attr('opacity', function () { return _this.state.mode === 1 /* MOVE */ ? 1 : 0; }).attr('r', 5).attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; }).on('mousedown', function (edge) {
+                    if (_this.state.mode === 1 /* MOVE */) {
+                        _this.state.modifyEdgeControl = edge;
+                    }
+                });
+                edgePathControlPoints.exit().remove();
                 var edgeTransitions = this.svg.selectAll('text.transition').data(this.edges);
+                edgeTransitions.attr('x', function (d) { return d.getTransitionPoint().x; }).attr('y', function (d) { return d.getTransitionPoint().y; });
                 var newEdgeTransitions = edgeTransitions.enter().append('text').classed('transition', true).attr("font-family", "sans-serif").attr("font-size", "16px").attr("text-anchor", "middle").attr("fill", "#000").attr('x', function (d) { return d.getTransitionPoint().x; }).attr('y', function (d) { return d.getTransitionPoint().y; }).text(function (d) { return d.model.transition.toString(); });
-                newEdgeTransitions.on('mousedown', function () {
+                newEdgeTransitions.on('mousedown', function (edge) {
                     var event = d3.event;
-                    event.stopPropagation();
-                    event.preventDefault();
+                    if (_this.state.mode !== 1 /* MOVE */) {
+                        event.stopPropagation();
+                        event.preventDefault();
+                    }
+                    else {
+                        _this.state.modifyEdgeControl = edge;
+                    }
                 }).on("mouseup", function (d) {
-                    _this.editTransition(d);
+                    if (_this.state.modifyEdgeControl) {
+                        _this.state.modifyEdgeControl = null;
+                    }
+                    else {
+                        _this.editTransition(d);
+                    }
                 });
                 newEdgeTransitions.attr('opacity', 0).transition().duration(300).attr('opacity', 1);
                 if (typeof this.board.onBoardUpdateFn === 'function') {

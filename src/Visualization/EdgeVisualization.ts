@@ -35,6 +35,17 @@ module jsflap.Visualization {
          */
         constructor(model: Edge, start: Visualization.NodeVisualization, end: Visualization.NodeVisualization, control?: Point.MPoint) {
             this.model = model;
+            this.model.setVisualization(this);
+            this.recalculatePath(start, end, control);
+        }
+
+        /**
+         * Recalculates the path between nodes and a possibly already given control point
+         * @param start
+         * @param end
+         * @param control
+         */
+        recalculatePath(start: NodeVisualization, end: NodeVisualization, control?: Point.MPoint) {
             if(start !== end) {
                 this.start = start.getAnchorPointFrom(end.position);
                 this.end = end.getAnchorPointFrom(start.position);

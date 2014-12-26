@@ -70,9 +70,11 @@ module jsflap.Board {
             });
             document.addEventListener('keydown', function (event) {
                 _this.keydown(event);
+                $rootScope.$digest();
             });
             document.addEventListener('keyup', function (event) {
                 _this.keyup(event);
+                $rootScope.$digest();
             });
         }
 
@@ -113,6 +115,7 @@ module jsflap.Board {
                 this.state.futureEdgeFrom = null;
             } else if(this.state.mode === BoardMode.MOVE) {
                 this.state.draggingNode = null;
+                this.state.modifyEdgeControl = null;
             }
         }
 
@@ -252,8 +255,26 @@ module jsflap.Board {
                     this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
                     this.state.futureEdge.addTo(this.svg);
                 }
-            } else if(this.state.mode === BoardMode.MOVE && this.state.draggingNode) {
-                this.state.draggingNode.position = point.getMPoint();
+            } else if(this.state.mode === BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl)) {
+                var newPoint = point.getMPoint();
+                if(this.state.futureEdgeSnapping) {
+                    newPoint.x = (Math.round(newPoint.x / 20) * 20);
+                    newPoint.y = (Math.round(newPoint.y / 20) * 20);
+                }
+
+                if(this.state.draggingNode) {
+                    this.state.draggingNode.position = newPoint;
+                    this.state.draggingNode.model.toEdges.edges.forEach((edgeModel) => {
+                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization);
+                    });
+
+                    this.state.draggingNode.model.fromEdges.edges.forEach((edgeModel) => {
+                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization);
+                    });
+                } else {
+                    // Can only be modify Edge control now
+                    this.state.modifyEdgeControl.control = newPoint;
+                }
                 this.visualizations.update();
             }
         }
@@ -266,6 +287,37 @@ module jsflap.Board {
             if(event.which === 16 && !this.state.futureEdgeSnapping) {
                 this.state.futureEdgeSnapping = true;
             }
+
+            // if not editing a textbox
+            if(this.state.modifyEdgeTransition === null) {
+                switch(event.which) {
+                    case 32: // spacebar
+                        if(this.state.mode !== BoardMode.MOVE) {
+                            this.state.quickMoveFrom = this.state.mode;
+                            this.state.mode = BoardMode.MOVE;
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 68: // d
+                        if(this.state.mode !== BoardMode.DRAW) {
+                            this.state.mode = BoardMode.DRAW;
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 69: // e
+                        if(this.state.mode !== BoardMode.ERASE) {
+                            this.state.mode = BoardMode.ERASE;
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 77: // m
+                        if(this.state.mode !== BoardMode.MOVE) {
+                            this.state.mode = BoardMode.MOVE;
+                            this.visualizations.update();
+                        }
+                        break;
+                }
+            }
         }
 
         /**
@@ -276,6 +328,18 @@ module jsflap.Board {
             if(event.which === 16 && this.state.futureEdgeSnapping) {
                 this.state.futureEdgeSnapping = false;
             }
+
+            //if(this.state.modifyEdgeTransition === null) {
+                if (event.which === 32 && this.state.quickMoveFrom !== null) {
+                    console.log(this.state.quickMoveFrom);
+                    this.state.mode = this.state.quickMoveFrom;
+                    this.state.quickMoveFrom = null;
+                    if(this.state.modifyEdgeControl) {
+                        this.state.modifyEdgeControl = null;
+                    }
+                    this.visualizations.update();
+                }
+            //}
         }
     }
 }

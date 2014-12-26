@@ -6,10 +6,22 @@
 .row.full>.columns:last-child { padding-right: 0; }
 
 /** LAYOUT OVERRIDES **/
-html, body, .main-row, .main-row .columns {
+html, body {
     height: 100%;
-
 }
+
+.main-row, .main-row .columns {
+    height: 100%;
+    height: calc(100% - 3rem);
+}
+
+body.mode_1 svg[jsflap-board] circle.node,
+body.mode_1 svg[jsflap-board] text.nodeLabel,
+body.mode_1 svg[jsflap-board] circle.finalCircle,
+body.mode_1 svg[jsflap-board] circle.control {
+    cursor: move;
+}
+
 section.board-container {
     position: absolute;
     top: 0px;
@@ -83,7 +95,7 @@ section.board-sidebar input.rejected {
 
 /** SVG STYLES **/
 svg[jsflap-board], svg[jsflap-board] > * {
-    cursor: default !important;
+    cursor: default;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -111,11 +123,20 @@ svg[jsflap-board] input.editTransition {
 
 svg[jsflap-board] path.edge {
     fill: transparent;
+    shape-rendering: optimizeSpeed;
+}
+
+svg[jsflap-board] path.edge.rightAngle {
+    shape-rendering: crispEdges;
 }
 
 
 svg[jsflap-board] input:focus {
     box-shadow: none;
+}
+
+svg[jsflap-board] circle.control {
+    z-index: 9999;
 }
 
 /** CONTEXT MENU STYLES **/

@@ -63,11 +63,11 @@
                         ];
 
                         function updateTests() {
-                            console.log('STARTING TESTS');
+                            //console.log('STARTING TESTS');
                             scope.resultTotals[0] = 0;
                             scope.resultTotals[1] = 0;
                             scope.resultTotals[2] = 0;
-                            var t0 = performance.now();
+                            //var t0 = performance.now();
                             scope.testInputs.forEach(function(testInput) {
                                 try {
                                     testInput.result = machine.run(testInput.inputString);
@@ -78,9 +78,9 @@
                                     testInput.result = null;
                                 }
                             });
-                            var t1 = performance.now();
+                            //var t1 = performance.now();
 
-                            console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
+                            //console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
                         }
 
                         scope.testInputs = [

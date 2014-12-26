@@ -8,7 +8,7 @@
     <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
     <link rel="stylesheet" href="dist/css/jsflap.css">
 </head>
-<body ng-app="jsflap" ng-controller="AppController" jsflap-app>
+<body ng-app="jsflap" ng-controller="AppController" jsflap-app ng-class="'mode_' + board.state.mode">
 <nav class="top-bar" data-topbar role="navigation">
     <ul class="title-area">
         <li class="name">

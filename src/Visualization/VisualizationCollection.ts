@@ -171,9 +171,15 @@ module jsflap.Visualization {
             var initialNodes = this.svg.selectAll("path.initialPath")
                 .data(this.nodes.filter((node: Visualization.NodeVisualization) => node.model.initial));
 
-            initialNodes
-                .transition()
-                .attr('d', (d: Visualization.NodeVisualization) => 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z');
+            // Only animate the transition if we are not dragging the nodes
+            if(this.board.state.mode === Board.BoardMode.DRAW) {
+                initialNodes
+                    .transition()
+                    .attr('d', (d: Visualization.NodeVisualization) => 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z');
+            } else {
+                initialNodes
+                    .attr('d', (d: Visualization.NodeVisualization) => 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z');
+            }
 
             var newInitialNodes = initialNodes
                 .enter()
@@ -231,9 +237,16 @@ module jsflap.Visualization {
                 .data(this.edges);
 
             edgePaths
+                .attr('d', (d: EdgeVisualization) => d.getPath())
+                .classed('rightAngle', (edge: EdgeVisualization) => ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) ||
+            (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1));
+
+            edgePaths
                 .enter()
                 .append('path')
                 .classed('edge', true)
+                .classed('rightAngle', (edge: EdgeVisualization) =>  ((Math.abs(edge.start.x - edge.end.x) < 1) && (Math.abs(edge.start.x - edge.control.x) < 1)) ||
+                (Math.abs(edge.start.y - edge.end.y) < 1) && (Math.abs(edge.start.y - edge.control.y) < 1))
                 .attr('d', (d: EdgeVisualization) => d.getPath())
                 .attr('stroke', '#333')
                 .attr('stroke-width', '1')
@@ -245,8 +258,38 @@ module jsflap.Visualization {
 
             edgePaths.exit().remove();
 
+
+            var edgePathControlPoints = this.svg.selectAll("circle.control")
+                .data(this.edges);
+
+            edgePathControlPoints
+                .attr('opacity', () => this.state.mode === Board.BoardMode.MOVE? 1: 0)
+                .attr('cx', (d: Visualization.EdgeVisualization) =>  d.control.x)
+                .attr('cy', (d: Visualization.EdgeVisualization) =>  d.control.y);
+
+            edgePathControlPoints
+                .enter()
+                .append('circle')
+                .classed('control', true)
+                .attr('fill', '#999')
+                .attr('opacity', () => this.state.mode === Board.BoardMode.MOVE? 1: 0)
+                .attr('r', 5)
+                .attr('cx', (d: Visualization.EdgeVisualization) =>  d.control.x)
+                .attr('cy', (d: Visualization.EdgeVisualization) =>  d.control.y)
+                .on('mousedown', (edge: Visualization.EdgeVisualization) => {
+                    if(this.state.mode === Board.BoardMode.MOVE) {
+                        this.state.modifyEdgeControl = edge;
+                    }
+                });
+
+            edgePathControlPoints.exit().remove();
+
             var edgeTransitions = this.svg.selectAll('text.transition')
                 .data(this.edges);
+
+            edgeTransitions
+                .attr('x', (d: Visualization.EdgeVisualization) =>  d.getTransitionPoint().x)
+                .attr('y', (d: Visualization.EdgeVisualization) =>  d.getTransitionPoint().y);
 
             var newEdgeTransitions = edgeTransitions
                 .enter()
@@ -263,13 +306,21 @@ module jsflap.Visualization {
                 .text((d: Visualization.EdgeVisualization) => d.model.transition.toString());
 
             newEdgeTransitions
-                .on('mousedown', () => {
+                .on('mousedown', (edge: Visualization.EdgeVisualization) => {
                     var event = d3.event;
-                    event.stopPropagation();
-                    event.preventDefault();
+                    if(this.state.mode !== Board.BoardMode.MOVE) {
+                        event.stopPropagation();
+                        event.preventDefault();
+                    } else {
+                        this.state.modifyEdgeControl = edge;
+                    }
                 })
                 .on("mouseup", (d) => {
-                    this.editTransition(d);
+                    if(this.state.modifyEdgeControl) {
+                        this.state.modifyEdgeControl = null;
+                    } else {
+                        this.editTransition(d);
+                    }
                 });
 
             newEdgeTransitions

@@ -16,6 +16,8 @@ module jsflap {
          */
         public transition: Transition.ITransition;
 
+        public visualization: Visualization.EdgeVisualization;
+
         /**
          * Creates a new directed edge with a transition
          * @param from
@@ -34,6 +36,14 @@ module jsflap {
             if(to) {
                 to.addFromEdge(this);
             }
+        }
+
+        /**
+         * Set the visualization
+         * @param visualization
+         */
+        setVisualization(visualization: Visualization.EdgeVisualization) {
+            this.visualization = visualization;
         }
 
         /**

@@ -107,12 +107,12 @@
                             }, 10);
                             scope.$digest();
                         });
-                        scope.$on('removeTestInput', function(index) {
+                        scope.$on('removeTestInput', function(event, index) {
                             console.log('Here2');
                             scope.testInputs.splice(index, 1);
                             setTimeout(function() {
                                 var inputs = elm.find('input');
-                                inputs[index].focus();
+                                inputs[index - 1].focus();
                             }, 10);
                             scope.$digest();
                         });
@@ -131,7 +131,7 @@
                                 scope.$emit('createTestInput');
                                 break;
                             case 27:
-                                (scope.$index > 0)? scope.$emit('removeTestInput', scope.$index): void(0);
+                                (scope.testInputs.length > 1 && scope.$index == 0 )? scope.$emit('removeTestInput', scope.$index): void(0);
                                 break;
                         }
                     });

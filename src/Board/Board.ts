@@ -86,29 +86,34 @@ module jsflap.Board {
                 return false;
             }
 
-            if (this.state.futureEdge) {
-                var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
-                var endingNode;
-                if(nearestNode.node && nearestNode.distance < 40) {
-                    endingNode = nearestNode.node;
-                } else {
-                    endingNode = this.addNode(this.state.futureEdge.end);
-                }
-                this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
+            if(this.state.mode === BoardMode.DRAW) {
 
-                var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
-                setTimeout(() => {
-                    var elm = this.svg.select('text.transition:last-child');
-                    if(elm.length > 0) {
-                        this.visualizations.editTransition(newEdge, <SVGTextElement> elm.node());
+                if (this.state.futureEdge) {
+                    var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
+                    var endingNode;
+                    if (nearestNode.node && nearestNode.distance < 40) {
+                        endingNode = nearestNode.node;
+                    } else {
+                        endingNode = this.addNode(this.state.futureEdge.end);
                     }
-                }, 10);
-                this.state.futureEdge.remove();
-                this.state.futureEdge = null;
-                this.state.futureEdgeFrom = null;
-            }
+                    this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
-            this.state.futureEdgeFrom = null;
+                    var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
+                    setTimeout(() => {
+                        var elm = this.svg.select('text.transition:last-child');
+                        if (elm.length > 0) {
+                            this.visualizations.editTransition(newEdge, <SVGTextElement> elm.node());
+                        }
+                    }, 10);
+                    this.state.futureEdge.remove();
+                    this.state.futureEdge = null;
+                    this.state.futureEdgeFrom = null;
+                }
+
+                this.state.futureEdgeFrom = null;
+            } else if(this.state.mode === BoardMode.MOVE) {
+                this.state.draggingNode = null;
+            }
         }
 
         /**
@@ -179,13 +184,19 @@ module jsflap.Board {
             }
 
             var nearestNode = this.visualizations.getNearestNode(event.point);
-            if(nearestNode.node && nearestNode.distance < 70) {
-                this.state.futureEdgeFrom = nearestNode.node;
-            } else if (this.state.modifyEdgeTransition === null) {
+            if(this.state.mode === BoardMode.DRAW) {
+                if (nearestNode.node && nearestNode.distance < 70) {
+                    this.state.futureEdgeFrom = nearestNode.node;
+                } else if (this.state.modifyEdgeTransition === null) {
 
-                // Only add a node if the user is not currently click out of editing a transition OR is near a node
+                    // Only add a node if the user is not currently click out of editing a transition OR is near a node
 
-                this.state.futureEdgeFrom = this.addNode(event.point);
+                    this.state.futureEdgeFrom = this.addNode(event.point);
+                }
+            } else if(this.state.mode === BoardMode.MOVE) {
+                if (nearestNode.node && nearestNode.hover) {
+                    this.state.draggingNode = nearestNode.node;
+                }
             }
 
 
@@ -206,38 +217,44 @@ module jsflap.Board {
                 return false;
             }
 
-            if (this.state.futureEdge !== null) {
-                if(this.state.futureEdgeSnapping) {
-                    var x1 = this.state.futureEdge.start.x,
-                        x2 = point.x,
-                        y1 = this.state.futureEdge.start.y,
-                        y2 = point.y,
-                        dx = x2 - x1,
-                        dy = y2 - y1,
-                        theta = Math.atan(dy/dx),
-                        dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4),
-                        distance = Math.sqrt(
-                            Math.pow(y2 - y1, 2) +
-                            Math.pow(x2 - x1, 2)
-                        ),
-                        trigSide = dx >= 0? 1: -1;
-                    if(dx !== 0) {
-                        point.x = x1 + trigSide * distance * Math.cos(dTheta);
-                        point.y = y1 + trigSide * distance * Math.sin(dTheta);
-                    }
-                }
+            if(this.state.mode === BoardMode.DRAW) {
 
-                var nearestNode = this.visualizations.getNearestNode(point);
-                if(nearestNode.node && nearestNode.distance < 40) {
-                    this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
-                } else {
-                    this.state.futureEdge.end = point;
+                if (this.state.futureEdge !== null) {
+                    if (this.state.futureEdgeSnapping) {
+                        var x1 = this.state.futureEdge.start.x,
+                            x2 = point.x,
+                            y1 = this.state.futureEdge.start.y,
+                            y2 = point.y,
+                            dx = x2 - x1,
+                            dy = y2 - y1,
+                            theta = Math.atan(dy / dx),
+                            dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4),
+                            distance = Math.sqrt(
+                                Math.pow(y2 - y1, 2) +
+                                Math.pow(x2 - x1, 2)
+                            ),
+                            trigSide = dx >= 0 ? 1 : -1;
+                        if (dx !== 0) {
+                            point.x = x1 + trigSide * distance * Math.cos(dTheta);
+                            point.y = y1 + trigSide * distance * Math.sin(dTheta);
+                        }
+                    }
+
+                    var nearestNode = this.visualizations.getNearestNode(point);
+                    if (nearestNode.node && nearestNode.distance < 40) {
+                        this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
+                    } else {
+                        this.state.futureEdge.end = point;
+                    }
+                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
+                } else if (this.state.futureEdgeFrom !== null) {
+                    this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
+                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                    this.state.futureEdge.addTo(this.svg);
                 }
-                this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
-            } else if(this.state.futureEdgeFrom !== null) {
-                this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
-                this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                this.state.futureEdge.addTo(this.svg);
+            } else if(this.state.mode === BoardMode.MOVE && this.state.draggingNode) {
+                this.state.draggingNode.position = point.getMPoint();
+                this.visualizations.update();
             }
         }
 

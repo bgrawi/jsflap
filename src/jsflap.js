@@ -8,7 +8,7 @@
             return {
                 require:'^jsflapApp',
                 link: function (scope, elm, attrs, jsflapApp) {
-                    jsflapApp.board = new jsflap.Board.Board(elm[0], jsflapApp.graph, $rootScope);
+                    jsflapApp.setBoard(new jsflap.Board.Board(elm[0], jsflapApp.graph, $rootScope));
                     jsflapApp.board.onBoardUpdateFn = jsflapApp.onBoardUpdate;
                 }
             };
@@ -93,7 +93,6 @@
                                 var inputs = elm.find('input');
                                 inputs[inputs.length - 1].focus();
                             }, 10);
-                            scope.$digest();
                         };
                         scope.$watch('testInputs', updateTests, true);
                         scope.$on('boardUpdate', updateTests);
@@ -163,6 +162,13 @@
                 $timeout(function() {
                     $scope.$broadcast('boardUpdate');
                 }, 1);
+            };
+
+            var self = this;
+            this.setBoard = function(board) {
+                self.board = board;
+                $scope.board = self.board;
+                window.board = self.board;
             };
 
             // For easy debugging

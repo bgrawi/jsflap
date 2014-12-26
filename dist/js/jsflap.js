@@ -8,7 +8,7 @@
             return {
                 require:'^jsflapApp',
                 link: function (scope, elm, attrs, jsflapApp) {
-                    jsflapApp.board = new jsflap.Board.Board(elm[0], jsflapApp.graph, $rootScope);
+                    jsflapApp.setBoard(new jsflap.Board.Board(elm[0], jsflapApp.graph, $rootScope));
                     jsflapApp.board.onBoardUpdateFn = jsflapApp.onBoardUpdate;
                 }
             };
@@ -93,7 +93,6 @@
                                 var inputs = elm.find('input');
                                 inputs[inputs.length - 1].focus();
                             }, 10);
-                            scope.$digest();
                         };
                         scope.$watch('testInputs', updateTests, true);
                         scope.$on('boardUpdate', updateTests);
@@ -163,6 +162,13 @@
                 $timeout(function() {
                     $scope.$broadcast('boardUpdate');
                 }, 1);
+            };
+
+            var self = this;
+            this.setBoard = function(board) {
+                self.board = board;
+                $scope.board = self.board;
+                window.board = self.board;
             };
 
             // For easy debugging
@@ -525,28 +531,33 @@ var jsflap;
                 if (event.event.which > 1) {
                     return false;
                 }
-                if (this.state.futureEdge) {
-                    var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
-                    var endingNode;
-                    if (nearestNode.node && nearestNode.distance < 40) {
-                        endingNode = nearestNode.node;
-                    }
-                    else {
-                        endingNode = this.addNode(this.state.futureEdge.end);
-                    }
-                    this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
-                    var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
-                    setTimeout(function () {
-                        var elm = _this.svg.select('text.transition:last-child');
-                        if (elm.length > 0) {
-                            _this.visualizations.editTransition(newEdge, elm.node());
+                if (this.state.mode === 0 /* DRAW */) {
+                    if (this.state.futureEdge) {
+                        var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
+                        var endingNode;
+                        if (nearestNode.node && nearestNode.distance < 40) {
+                            endingNode = nearestNode.node;
                         }
-                    }, 10);
-                    this.state.futureEdge.remove();
-                    this.state.futureEdge = null;
+                        else {
+                            endingNode = this.addNode(this.state.futureEdge.end);
+                        }
+                        this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
+                        var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
+                        setTimeout(function () {
+                            var elm = _this.svg.select('text.transition:last-child');
+                            if (elm.length > 0) {
+                                _this.visualizations.editTransition(newEdge, elm.node());
+                            }
+                        }, 10);
+                        this.state.futureEdge.remove();
+                        this.state.futureEdge = null;
+                        this.state.futureEdgeFrom = null;
+                    }
                     this.state.futureEdgeFrom = null;
                 }
-                this.state.futureEdgeFrom = null;
+                else if (this.state.mode === 1 /* MOVE */) {
+                    this.state.draggingNode = null;
+                }
             };
             /**
              * Adds a node to the board
@@ -607,12 +618,19 @@ var jsflap;
                     return false;
                 }
                 var nearestNode = this.visualizations.getNearestNode(event.point);
-                if (nearestNode.node && nearestNode.distance < 70) {
-                    this.state.futureEdgeFrom = nearestNode.node;
+                if (this.state.mode === 0 /* DRAW */) {
+                    if (nearestNode.node && nearestNode.distance < 70) {
+                        this.state.futureEdgeFrom = nearestNode.node;
+                    }
+                    else if (this.state.modifyEdgeTransition === null) {
+                        // Only add a node if the user is not currently click out of editing a transition OR is near a node
+                        this.state.futureEdgeFrom = this.addNode(event.point);
+                    }
                 }
-                else if (this.state.modifyEdgeTransition === null) {
-                    // Only add a node if the user is not currently click out of editing a transition OR is near a node
-                    this.state.futureEdgeFrom = this.addNode(event.point);
+                else if (this.state.mode === 1 /* MOVE */) {
+                    if (nearestNode.node && nearestNode.hover) {
+                        this.state.draggingNode = nearestNode.node;
+                    }
                 }
                 // If the user was focused on modifying an edge transition, blur it.
                 if (this.state.modifyEdgeTransition !== null) {
@@ -628,27 +646,33 @@ var jsflap;
                 if (event.event.which > 1) {
                     return false;
                 }
-                if (this.state.futureEdge !== null) {
-                    if (this.state.futureEdgeSnapping) {
-                        var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
-                        if (dx !== 0) {
-                            point.x = x1 + trigSide * distance * Math.cos(dTheta);
-                            point.y = y1 + trigSide * distance * Math.sin(dTheta);
+                if (this.state.mode === 0 /* DRAW */) {
+                    if (this.state.futureEdge !== null) {
+                        if (this.state.futureEdgeSnapping) {
+                            var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
+                            if (dx !== 0) {
+                                point.x = x1 + trigSide * distance * Math.cos(dTheta);
+                                point.y = y1 + trigSide * distance * Math.sin(dTheta);
+                            }
                         }
+                        var nearestNode = this.visualizations.getNearestNode(point);
+                        if (nearestNode.node && nearestNode.distance < 40) {
+                            this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
+                        }
+                        else {
+                            this.state.futureEdge.end = point;
+                        }
+                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
                     }
-                    var nearestNode = this.visualizations.getNearestNode(point);
-                    if (nearestNode.node && nearestNode.distance < 40) {
-                        this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
+                    else if (this.state.futureEdgeFrom !== null) {
+                        this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
+                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                        this.state.futureEdge.addTo(this.svg);
                     }
-                    else {
-                        this.state.futureEdge.end = point;
-                    }
-                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
                 }
-                else if (this.state.futureEdgeFrom !== null) {
-                    this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
-                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                    this.state.futureEdge.addTo(this.svg);
+                else if (this.state.mode === 1 /* MOVE */ && this.state.draggingNode) {
+                    this.state.draggingNode.position = point.getMPoint();
+                    this.visualizations.update();
                 }
             };
             /**
@@ -691,6 +715,7 @@ var jsflap;
                 this.futureEdge = null;
                 this.futureEdgeFrom = null;
                 this.futureEdgeSnapping = false;
+                this.draggingNode = null;
                 this.modifyEdgeTransition = null;
                 this.modifyEdgeControl = null;
                 this.contextMenuOptions = null;

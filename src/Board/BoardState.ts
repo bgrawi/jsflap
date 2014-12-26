@@ -18,6 +18,8 @@ module jsflap.Board {
         public futureEdgeFrom: Visualization.NodeVisualization = null;
         public futureEdgeSnapping: boolean = false;
 
+        public draggingNode: Visualization.NodeVisualization = null;
+
         public modifyEdgeTransition: HTMLInputElement = null;
         public modifyEdgeControl: Visualization.EdgeVisualization = null;
 

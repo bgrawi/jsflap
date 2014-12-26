@@ -36,9 +36,9 @@
 
         <!-- Left Nav Section -->
         <ul class="left">
-            <li class="active"><a href="#"><i class="fa fa-pencil"></i></a></li>
-            <li><a href="#"><i class="fa fa-arrows"></i></a></li>
-            <li><a href="#"><i class="fa fa-eraser"></i></a></li>
+            <li ng-click="board.state.mode = 0" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
+            <li ng-click="board.state.mode = 1" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
+            <li ng-click="board.state.mode = 2" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
             <li class="has-dropdown">
                 <a href="#">NFA</a>
                 <ul class="dropdown">

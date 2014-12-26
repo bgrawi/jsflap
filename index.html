@@ -82,9 +82,7 @@
             <label ng-repeat="testInput in testInputs">
                 <input type="text" name="{{$index}}" ng-model="testInput.inputString" jsflap-test-input="" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''" placeholder="Enter test string here">
             </label>
-            <div class="text-footer">
-                <a href="#" ng-click="addTestInput()"><i class="fa fa-plus"></i> Add</a>
-            </div>
+            <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
         </form>
     </section>
 </div>

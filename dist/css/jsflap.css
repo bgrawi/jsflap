@@ -93,6 +93,15 @@ section.board-sidebar input.rejected {
     color: #fff;
 }
 
+section.board-sidebar .newTestInput {
+    padding: 8px 8px;
+    color: #AAA;
+    font-size: 14px;
+    display: block;
+    background-color: #f9f9f9;
+    cursor: default;
+}
+
 /** SVG STYLES **/
 svg[jsflap-board], svg[jsflap-board] > * {
     cursor: default;

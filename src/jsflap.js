@@ -83,9 +83,7 @@
                             //console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
                         }
 
-                        scope.testInputs = [
-                            angular.copy(inputTemplate)
-                        ];
+                        scope.testInputs = [];
 
                         scope.addTestInput = function() {
                             scope.testInputs.push(angular.copy(inputTemplate));
@@ -98,11 +96,11 @@
                         scope.$on('boardUpdate', updateTests);
                     },
                     post: function(scope, elm, attrs) {
-                        scope.$on('createTestInput', function() {
-                            scope.testInputs.push(angular.copy(inputTemplate));
+                        scope.$on('createTestInput', function(event, index) {
+                            scope.testInputs.splice(index + 1, 0, angular.copy(inputTemplate));
                             setTimeout(function() {
                                 var inputs = elm.find('input');
-                                inputs[inputs.length - 1].focus();
+                                inputs[index + 1].focus();
                             }, 10);
                             scope.$digest();
                         });
@@ -127,10 +125,10 @@
                     elm.on('keydown', function(event) {
                         switch(event.which) {
                             case 13:
-                                scope.$emit('createTestInput');
+                                scope.$emit('createTestInput', scope.$index);
                                 break;
                             case 27:
-                                (scope.testInputs.length > 1 && scope.$index == 0 )? scope.$emit('removeTestInput', scope.$index): void(0);
+                                ((scope.testInputs.length > 1 && scope.$index === 0) || scope.$index > 0)? scope.$emit('removeTestInput', scope.$index): void(0);
                                 break;
                         }
                     });

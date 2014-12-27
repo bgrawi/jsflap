@@ -22,6 +22,10 @@ body.mode_1 svg[jsflap-board] circle.control {
     cursor: move;
 }
 
+body.mode_2 svg[jsflap-board] > * {
+    cursor: crosshair;
+}
+
 section.board-container {
     position: absolute;
     top: 0px;
@@ -32,13 +36,43 @@ section.board-container {
     width: 80%;
 }
 
+section.board-sidebar {
+    width: 20%;
+    position: absolute;
+    left: 80%;
+    top: 0;
+    bottom: 0;
+    background-color: #F5F5F5;
+}
+
+@media (max-width: 1366px) {
+    section.board-container {
+        width: 70%;
+    }
+
+    section.board-sidebar {
+        left: 70%;
+        width: 30%;
+    }
+}
+
+@media (max-width: 956px) {
+    section.board-container {
+        width: 60%;
+    }
+
+    section.board-sidebar {
+        left: 60%;
+        width: 40%;
+    }
+}
+
 div.main-row {
     position: relative;
 }
 
 .text-heading {
     padding: 20px 5px;
-    //background-color: rgb(0, 181, 231);
     background-color: #777;
     color: #fff;
     text-align: center;
@@ -54,15 +88,6 @@ div.main-row {
 .text-footer {
     padding: 5px;
     text-align: center;
-}
-
-section.board-sidebar {
-    width: 20%;
-    position: absolute;
-    left: 80%;
-    top: 0;
-    bottom: 0;
-    background-color: #F5F5F5;
 }
 
 section.board-sidebar input {

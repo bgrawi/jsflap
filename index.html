@@ -36,9 +36,9 @@
 
         <!-- Left Nav Section -->
         <ul class="left">
-            <li ng-click="board.state.mode = 0" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
-            <li ng-click="board.state.mode = 1" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
-            <li ng-click="board.state.mode = 2" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
+            <li ng-click="board.state.mode = 0; board.visualizations.update()" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
+            <li ng-click="board.state.mode = 1; board.visualizations.update()" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
+            <li ng-click="board.state.mode = 2; board.visualizations.update()" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
             <li class="has-dropdown">
                 <a href="#">NFA</a>
                 <ul class="dropdown">
@@ -54,11 +54,16 @@
 </nav>
 <div class="full main-row">
     <section class="board-container">
-        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" jsflap-board>
+        <svg tabindex="0" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" jsflap-board>
             <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
                     orient="auto">
                 <path class="markerArrow" d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;"></path>
             </marker>
+            <g class="background"></g>
+            <g class="nodes"></g>
+            <g class="edges"></g>
+            <g class="transitions"></g>
+            <g class="control-points"></g>
         </svg>
     </section>
     <section class="board-sidebar">

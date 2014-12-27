@@ -48,7 +48,7 @@ module jsflap {
          * Adds a new node to the list
          * @param node
          */
-        public add(node: Node) {
+        public add(node: Node): Node {
             if(!this.has(node)) {
                 this.nodes[node.toString()] = node;
                 this._size++;
@@ -78,7 +78,7 @@ module jsflap {
          * @param node
          * @returns {*}
          */
-        public get(node: any) {
+        public get(node: any): Node {
             if(this.has(node)) {
                 if(typeof node === 'string') {
                     return this.nodes[node];
@@ -100,9 +100,11 @@ module jsflap {
             if(this.has(node)) {
                 if(typeof node === 'string') {
                     delete this.nodes[node];
+                    this._size--;
                     return true;
                 } else if(node instanceof Node) {
                     delete this.nodes[node.toString()];
+                    this._size--;
                     return true;
                 }
             }

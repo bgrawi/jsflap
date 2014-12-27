@@ -114,6 +114,33 @@ module jsflap.Graph {
         }
 
         /**
+         * Removes a node from the graph
+         * @param node
+         * @returns {boolean}
+         */
+        removeNode(node: any): boolean {
+            var foundNode = this.nodes.get(node);
+
+            if(!foundNode) {
+                return false;
+            }
+
+            if(foundNode === this.initialNode) {
+                this.setInitialNode(null);
+            }
+
+            if(foundNode.final && this.finalNodes.has(foundNode)) {
+                this.finalNodes.remove(foundNode);
+            }
+
+            if(foundNode) {
+                this.nodes.remove(foundNode);
+            }
+
+            return true;
+        }
+
+        /**
          * Gets a node from the node list
          * @param node
          * @returns {any}
@@ -186,6 +213,9 @@ module jsflap.Graph {
          */
         updateAlphabet() {
 
+            // Clear the alphabet
+            this.alphabet = {};
+
             // Update the alphabet
             this.edges.edges.forEach((edge) => {
                 var transitionChar = edge.transition.toString();
@@ -205,12 +235,44 @@ module jsflap.Graph {
         }
 
         /**
+         * Removes an edge from the graph
+         * @param edge
+         */
+        removeEdge(edge: any): boolean {
+            var foundEdge = this.edges.get(edge);
+            if(!foundEdge) {
+                return false;
+            }
+            foundEdge.removeNodes();
+            return this.edges.remove(foundEdge);
+        }
+
+        /**
          * Determines if the graph has the edge or not
          * @param edge
          * @returns {boolean}
          */
         hasEdge(edge: any): boolean {
             return this.edges.has(edge);
+        }
+
+        /**
+         * Updates a transition on an edge. This has to be run to ensure the hashes of each edge are updated correctly
+         * @param edge
+         * @param transition
+         * @returns {Edge}
+         */
+        updateEdgeTransition(edge: Edge, transition: Transition.ITransition): Edge {
+            if(this.edges.remove(edge)) {
+                edge.removeNodes();
+
+                // Now update the transition and re-add the transition
+                edge.transition = transition;
+                // Now the edge has a new hashcode
+                edge.addNodes();
+                return this.edges.add(edge);
+            }
+            return edge;
         }
 
         /**
@@ -271,6 +333,10 @@ module jsflap.Graph {
             return this.finalNodes;
         }
 
+        /**
+         * Gets the alphabet
+         * @returns {Object}
+         */
         getAlphabet(): Object {
             return this.alphabet;
         }
@@ -292,6 +358,7 @@ module jsflap.Graph {
             str += ':(';
 
             // Alphabet
+            this.updateAlphabet();
             str += '{';
             str += Object.keys(this.alphabet).join(', ');
             str += '}, ';

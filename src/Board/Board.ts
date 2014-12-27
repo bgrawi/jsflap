@@ -32,6 +32,12 @@ module jsflap.Board {
         public onBoardUpdateFn: Function = null;
 
         /**
+         * To keep track of the number of nodes
+         * @type {number}
+         */
+        public nodeCount = 0;
+
+        /**
          * Represents both the visualization and the graph underneath
          * @param svg
          * @param graph
@@ -39,7 +45,7 @@ module jsflap.Board {
          */
         constructor(svg: Element, graph: Graph.IGraph, $rootScope) {
             this.svg = d3.select(svg);
-            this.boardBase = this.svg.append("rect")
+            this.boardBase = this.svg.select('g.background').append("rect")
                 .attr("fill", "#FFFFFF")
                 .attr("width", svg.getBoundingClientRect().width)
                 .attr("height", svg.getBoundingClientRect().height);
@@ -116,6 +122,8 @@ module jsflap.Board {
             } else if(this.state.mode === BoardMode.MOVE) {
                 this.state.draggingNode = null;
                 this.state.modifyEdgeControl = null;
+            } else if(this.state.mode === BoardMode.ERASE) {
+                this.state.isErasing = false;
             }
         }
 
@@ -125,11 +133,10 @@ module jsflap.Board {
          * @returns {jsflap.Visualization.NodeVisualization}
          */
         public addNode(point: Point.IPoint): Visualization.NodeVisualization {
-            var nodeCount = this.graph.getNodes().size;
-            var node = this.graph.addNode('q' + nodeCount),
+            var node = this.graph.addNode('q' + this.nodeCount++),
                 nodeV = new Visualization.NodeVisualization(node, point.getMPoint());
 
-            if(nodeCount === 0) {
+            if(this.nodeCount === 1) {
                 this.setInitialNode(nodeV);
             }
             return this.visualizations.addNode(nodeV);
@@ -145,6 +152,15 @@ module jsflap.Board {
             var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
                 edgeV = new Visualization.EdgeVisualization(edge, from, to);
             return this.visualizations.addEdge(edgeV);
+        }
+
+        /**
+         * Updates a edge's transition
+         * @param edge
+         * @param transition
+         */
+        public updateEdgeTransition(edge: Visualization.EdgeVisualization, transition: Transition.ITransition) {
+            this.graph.updateEdgeTransition(edge.model, transition);
         }
 
         /**
@@ -200,8 +216,10 @@ module jsflap.Board {
                 if (nearestNode.node && nearestNode.hover) {
                     this.state.draggingNode = nearestNode.node;
                 }
+            } else if(this.state.mode === BoardMode.ERASE) {
+                this.state.isErasing = true;
+                this.handleErasing(event.point);
             }
-
 
             // If the user was focused on modifying an edge transition, blur it.
             if(this.state.modifyEdgeTransition !== null) {
@@ -215,6 +233,7 @@ module jsflap.Board {
          */
         private mousemove(event: MouseEvent) {
             var point = event.point.getMPoint();
+            this.state.lastMousePoint = event.point.getMPoint();
 
             if(event.event.which > 1) {
                 return false;
@@ -240,6 +259,10 @@ module jsflap.Board {
                         if (dx !== 0) {
                             point.x = x1 + trigSide * distance * Math.cos(dTheta);
                             point.y = y1 + trigSide * distance * Math.sin(dTheta);
+
+                            // Also snap to a 20-pixel gid disabled for now
+                            //point.x = (Math.round(point.x / 20) * 20);
+                            //point.y = (Math.round(point.y / 20) * 20);
                         }
                     }
 
@@ -265,17 +288,53 @@ module jsflap.Board {
                 if(this.state.draggingNode) {
                     this.state.draggingNode.position = newPoint;
                     this.state.draggingNode.model.toEdges.edges.forEach((edgeModel) => {
-                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization);
+                        var hasMovedControlPoint = edgeModel.visualization.hasMovedControlPoint(edgeModel.from.visualization, edgeModel.to.visualization);
+                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization, hasMovedControlPoint? edgeModel.visualization.control: null);
                     });
 
                     this.state.draggingNode.model.fromEdges.edges.forEach((edgeModel) => {
-                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization);
+                        var hasMovedControlPoint = edgeModel.visualization.hasMovedControlPoint(edgeModel.from.visualization, edgeModel.to.visualization);
+                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization, hasMovedControlPoint? edgeModel.visualization.control: null);
                     });
                 } else {
                     // Can only be modify Edge control now
-                    this.state.modifyEdgeControl.control = newPoint;
+                    this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.model.from.visualization, this.state.modifyEdgeControl.model.to.visualization, newPoint)
                 }
                 this.visualizations.update();
+            } else if(this.state.mode === BoardMode.ERASE && this.state.isErasing) {
+                this.handleErasing(point);
+            }
+        }
+
+        /**
+         * Handles erasing at a point
+         * @param point
+         */
+        private handleErasing(point: Point.IPoint) {
+            if(this.state.hoveringEdge) {
+                this.graph.removeEdge(this.state.hoveringEdge.model);
+                this.visualizations.removeEdge(this.state.hoveringEdge);
+            } else {
+                var nearestNode = this.visualizations.getNearestNode(point);
+                if(nearestNode.node && nearestNode.hover) {
+
+                    // Need to copy the edges because when the edges are deleted, the indexing gets messed up
+                    var toEdges = nearestNode.node.model.toEdges.edges.slice(0);
+                    toEdges.forEach((edgeModel) => {
+                        console.log(edgeModel.toString());
+
+                        this.graph.removeEdge(edgeModel);
+                        this.visualizations.removeEdge(edgeModel.visualization);
+                    });
+
+                    var fromEdges = nearestNode.node.model.fromEdges.edges.slice(0);
+                    fromEdges.forEach((edgeModel) => {
+                        this.graph.removeEdge(edgeModel);
+                        this.visualizations.removeEdge(edgeModel.visualization);
+                    });
+                    this.graph.removeNode(nearestNode.node.model);
+                    this.visualizations.removeNode(nearestNode.node);
+                }
             }
         }
 
@@ -291,6 +350,8 @@ module jsflap.Board {
             // if not editing a textbox
             if(this.state.modifyEdgeTransition === null) {
                 switch(event.which) {
+
+                    // QUICK EDIT
                     case 32: // spacebar
                         if(this.state.mode !== BoardMode.MOVE) {
                             this.state.quickMoveFrom = this.state.mode;
@@ -298,6 +359,8 @@ module jsflap.Board {
                             this.visualizations.update();
                         }
                         break;
+
+                    // MODE SWITCHING
                     case 68: // d
                         if(this.state.mode !== BoardMode.DRAW) {
                             this.state.mode = BoardMode.DRAW;
@@ -316,6 +379,22 @@ module jsflap.Board {
                             this.visualizations.update();
                         }
                         break;
+
+                    // QUICK NODE SETTINGS
+                    case 70: // f
+                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                        if(nearestNode.node && nearestNode.hover) {
+                            nearestNode.node.model.final? this.unmarkFinalNode(nearestNode.node): this.markFinalNode(nearestNode.node);
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 73: // i
+                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                        if(nearestNode.node && nearestNode.hover) {
+                            this.setInitialNode(nearestNode.node);
+                            this.visualizations.update();
+                        }
+                        break;
                 }
             }
         }
@@ -329,17 +408,17 @@ module jsflap.Board {
                 this.state.futureEdgeSnapping = false;
             }
 
-            //if(this.state.modifyEdgeTransition === null) {
-                if (event.which === 32 && this.state.quickMoveFrom !== null) {
-                    console.log(this.state.quickMoveFrom);
-                    this.state.mode = this.state.quickMoveFrom;
-                    this.state.quickMoveFrom = null;
-                    if(this.state.modifyEdgeControl) {
-                        this.state.modifyEdgeControl = null;
-                    }
-                    this.visualizations.update();
+            if (event.which === 32) {
+                this.state.draggingNode = null;
+                this.state.modifyEdgeControl = null;
+                this.state.mode = this.state.quickMoveFrom;
+                this.state.quickMoveFrom = null;
+                if(this.state.modifyEdgeControl) {
+                    this.state.modifyEdgeControl = null;
                 }
-            //}
+                this.visualizations.update();
+            }
+
         }
     }
 }

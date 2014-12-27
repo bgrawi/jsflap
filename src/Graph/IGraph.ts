@@ -8,8 +8,14 @@ module jsflap.Graph {
         getNode(node: Node): Node;
         getNode(node: string): Node;
 
+        removeNode(node: Node): boolean;
+        removeNode(node: string): boolean;
+
         getEdge(edge: Edge): Edge;
         getEdge(edge: string): Edge;
+
+        removeEdge(edge: Edge): boolean;
+        removeEdge(edge: string): boolean;
 
         hasNode(node: Node): boolean;
         hasNode(node: string): boolean;
@@ -29,6 +35,8 @@ module jsflap.Graph {
 
         markFinalNode(node: Node): Node;
         unmarkFinalNode(node: Node): Node;
+
+        updateEdgeTransition(edge: Edge, transition: Transition.ITransition): Edge;
 
         getAlphabet(): Object;
 

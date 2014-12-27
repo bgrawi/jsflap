@@ -46,22 +46,53 @@ module jsflap.Visualization {
          * @param control
          */
         recalculatePath(start: NodeVisualization, end: NodeVisualization, control?: Point.MPoint) {
+            var pointOffset = new Point.MPoint(0, 0);
             if(start !== end) {
-                this.start = start.getAnchorPointFrom(end.position);
-                this.end = end.getAnchorPointFrom(start.position);
-                this.control = control? control: new Point.MPoint((this.start.x + this.end.x) / 2, (this.start.y + this.end.y) / 2);
+                this.start = start.getAnchorPointFrom(control? control: end.position);
+                this.end = end.getAnchorPointFrom(control? control: start.position);
+                this.control = control? control: this.getInitialControlPoint(pointOffset)
             } else {
-                var anchorPoints = start.getSelfAnchorPoints();
+                var anchorPoints = start.getSelfAnchorPoints(control);
                 this.start = anchorPoints[0];
                 this.end = anchorPoints[1];
-                this.control = control? control: new Point.MPoint((this.start.x + this.end.x) / 2, (this.start.y + this.end.y) / 2 - 80);
+                pointOffset.y -= 80;
+                this.control = control? control: this.getInitialControlPoint(pointOffset);
             }
+
+        }
+
+        /**
+         * Gets the intial control point with a given offset
+         * @param pointOffset
+         * @returns {jsflap.Point.MPoint}
+         */
+        getInitialControlPoint(pointOffset?: Point.IPoint) {
+            return new Point.MPoint(
+                ((this.start.x + this.end.x) / 2) + (pointOffset? pointOffset.x: 0),
+                ((this.start.y + this.end.y) / 2) + (pointOffset? pointOffset.y: 0)
+            );
+        }
+
+        /**
+         * Determines if the control point has been moved from the start
+         * @param start
+         * @param end
+         * @returns {boolean}
+         */
+        hasMovedControlPoint(start: NodeVisualization, end: NodeVisualization): boolean {
+            var initialControlPoint;
+            if(start !== end) {
+                initialControlPoint = this.getInitialControlPoint();
+            } else {
+                initialControlPoint = this.getInitialControlPoint(new Point.IMPoint(0, -80));
+            }
+            return !(Math.abs(this.control.x - initialControlPoint.x) <= 1 && Math.abs(this.control.y - initialControlPoint.y) <= 1);
         }
 
         /**
          * Gets the path string
          */
-        getPath() {
+        getPath(): string {
             return 'M' + this.start + ' Q' + this.control + ' ' + this.end;
         }
 
@@ -69,7 +100,7 @@ module jsflap.Visualization {
          * Gets the position of where the transition text should be
          * @returns {jsflap.Point.IMPoint}
          */
-        getTransitionPoint() {
+        getTransitionPoint(): Point.IMPoint {
 
             // Quadratic Bezier Curve formula evaluated halfway
             var t = 0.5,

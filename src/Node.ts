@@ -86,6 +86,32 @@ module jsflap {
         }
 
         /**
+         * Removes a from edge from this node
+         * @param edge
+         * @returns {boolean}
+         */
+        removeFromEdge(edge: Edge): boolean {
+            if(edge.to.toString() === this.toString()) {
+                return this.fromEdges.remove(edge);
+            } else {
+                return false;
+            }
+        }
+
+        /**
+         * Removes a to edge to this node
+         * @param edge
+         * @returns {boolean}
+         */
+        removeToEdge(edge: Edge): boolean {
+            if(edge.from.toString() === this.toString()) {
+                return this.toEdges.remove(edge);
+            } else {
+                return false;
+            }
+        }
+
+        /**
          * Set the visualization
          * @param visualization
          */

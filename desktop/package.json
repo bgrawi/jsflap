@@ -1,0 +1,18 @@
+{
+  "name": "desktop",
+  "version": "0.0.0",
+  "description": "",
+  "main": "../index.html",
+  "author": "",
+  "license": "ISC",
+  "window": {
+    "title": "JSFLAP",
+    "toolbar": false,
+    "frame": true,
+    "width": 1366,
+    "height": 600
+  },
+  "dependencies": {
+    "node-webkit-builder": "*"
+  }
+}

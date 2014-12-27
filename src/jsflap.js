@@ -53,9 +53,10 @@
             };
             return {
                 restrict: 'A',
+                require: '^jsflapApp',
                 link: {
-                    pre: function(scope, elm, attrs) {
-                        var machine = new jsflap.Machine.FAMachine(window.graph);
+                    pre: function(scope, elm, attrs, jsflapApp) {
+                        var machine = new jsflap.Machine.FAMachine();
                         scope.resultTotals = [
                             0,
                             0,
@@ -70,7 +71,7 @@
                             //var t0 = performance.now();
                             scope.testInputs.forEach(function(testInput) {
                                 try {
-                                    testInput.result = machine.run(testInput.inputString);
+                                    testInput.result = machine.run(testInput.inputString, jsflapApp.graph);
                                     scope.resultTotals[+(testInput.result)] += 1;
                                 } catch(e) {
                                     // Invalid Graph
@@ -105,12 +106,13 @@
                             scope.$digest();
                         });
                         scope.$on('removeTestInput', function(event, index) {
-                            console.log('Here2');
                             scope.testInputs.splice(index, 1);
-                            setTimeout(function() {
-                                var inputs = elm.find('input');
-                                inputs[index - 1].focus();
-                            }, 10);
+                            if(index > 0) {
+                                setTimeout(function () {
+                                    var inputs = elm.find('input');
+                                    inputs[index - 1].focus();
+                                }, 10);
+                            }
                             scope.$digest();
                         });
                     }
@@ -128,7 +130,7 @@
                                 scope.$emit('createTestInput', scope.$index);
                                 break;
                             case 27:
-                                ((scope.testInputs.length > 1 && scope.$index === 0) || scope.$index > 0)? scope.$emit('removeTestInput', scope.$index): void(0);
+                                scope.$emit('removeTestInput', scope.$index);
                                 break;
                         }
                     });

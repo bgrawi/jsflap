@@ -37,7 +37,7 @@ module jsflap {
          * Adds a new edge to the list
          * @param edge
          */
-        public add(edge: Edge) {
+        public add(edge: Edge): Edge {
             if(!this.has(edge)) {
                 this.edges.push(edge);
                 this.edgeMap[edge.toString()] = edge;
@@ -67,7 +67,7 @@ module jsflap {
          * @param edge
          * @returns {*}
          */
-        public get(edge: any) {
+        public get(edge: any): Edge {
             if(this.has(edge)) {
                 if(typeof edge === 'string') {
                     return this.edgeMap[edge];
@@ -79,6 +79,27 @@ module jsflap {
             } else {
                 return null;
             }
+        }
+
+        /**
+         * Removes a edge from the list
+         * @param edge
+         */
+        public remove(edge: any): boolean {
+            if(this.has(edge)) {
+                if(typeof edge === 'string') {
+                    var edgeObject = this.edgeMap[edge];
+                    this.edges.splice(this.edges.indexOf(edgeObject), 1);
+                    delete this.edgeMap[edge];
+                    return true;
+                } else if(edge instanceof Edge) {
+                    var edgeObject = this.edgeMap[edge.toString()];
+                    this.edges.splice(this.edges.indexOf(edgeObject), 1);
+                    delete this.edgeMap[edge.toString()];
+                    return true;
+                }
+            }
+            return false;
         }
 
         /**

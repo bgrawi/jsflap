@@ -59,7 +59,7 @@ module jsflap.Point {
          * @returns {number}
          */
         public getAngleTo(other: Point.IPoint): number {
-            return Math.atan((this.y - other.y)/(this.x - other.x));
+            return Math.atan2((this.y - other.y), (this.x - other.x));
         }
 
         public toString() {

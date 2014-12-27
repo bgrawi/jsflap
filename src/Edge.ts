@@ -28,14 +28,7 @@ module jsflap {
             this.from = from;
             this.to = to;
             this.transition = transition;
-
-            // Add this edge to the other nodes
-            if(from) {
-                from.addToEdge(this);
-            }
-            if(to) {
-                to.addFromEdge(this);
-            }
+            this.addNodes();
         }
 
         /**
@@ -44,6 +37,31 @@ module jsflap {
          */
         setVisualization(visualization: Visualization.EdgeVisualization) {
             this.visualization = visualization;
+        }
+
+        /**
+         * Removes this edge from the nodes
+         */
+        removeNodes() {
+            if(this.from) {
+                this.from.removeToEdge(this);
+            }
+            if(this.to) {
+                this.to.removeFromEdge(this);
+            }
+        }
+
+        /**
+         * Adds the edge to the nodes
+         */
+        addNodes() {
+            // Add this edge to the other nodes
+            if(this.from) {
+                this.from.addToEdge(this);
+            }
+            if(this.to) {
+                this.to.addFromEdge(this);
+            }
         }
 
         /**

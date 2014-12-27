@@ -39,10 +39,9 @@ module jsflap.Visualization {
                 r = this.radius,
                 dx = point.x - posX,
                 dy = point.y - posY,
-                theta = Math.atan(dy/dx),
-                trigSide = (dx >= 0)? 1: -1,
-                anchorX = posX + trigSide * r * Math.cos(theta),
-                anchorY = posY + trigSide * r * Math.sin(theta);
+                theta = Math.atan2(dy, dx),
+                anchorX = posX + r * Math.cos(theta),
+                anchorY = posY + r * Math.sin(theta);
             return new Point.MPoint(anchorX, anchorY);
         }
 
@@ -50,18 +49,17 @@ module jsflap.Visualization {
          * Gets the self anchor points if an edge goes to the same node
          * @returns {any[]}
          */
-        public getSelfAnchorPoints() {
+        public getSelfAnchorPoints(from?: Point.IPoint) {
             var posX = this.position.x,
                 posY = this.position.y,
                 r = this.radius,
-                theta1 = 2 * Math.PI / 6,
-                trigSide1 = -1,
-                theta2 = 4 * Math.PI / 6,
-                trigSide2 = -1,
-                anchorX1 = posX + trigSide1 * r * Math.cos(theta1),
-                anchorY1 = posY + trigSide1 * r * Math.sin(theta1),
-                anchorX2 = posX + trigSide2 * r * Math.cos(theta2),
-                anchorY2 = posY + trigSide2 * r * Math.sin(theta2);
+                theta0 = from? this.position.getAngleTo(from): Math.PI / 2,
+                theta1 = theta0 + Math.PI / 6,
+                theta2 = theta0 - Math.PI / 6,
+                anchorX1 = posX + -r * Math.cos(theta1),
+                anchorY1 = posY + -r * Math.sin(theta1),
+                anchorX2 = posX + -r * Math.cos(theta2),
+                anchorY2 = posY + -r * Math.sin(theta2);
             return [
                 new Point.MPoint(anchorX1, anchorY1),
                 new Point.MPoint(anchorX2, anchorY2),

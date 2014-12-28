@@ -173,6 +173,86 @@ svg[jsflap-board] circle.control {
     z-index: 9999;
 }
 
+/** SVG THEMES **/
+/** SVG THEMES: Default **/
+svg[jsflap-board] circle.node {
+    fill: #008cba;
+    stroke: none;
+}
+
+svg[jsflap-board] text.nodeLabel {
+    font-family: sans-serif;
+    font-size: 18px;
+    fill: #FFF;
+}
+
+svg[jsflap-board] text.transition {
+    font-family: sans-serif;
+    font-size: 16px;
+    fill: #333;
+    text-anchor: middle;
+}
+
+svg[jsflap-board] path.initialPath {
+    fill: #333;
+}
+
+svg[jsflap-board] circle.finalCircle {
+    stroke: #FFF;
+    stroke-width: 2;
+    fill: none;
+}
+svg[jsflap-board] path.edge {
+    stroke: #333;
+    stroke-width: 1;
+}
+
+svg[jsflap-board] circle.control {
+    fill: #AAA;
+}
+
+/** SVG THEMES: Classic **/
+svg[jsflap-board].theme-classic circle.node {
+    fill: rgb(255, 255, 150);
+    stroke: #000;
+    stroke-width: 1;
+}
+
+svg[jsflap-board].theme-classic text.nodeLabel {
+    font-family: sans-serif;
+    font-size: 18px;
+    fill: #000;
+}
+
+svg[jsflap-board] text.transition {
+    font-family: sans-serif;
+    font-size: 16px;
+    fill: #000;
+    text-anchor: middle;
+}
+
+svg[jsflap-board].theme-classic path.initialPath {
+    fill: #FFF;
+    stroke: #000;
+    stroke-width: 1;
+}
+
+svg[jsflap-board].theme-classic circle.finalCircle {
+    stroke: #000;
+    stroke-width: 1;
+    fill: none;
+}
+
+svg[jsflap-board] path.edge {
+    stroke: #000;
+    stroke-width: 1;
+}
+
+svg[jsflap-board].theme-classic circle.control {
+    fill: #FFF;
+    stroke: #000;
+    stroke-width: 1;
+}
 /** CONTEXT MENU STYLES **/
 
 #contextMenu {

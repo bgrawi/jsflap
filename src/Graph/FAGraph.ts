@@ -257,25 +257,6 @@ module jsflap.Graph {
         }
 
         /**
-         * Updates a transition on an edge. This has to be run to ensure the hashes of each edge are updated correctly
-         * @param edge
-         * @param transition
-         * @returns {Edge}
-         */
-        updateEdgeTransition(edge: Edge, transition: Transition.ITransition): Edge {
-            if(this.edges.remove(edge)) {
-                edge.removeNodes();
-
-                // Now update the transition and re-add the transition
-                edge.transition = transition;
-                // Now the edge has a new hashcode
-                edge.addNodes();
-                return this.edges.add(edge);
-            }
-            return edge;
-        }
-
-        /**
          * Gets the initial node for the graph
          * @returns {Node}
          */

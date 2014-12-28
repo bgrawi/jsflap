@@ -131,8 +131,6 @@ module jsflap.Visualization {
                 .classed('node', true)
                 .attr("cx", (d: NodeVisualization) => d.position.x)
                 .attr("cy", (d: NodeVisualization) => d.position.y)
-                .attr('fill', "#008cba")
-                //.attr('stroke', "#333")
                 .attr("r", (d: NodeVisualization) => d.radius - 10)
                 .attr('opacity', 0);
 
@@ -162,9 +160,6 @@ module jsflap.Visualization {
                 .append('text')
                 .classed('nodeLabel', true)
                 .text((d: NodeVisualization) => d.model.label)
-                .attr("font-family", "sans-serif")
-                .attr("font-size", "18px")
-                .attr("fill", "#FFF")
                 .attr('opacity', 0);
 
             newNodeLabels.on('contextmenu', this.nodeContextMenu.bind(this));
@@ -189,7 +184,6 @@ module jsflap.Visualization {
                 .enter()
                 .append('path')
                 .classed('initialPath', true)
-                .attr('fill', "#333");
 
             newInitialNodes
                 .attr('opacity', 0)
@@ -232,9 +226,6 @@ module jsflap.Visualization {
                 .attr("r", (d: NodeVisualization) => d.radius - 10)
                 .attr("cx", (d: NodeVisualization) => d.position.x)
                 .attr("cy", (d: NodeVisualization) => d.position.y)
-                .attr('stroke', "#FFF")
-                .attr('stroke-width', "2")
-                .attr('fill', "none")
                 .attr('opacity', 0);
 
             newFinalNodes.on('contextmenu', this.nodeContextMenu.bind(this));
@@ -252,17 +243,16 @@ module jsflap.Visualization {
                 .attr("r", (d: NodeVisualization) => d.radius + 10)
                 .remove();
 
+            var edgeKeyFn = (edge: EdgeVisualization) => edge.models.edges.map((edge) => edge.toString()).join(',');
             var edgePaths = edgesGroup.selectAll("path.edge")
 
                 // TODO: Make the key function less expensive
-                .data(this.edges, (edge: EdgeVisualization) => edge.models.edges.map((edge) => edge.toString()).join(','));
+                .data(this.edges, edgeKeyFn);
 
             var newEdgePaths = edgePaths
                 .enter()
                 .append('path')
-                .classed('edge', true)
-                .attr('stroke', '#333')
-                .attr('stroke-width', '1');
+                .classed('edge', true);
 
             edgePaths
                 .attr('d', (d: EdgeVisualization) => d.getPath())
@@ -297,7 +287,6 @@ module jsflap.Visualization {
                 .enter()
                 .append('circle')
                 .classed('control', true)
-                .attr('fill', '#AAA')
                 .attr('r', 10)
                 .on('mousedown', (edge: EdgeVisualization) => {
                     if(this.state.mode === Board.BoardMode.MOVE) {
@@ -323,7 +312,7 @@ module jsflap.Visualization {
             edgePathControlPoints.exit().remove();
 
             var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions')
-                .data(this.edges);
+                .data(this.edges, edgeKeyFn);
 
             edgeTransitionGroup
                 .enter()
@@ -343,15 +332,11 @@ module jsflap.Visualization {
             var newEdgeTransitions = edgeTransitions
                 .enter()
                 .append('text')
-                .classed('transition', true)
-                .attr("font-family", "sans-serif")
-                .attr("font-size", "16px")
-                .attr("text-anchor", "middle")
-                .attr("fill", "#000");
+                .classed('transition', true);
 
             edgeTransitions
-                .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint().x)
-                .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint().y)
+                .attr('x', (d: Edge) =>  (console.log(d.toString() + d.visualizationNumber), d.visualization.getTransitionPoint(d.visualizationNumber).x))
+                .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y)
                 .text((d: Edge) => d.transition.toString());
 
 
@@ -466,6 +451,21 @@ module jsflap.Visualization {
             this.edges.splice(edgeIndex, 1);
             this.update();
             return true;
+        }
+
+        /**
+         * Gets an edge by its fromModel and toModel
+         * @param from
+         * @param to
+         * @returns {*}
+         */
+        getEdgeVisualizationByNodes(from: Node, to: Node): EdgeVisualization {
+            var query = this.edges.filter((edge: EdgeVisualization) => edge.fromModel === from && edge.toModel === to);
+            if(query.length > 0) {
+                return query[0];
+            } else {
+                return null;
+            }
         }
 
         editTransition(d: Edge, node? :SVGTextElement) {

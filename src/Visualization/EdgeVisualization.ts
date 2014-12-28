@@ -63,13 +63,11 @@ module jsflap.Visualization {
             if(!this.fromModel || !this.toModel) {
                 this.fromModel = edge.from;
                 this.toModel = edge.to;
-                edge.setVisualization(this);
-                this.models.add(edge);
-                return edge;
+                edge.setVisualization(this, this.models.edges.length);
+                return this.models.add(edge);
             } else if(edge.from === this.fromModel && edge.to === this.toModel) {
-                edge.setVisualization(this);
-                this.models.add(edge);
-                return edge;
+                edge.setVisualization(this, this.models.edges.length);
+                return this.models.add(edge);
             } else {
                 return null;
             }
@@ -81,7 +79,7 @@ module jsflap.Visualization {
          * @param end
          * @param control
          */
-        recalculatePath(start: NodeVisualization, end: NodeVisualization, control?: Point.MPoint) {
+        public recalculatePath(start: NodeVisualization, end: NodeVisualization, control?: Point.MPoint) {
             var pointOffset = new Point.MPoint(0, 0);
             if(start !== end) {
                 this.start = start.getAnchorPointFrom(control? control: end.position);
@@ -102,7 +100,7 @@ module jsflap.Visualization {
          * @param pointOffset
          * @returns {jsflap.Point.MPoint}
          */
-        getInitialControlPoint(pointOffset?: Point.IPoint) {
+        public getInitialControlPoint(pointOffset?: Point.IPoint) {
             return new Point.MPoint(
                 ((this.start.x + this.end.x) / 2) + (pointOffset? pointOffset.x: 0),
                 ((this.start.y + this.end.y) / 2) + (pointOffset? pointOffset.y: 0)
@@ -115,7 +113,7 @@ module jsflap.Visualization {
          * @param end
          * @returns {boolean}
          */
-        hasMovedControlPoint(start: NodeVisualization, end: NodeVisualization): boolean {
+        public hasMovedControlPoint(start: NodeVisualization, end: NodeVisualization): boolean {
             var initialControlPoint;
             if(start !== end) {
                 initialControlPoint = this.getInitialControlPoint();
@@ -128,7 +126,7 @@ module jsflap.Visualization {
         /**
          * Gets the path string
          */
-        getPath(): string {
+        public getPath(): string {
             return 'M' + this.start + ' Q' + this.control + ' ' + this.end;
         }
 
@@ -136,13 +134,20 @@ module jsflap.Visualization {
          * Gets the position of where the transition text should be
          * @returns {jsflap.Point.IMPoint}
          */
-        getTransitionPoint(modelNumber?: number): Point.IMPoint {
-
+        public getTransitionPoint(modelNumber?: number): Point.IMPoint {
             // Quadratic Bezier Curve formula evaluated halfway
             var t = 0.5,
                 x = (1 - t) * (1 - t) * this.start.x + 2 * (1 - t) * t * this.control.x + t * t * this.end.x,
-                y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y - (modelNumber? modelNumber: 0) * 20;
+                y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y - (this.getDirection() * (modelNumber? modelNumber: 0) * 20);
             return new Point.IMPoint(x, y);
+        }
+
+        /**
+         * Gets the direction of the edge
+         * @returns {number} 1: right, -1: left
+         */
+        public getDirection() {
+            return this.start.x < this.end.x? 1: -1;
         }
     }
 }

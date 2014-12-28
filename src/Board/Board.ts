@@ -113,7 +113,7 @@ module jsflap.Board {
                     setTimeout(() => {
                         var elm = this.svg.select('g.edgeTransitions:last-child text.transition:last-child');
                         if (elm.length > 0) {
-                            this.visualizations.editTransition(newEdge.models.edges[0], <SVGTextElement> elm.node());
+                            this.visualizations.editTransition(newEdge.models.edges[newEdge.models.edges.length - 1], <SVGTextElement> elm.node());
                         }
                     }, 10);
                     this.state.futureEdge.remove();
@@ -153,17 +153,30 @@ module jsflap.Board {
          */
         public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition) {
             var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA);
-            var edgeV = new Visualization.EdgeVisualization(edge, from, to);
-            return this.visualizations.addEdge(edgeV);
+            var foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
+            if(foundEdgeV) {
+                console.log('GOT HERE');
+                foundEdgeV.addEdgeModel(edge);
+                this.visualizations.update();
+                return foundEdgeV;
+            } else {
+                var edgeV = new Visualization.EdgeVisualization(edge, from, to);
+                return this.visualizations.addEdge(edgeV);
+            }
         }
 
         /**
-         * Updates a edge's transition
+         * Updates a edge's transition by also updating all known hashes as well
          * @param edge
          * @param transition
          */
         public updateEdgeTransition(edge: Edge, transition: Transition.ITransition) {
-            this.graph.updateEdgeTransition(edge, transition);
+            var oldHash = edge.toString();
+            edge.transition = transition;
+            this.graph.getEdges().updateEdgeHash(oldHash);
+            edge.visualization.models.updateEdgeHash(oldHash);
+            edge.from.toEdges.updateEdgeHash(oldHash);
+            edge.to.fromEdges.updateEdgeHash(oldHash);
         }
 
         /**

@@ -19,7 +19,17 @@ module jsflap.Visualization {
         /**
          * The actual model that this is representing
          */
-        public model: Edge;
+        public models: EdgeList;
+
+        /**
+         * The start node model
+         */
+        public fromModel: Node;
+
+        /**
+         * The end node model
+         */
+        public toModel: Node;
 
         /**
          * The path value for the visualization
@@ -31,12 +41,38 @@ module jsflap.Visualization {
          * @param start
          * @param end
          * @param control
-         * @param model
+         * @param models
          */
-        constructor(model: Edge, start: Visualization.NodeVisualization, end: Visualization.NodeVisualization, control?: Point.MPoint) {
-            this.model = model;
-            this.model.setVisualization(this);
+        constructor(models: any, start: Visualization.NodeVisualization, end: Visualization.NodeVisualization, control?: Point.MPoint) {
+            var edgeListModels: Array<Edge>;
+            if(typeof models === 'array') {
+                edgeListModels = models;
+            } else if(models instanceof Edge) {
+                edgeListModels = [models];
+            }
+            this.models = new EdgeList();
+            edgeListModels.forEach((edge: Edge) => this.addEdgeModel(edge));
             this.recalculatePath(start, end, control);
+        }
+
+        /**
+         * Adds an edge model to this visualization
+         * @param edge
+         */
+        public addEdgeModel(edge: Edge): Edge {
+            if(!this.fromModel || !this.toModel) {
+                this.fromModel = edge.from;
+                this.toModel = edge.to;
+                edge.setVisualization(this);
+                this.models.add(edge);
+                return edge;
+            } else if(edge.from === this.fromModel && edge.to === this.toModel) {
+                edge.setVisualization(this);
+                this.models.add(edge);
+                return edge;
+            } else {
+                return null;
+            }
         }
 
         /**
@@ -100,12 +136,12 @@ module jsflap.Visualization {
          * Gets the position of where the transition text should be
          * @returns {jsflap.Point.IMPoint}
          */
-        getTransitionPoint(): Point.IMPoint {
+        getTransitionPoint(modelNumber?: number): Point.IMPoint {
 
             // Quadratic Bezier Curve formula evaluated halfway
             var t = 0.5,
                 x = (1 - t) * (1 - t) * this.start.x + 2 * (1 - t) * t * this.control.x + t * t * this.end.x,
-                y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y;
+                y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y - (modelNumber? modelNumber: 0) * 20;
             return new Point.IMPoint(x, y);
         }
     }

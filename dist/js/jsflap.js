@@ -588,6 +588,9 @@ var jsflap;
                 this.svg.on('mousemove', function () {
                     _this.mousemove(new _Board.MouseEvent(d3.event, this));
                 });
+                this.svg.on('touchmove', function () {
+                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
+                });
                 this.svg.on("contextmenu", function () {
                     $rootScope.$broadcast('contextmenu', { options: _this.state.contextMenuOptions, event: d3.event });
                     _this.state.contextMenuOptions = null;
@@ -624,9 +627,9 @@ var jsflap;
                         this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
                         var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
                         setTimeout(function () {
-                            var elm = _this.svg.select('text.transition:last-child');
+                            var elm = _this.svg.select('g.edgeTransitions:last-child text.transition:last-child');
                             if (elm.length > 0) {
-                                _this.visualizations.editTransition(newEdge, elm.node());
+                                _this.visualizations.editTransition(newEdge.models.edges[0], elm.node());
                             }
                         }, 10);
                         this.state.futureEdge.remove();
@@ -662,7 +665,8 @@ var jsflap;
              * @param transition
              */
             Board.prototype.addEdge = function (from, to, transition) {
-                var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), edgeV = new jsflap.Visualization.EdgeVisualization(edge, from, to);
+                var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA);
+                var edgeV = new jsflap.Visualization.EdgeVisualization(edge, from, to);
                 return this.visualizations.addEdge(edgeV);
             };
             /**
@@ -671,7 +675,7 @@ var jsflap;
              * @param transition
              */
             Board.prototype.updateEdgeTransition = function (edge, transition) {
-                this.graph.updateEdgeTransition(edge.model, transition);
+                this.graph.updateEdgeTransition(edge, transition);
             };
             /**
              * Sets the initial node for the graph
@@ -785,7 +789,7 @@ var jsflap;
                     }
                     else {
                         // Can only be modify Edge control now
-                        this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.model.from.visualization, this.state.modifyEdgeControl.model.to.visualization, newPoint);
+                        this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.fromModel.visualization, this.state.modifyEdgeControl.toModel.visualization, newPoint);
                     }
                     this.visualizations.update();
                 }
@@ -800,7 +804,7 @@ var jsflap;
             Board.prototype.handleErasing = function (point) {
                 var _this = this;
                 if (this.state.hoveringEdge) {
-                    this.graph.removeEdge(this.state.hoveringEdge.model);
+                    this.state.hoveringEdge.models.edges.forEach(function (edge) { return _this.graph.removeEdge(edge); });
                     this.visualizations.removeEdge(this.state.hoveringEdge);
                 }
                 else {
@@ -1704,13 +1708,42 @@ var jsflap;
              * @param start
              * @param end
              * @param control
-             * @param model
+             * @param models
              */
-            function EdgeVisualization(model, start, end, control) {
-                this.model = model;
-                this.model.setVisualization(this);
+            function EdgeVisualization(models, start, end, control) {
+                var _this = this;
+                var edgeListModels;
+                if (typeof models === 'array') {
+                    edgeListModels = models;
+                }
+                else if (models instanceof jsflap.Edge) {
+                    edgeListModels = [models];
+                }
+                this.models = new jsflap.EdgeList();
+                edgeListModels.forEach(function (edge) { return _this.addEdgeModel(edge); });
                 this.recalculatePath(start, end, control);
             }
+            /**
+             * Adds an edge model to this visualization
+             * @param edge
+             */
+            EdgeVisualization.prototype.addEdgeModel = function (edge) {
+                if (!this.fromModel || !this.toModel) {
+                    this.fromModel = edge.from;
+                    this.toModel = edge.to;
+                    edge.setVisualization(this);
+                    this.models.add(edge);
+                    return edge;
+                }
+                else if (edge.from === this.fromModel && edge.to === this.toModel) {
+                    edge.setVisualization(this);
+                    this.models.add(edge);
+                    return edge;
+                }
+                else {
+                    return null;
+                }
+            };
             /**
              * Recalculates the path between nodes and a possibly already given control point
              * @param start
@@ -1766,9 +1799,9 @@ var jsflap;
              * Gets the position of where the transition text should be
              * @returns {jsflap.Point.IMPoint}
              */
-            EdgeVisualization.prototype.getTransitionPoint = function () {
+            EdgeVisualization.prototype.getTransitionPoint = function (modelNumber) {
                 // Quadratic Bezier Curve formula evaluated halfway
-                var t = 0.5, x = (1 - t) * (1 - t) * this.start.x + 2 * (1 - t) * t * this.control.x + t * t * this.end.x, y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y;
+                var t = 0.5, x = (1 - t) * (1 - t) * this.start.x + 2 * (1 - t) * t * this.control.x + t * t * this.end.x, y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y - (modelNumber ? modelNumber : 0) * 20;
                 return new jsflap.Point.IMPoint(x, y);
             };
             return EdgeVisualization;
@@ -1934,68 +1967,71 @@ var jsflap;
                 this.edges = [];
                 this.update();
             }
+            VisualizationCollection.prototype.nodeContextMenu = function (node) {
+                var _this = this;
+                var event = d3.event;
+                var initialOption, finalOption;
+                if (node.model.initial) {
+                    initialOption = {
+                        display: 'Remove Initial',
+                        callback: function () {
+                            _this.board.setInitialNode(null);
+                            _this.update();
+                        }
+                    };
+                }
+                else {
+                    initialOption = {
+                        display: 'Make Initial',
+                        callback: function () {
+                            _this.board.setInitialNode(node);
+                            _this.update();
+                        }
+                    };
+                }
+                if (node.model.final) {
+                    finalOption = {
+                        display: 'Remove Final',
+                        callback: function () {
+                            _this.board.unmarkFinalNode(node);
+                            _this.update();
+                        }
+                    };
+                }
+                else {
+                    finalOption = {
+                        display: 'Make Final',
+                        callback: function () {
+                            _this.board.markFinalNode(node);
+                            _this.update();
+                        }
+                    };
+                }
+                this.state.contextMenuOptions = [finalOption, initialOption];
+            };
             /**
              * Updates the visualizations
              */
             VisualizationCollection.prototype.update = function () {
                 var _this = this;
+                var self = this;
                 var nodesGroup = this.svg.select('g.nodes'), edgesGroup = this.svg.select('g.edges'), transitionsGroup = this.svg.select('g.transitions'), controlPointsGroup = this.svg.select('g.control-points');
                 var nodes = nodesGroup.selectAll("circle.node").data(this.nodes, function (node) { return node.model; });
-                nodes.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr("r", function (d) { return d.radius; });
+                nodes.attr("r", function (d) { return d.radius; });
                 var newNodes = nodes.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('fill', "#008cba").attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0);
-                var nodeContextMenu = function (node) {
-                    var event = d3.event;
-                    var initialOption, finalOption;
-                    if (node.model.initial) {
-                        initialOption = {
-                            display: 'Remove Initial',
-                            callback: function () {
-                                _this.board.setInitialNode(null);
-                                _this.update();
-                            }
-                        };
-                    }
-                    else {
-                        initialOption = {
-                            display: 'Make Initial',
-                            callback: function () {
-                                _this.board.setInitialNode(node);
-                                _this.update();
-                            }
-                        };
-                    }
-                    if (node.model.final) {
-                        finalOption = {
-                            display: 'Remove Final',
-                            callback: function () {
-                                _this.board.unmarkFinalNode(node);
-                                _this.update();
-                            }
-                        };
-                    }
-                    else {
-                        finalOption = {
-                            display: 'Make Final',
-                            callback: function () {
-                                _this.board.markFinalNode(node);
-                                _this.update();
-                            }
-                        };
-                    }
-                    _this.state.contextMenuOptions = [finalOption, initialOption];
-                };
-                newNodes.on('contextmenu', nodeContextMenu);
+                newNodes.on('contextmenu', this.nodeContextMenu.bind(this));
                 newNodes.transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
                 nodes.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
                 nodes.exit().transition().attr('opacity', 0).attr("r", function (d) { return d.radius - 10; }).remove();
                 var nodeLabels = nodesGroup.selectAll("text.nodeLabel").data(this.nodes, function (node) { return node.model; });
-                nodeLabels.text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
-                var newNodeLabels = nodeLabels.enter().append('text').classed('nodeLabel', true).text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#FFF").attr('opacity', 0);
-                newNodeLabels.on('contextmenu', nodeContextMenu);
+                var newNodeLabels = nodeLabels.enter().append('text').classed('nodeLabel', true).text(function (d) { return d.model.label; }).attr("font-family", "sans-serif").attr("font-size", "18px").attr("fill", "#FFF").attr('opacity', 0);
+                newNodeLabels.on('contextmenu', this.nodeContextMenu.bind(this));
                 newNodeLabels.transition().delay(100).duration(300).attr('opacity', 1);
-                nodeLabels.attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
+                nodeLabels.text(function (d) { return d.model.label; }).attr("x", function (d) { return d.position.x - ((d.model.label.length <= 2) ? 11 : 15); }).attr("y", function (d) { return d.position.y + 5; });
                 nodeLabels.exit().remove();
                 var initialNodes = nodesGroup.selectAll("path.initialPath").data(this.nodes.filter(function (node) { return node.model.initial; }));
+                var newInitialNodes = initialNodes.enter().append('path').classed('initialPath', true).attr('fill', "#333");
+                newInitialNodes.attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
                 // Only animate the transition if we are not dragging the nodes
                 if (this.board.state.mode === 0 /* DRAW */) {
                     initialNodes.transition().attr('opacity', 1).attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
@@ -2003,18 +2039,16 @@ var jsflap;
                 else {
                     initialNodes.attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
                 }
-                var newInitialNodes = initialNodes.enter().append('path').classed('initialPath', true).attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; }).attr('fill', "#333");
-                newInitialNodes.attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
                 initialNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).remove();
                 var finalNodes = nodesGroup.selectAll("circle.finalCircle").data(this.nodes.filter(function (node) { return node.model.final; }), function (node) { return node.model; });
                 finalNodes.attr('opacity', 1).classed('finalCircle', true).attr("r", function (d) { return d.radius - 3; }).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
                 var newFinalNodes = finalNodes.enter().append('circle').classed('finalCircle', true).attr("r", function (d) { return d.radius - 10; }).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('stroke', "#FFF").attr('stroke-width', "2").attr('fill', "none").attr('opacity', 0);
-                newFinalNodes.on('contextmenu', nodeContextMenu);
+                newFinalNodes.on('contextmenu', this.nodeContextMenu.bind(this));
                 newFinalNodes.transition().attr('opacity', 1).attr("r", function (d) { return d.radius - 3; });
                 finalNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).attr("r", function (d) { return d.radius + 10; }).remove();
-                var edgePaths = edgesGroup.selectAll("path.edge").data(this.edges, function (edge) { return edge.model; });
+                var edgePaths = edgesGroup.selectAll("path.edge").data(this.edges, function (edge) { return edge.models.edges.map(function (edge) { return edge.toString(); }).join(','); });
+                var newEdgePaths = edgePaths.enter().append('path').classed('edge', true).attr('stroke', '#333').attr('stroke-width', '1');
                 edgePaths.attr('d', function (d) { return d.getPath(); }).classed('rightAngle', function (edge) { return ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) || (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1); });
-                var newEdgePaths = edgePaths.enter().append('path').classed('edge', true).classed('rightAngle', function (edge) { return ((Math.abs(edge.start.x - edge.end.x) < 1) && (Math.abs(edge.start.x - edge.control.x) < 1)) || (Math.abs(edge.start.y - edge.end.y) < 1) && (Math.abs(edge.start.y - edge.control.y) < 1); }).attr('d', function (d) { return d.getPath(); }).attr('stroke', '#333').attr('stroke-width', '1');
                 newEdgePaths.on('mouseover', function (edge) {
                     _this.state.hoveringEdge = edge;
                 }).on('mouseout', function (edge) {
@@ -2024,14 +2058,13 @@ var jsflap;
                 edgePaths.exit().transition().attr("opacity", 0).remove();
                 controlPointsGroup.classed('ng-hide', this.state.mode !== 1 /* MOVE */ ? 1 : 0);
                 var edgePathControlPoints = controlPointsGroup.selectAll("circle.control").data(this.edges);
-                edgePathControlPoints.attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; });
-                edgePathControlPoints.enter().append('circle').classed('control', true).attr('fill', '#AAA').attr('r', 10).attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; }).on('mousedown', function (edge) {
+                edgePathControlPoints.enter().append('circle').classed('control', true).attr('fill', '#AAA').attr('r', 10).on('mousedown', function (edge) {
                     if (_this.state.mode === 1 /* MOVE */) {
                         _this.state.modifyEdgeControl = edge;
                     }
                 }).on('dblclick', function (edge) {
                     if (_this.state.mode === 1 /* MOVE */) {
-                        edge.recalculatePath(edge.model.from.visualization, edge.model.to.visualization);
+                        edge.recalculatePath(edge.fromModel.visualization, edge.toModel.visualization);
                         _this.update();
                     }
                 }).on('mouseover', function (edge) {
@@ -2039,11 +2072,15 @@ var jsflap;
                 }).on('mouseout', function (edge) {
                     _this.state.hoveringEdge = null;
                 });
+                edgePathControlPoints.attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; });
                 edgePathControlPoints.exit().remove();
-                var edgeTransitions = transitionsGroup.selectAll('text.transition').data(this.edges, function (edge) { return edge.model; });
-                edgeTransitions.attr('x', function (d) { return d.getTransitionPoint().x; }).attr('y', function (d) { return d.getTransitionPoint().y; }).text(function (d) { return d.model.transition.toString(); });
-                var newEdgeTransitions = edgeTransitions.enter().append('text').classed('transition', true).attr("font-family", "sans-serif").attr("font-size", "16px").attr("text-anchor", "middle").attr("fill", "#000").attr('x', function (d) { return d.getTransitionPoint().x; }).attr('y', function (d) { return d.getTransitionPoint().y; }).text(function (d) { return d.model.transition.toString(); });
-                edgeTransitions.exit().transition().attr('opacity', 0).remove();
+                var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions').data(this.edges);
+                edgeTransitionGroup.enter().append('g').classed('edgeTransitions', true);
+                edgeTransitionGroup.exit().transition().attr('opacity', 0).remove();
+                var edgeTransitions = edgeTransitionGroup.selectAll('text.transition').data(function (edge) { return edge.models.edges; });
+                var newEdgeTransitions = edgeTransitions.enter().append('text').classed('transition', true).attr("font-family", "sans-serif").attr("font-size", "16px").attr("text-anchor", "middle").attr("fill", "#000");
+                edgeTransitions.attr('x', function (d) { return d.visualization.getTransitionPoint().x; }).attr('y', function (d) { return d.visualization.getTransitionPoint().y; }).text(function (d) { return d.transition.toString(); });
+                edgeTransitions.exit().remove();
                 newEdgeTransitions.on('mousedown', function (edge) {
                     var event = d3.event;
                     if (_this.state.mode !== 1 /* MOVE */) {
@@ -2051,7 +2088,7 @@ var jsflap;
                         event.preventDefault();
                     }
                     else {
-                        _this.state.modifyEdgeControl = edge;
+                        _this.state.modifyEdgeControl = edge.visualization;
                     }
                 }).on("mouseup", function (d) {
                     if (_this.state.modifyEdgeControl) {
@@ -2061,7 +2098,7 @@ var jsflap;
                         _this.editTransition(d);
                     }
                 }).on('mouseover', function (edge) {
-                    _this.state.hoveringEdge = edge;
+                    _this.state.hoveringEdge = edge.visualization;
                 }).on('mouseout', function (edge) {
                     _this.state.hoveringEdge = null;
                 });
@@ -2152,7 +2189,7 @@ var jsflap;
                     var transition = new jsflap.Transition.CharacterTransition(inp.node().value || jsflap.LAMBDA);
                     _this.board.updateEdgeTransition(d, transition);
                     el.text(function (d) {
-                        return d.model.transition.toString();
+                        return d.transition.toString();
                     });
                     _this.svg.select("foreignObject").remove();
                     _this.state.modifyEdgeTransition = null;
@@ -2167,7 +2204,7 @@ var jsflap;
                         inputField.select();
                     }, 5);
                     _this.state.modifyEdgeTransition = this;
-                    var value = d.model.transition.toString();
+                    var value = d.transition.toString();
                     return value !== jsflap.LAMBDA ? value : '';
                 }).attr("style", "width: 20px; border: none; padding: 3px; outline: none; background-color: #fff; border-radius: 3px").attr("maxlength", "1");
                 inp.transition().style('background-color', '#eee');

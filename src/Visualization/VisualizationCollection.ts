@@ -67,10 +67,53 @@ module jsflap.Visualization {
             this.update();
         }
 
+        public nodeContextMenu(node: NodeVisualization) {
+            var event = d3.event;
+            var initialOption, finalOption;
+            if(node.model.initial) {
+                initialOption = {
+                    display: 'Remove Initial',
+                    callback: () => {
+                        this.board.setInitialNode(null);
+                        this.update();
+                    }
+                };
+            } else {
+                initialOption = {
+                    display: 'Make Initial',
+                    callback: () => {
+                        this.board.setInitialNode(node);
+                        this.update();
+                    }
+                };
+            }
+
+            if(node.model.final) {
+                finalOption = {
+                    display: 'Remove Final',
+                    callback: () => {
+                        this.board.unmarkFinalNode(node);
+                        this.update();
+                    }
+                };
+            } else {
+                finalOption = {
+                    display: 'Make Final',
+                    callback: () => {
+                        this.board.markFinalNode(node);
+                        this.update();
+                    }
+                };
+            }
+
+            this.state.contextMenuOptions = [finalOption, initialOption];
+        }
+
         /**
          * Updates the visualizations
          */
         public update() {
+            var self = this;
 
             var nodesGroup = this.svg.select('g.nodes'),
                 edgesGroup = this.svg.select('g.edges'),
@@ -81,8 +124,6 @@ module jsflap.Visualization {
                 .data(this.nodes, (node: NodeVisualization) => node.model);
 
             nodes
-                .attr("cx", (d: NodeVisualization) => d.position.x)
-                .attr("cy", (d: NodeVisualization) => d.position.y)
                 .attr("r", (d: NodeVisualization) => d.radius);
 
             var newNodes = nodes.enter()
@@ -95,48 +136,7 @@ module jsflap.Visualization {
                 .attr("r", (d: NodeVisualization) => d.radius - 10)
                 .attr('opacity', 0);
 
-            var nodeContextMenu = (node: NodeVisualization) => {
-                var event = d3.event;
-                var initialOption, finalOption;
-                if(node.model.initial) {
-                    initialOption = {
-                        display: 'Remove Initial',
-                        callback: () => {
-                            this.board.setInitialNode(null);
-                            this.update();
-                        }
-                    };
-                } else {
-                    initialOption = {
-                        display: 'Make Initial',
-                        callback: () => {
-                            this.board.setInitialNode(node);
-                            this.update();
-                        }
-                    };
-                }
-                
-                if(node.model.final) {
-                    finalOption = {
-                        display: 'Remove Final',
-                        callback: () => {
-                            this.board.unmarkFinalNode(node);
-                            this.update();
-                        }
-                    };
-                } else {
-                    finalOption = {
-                        display: 'Make Final',
-                        callback: () => {
-                            this.board.markFinalNode(node);
-                            this.update();
-                        }
-                    };
-                }
-
-                this.state.contextMenuOptions = [finalOption, initialOption];
-            };
-            newNodes.on('contextmenu', nodeContextMenu);
+            newNodes.on('contextmenu', this.nodeContextMenu.bind(this));
 
             newNodes.transition()
                 .ease("elastic")
@@ -157,24 +157,17 @@ module jsflap.Visualization {
             var nodeLabels = nodesGroup.selectAll("text.nodeLabel")
                 .data(this.nodes, (node: NodeVisualization) => node.model);
 
-            nodeLabels
-                .text((d: NodeVisualization) => d.model.label)
-                .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
-                .attr("y", (d: NodeVisualization) => d.position.y + 5);
-
             var newNodeLabels = nodeLabels
                 .enter()
                 .append('text')
                 .classed('nodeLabel', true)
                 .text((d: NodeVisualization) => d.model.label)
-                .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
-                .attr("y", (d: NodeVisualization) => d.position.y + 5)
                 .attr("font-family", "sans-serif")
                 .attr("font-size", "18px")
                 .attr("fill", "#FFF")
                 .attr('opacity', 0);
 
-            newNodeLabels.on('contextmenu', nodeContextMenu);
+            newNodeLabels.on('contextmenu', this.nodeContextMenu.bind(this));
 
             newNodeLabels.transition()
                 .delay(100)
@@ -182,6 +175,7 @@ module jsflap.Visualization {
                 .attr('opacity', 1);
 
             nodeLabels
+                .text((d: NodeVisualization) => d.model.label)
                 .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
                 .attr("y", (d: NodeVisualization) => d.position.y + 5);
 
@@ -189,6 +183,20 @@ module jsflap.Visualization {
 
             var initialNodes = nodesGroup.selectAll("path.initialPath")
                 .data(this.nodes.filter((node: NodeVisualization) => node.model.initial));
+
+
+            var newInitialNodes = initialNodes
+                .enter()
+                .append('path')
+                .classed('initialPath', true)
+                .attr('fill', "#333");
+
+            newInitialNodes
+                .attr('opacity', 0)
+                .transition()
+                .delay(100)
+                .duration(300)
+                .attr('opacity', 1);
 
             // Only animate the transition if we are not dragging the nodes
             if(this.board.state.mode === Board.BoardMode.DRAW) {
@@ -200,20 +208,6 @@ module jsflap.Visualization {
                 initialNodes
                     .attr('d', (d: NodeVisualization) => 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z');
             }
-
-            var newInitialNodes = initialNodes
-                .enter()
-                .append('path')
-                .classed('initialPath', true)
-                .attr('d', (d: NodeVisualization) => 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z')
-                .attr('fill', "#333");
-
-            newInitialNodes
-                .attr('opacity', 0)
-                .transition()
-                .delay(100)
-                .duration(300)
-                .attr('opacity', 1);
 
             initialNodes.exit()
                 .attr('opacity', 1)
@@ -243,7 +237,8 @@ module jsflap.Visualization {
                 .attr('fill', "none")
                 .attr('opacity', 0);
 
-            newFinalNodes.on('contextmenu', nodeContextMenu);
+            newFinalNodes.on('contextmenu', this.nodeContextMenu.bind(this));
+
 
             newFinalNodes
                 .transition()
@@ -258,22 +253,21 @@ module jsflap.Visualization {
                 .remove();
 
             var edgePaths = edgesGroup.selectAll("path.edge")
-                .data(this.edges, (edge: EdgeVisualization) => edge.model);
 
-            edgePaths
-                .attr('d', (d: EdgeVisualization) => d.getPath())
-                .classed('rightAngle', (edge: EdgeVisualization) => ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) ||
-            (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1));
+                // TODO: Make the key function less expensive
+                .data(this.edges, (edge: EdgeVisualization) => edge.models.edges.map((edge) => edge.toString()).join(','));
 
             var newEdgePaths = edgePaths
                 .enter()
                 .append('path')
                 .classed('edge', true)
-                .classed('rightAngle', (edge: EdgeVisualization) =>  ((Math.abs(edge.start.x - edge.end.x) < 1) && (Math.abs(edge.start.x - edge.control.x) < 1)) ||
-                (Math.abs(edge.start.y - edge.end.y) < 1) && (Math.abs(edge.start.y - edge.control.y) < 1))
-                .attr('d', (d: EdgeVisualization) => d.getPath())
                 .attr('stroke', '#333')
                 .attr('stroke-width', '1');
+
+            edgePaths
+                .attr('d', (d: EdgeVisualization) => d.getPath())
+                .classed('rightAngle', (edge: EdgeVisualization) => ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) ||
+                (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1));
 
             newEdgePaths.on('mouseover', (edge: EdgeVisualization) => {
                 this.state.hoveringEdge = edge;
@@ -300,17 +294,11 @@ module jsflap.Visualization {
                 .data(this.edges);
 
             edgePathControlPoints
-                .attr('cx', (d: EdgeVisualization) =>  d.control.x)
-                .attr('cy', (d: EdgeVisualization) =>  d.control.y);
-
-            edgePathControlPoints
                 .enter()
                 .append('circle')
                 .classed('control', true)
                 .attr('fill', '#AAA')
                 .attr('r', 10)
-                .attr('cx', (d: EdgeVisualization) =>  d.control.x)
-                .attr('cy', (d: EdgeVisualization) =>  d.control.y)
                 .on('mousedown', (edge: EdgeVisualization) => {
                     if(this.state.mode === Board.BoardMode.MOVE) {
                         this.state.modifyEdgeControl = edge;
@@ -318,7 +306,7 @@ module jsflap.Visualization {
                 })
                 .on('dblclick', (edge: EdgeVisualization) => {
                     if(this.state.mode === Board.BoardMode.MOVE) {
-                        edge.recalculatePath(edge.model.from.visualization, edge.model.to.visualization);
+                        edge.recalculatePath(edge.fromModel.visualization, edge.toModel.visualization);
                         this.update();
                     }
                 })
@@ -328,15 +316,29 @@ module jsflap.Visualization {
                     this.state.hoveringEdge = null;
                 });
 
+            edgePathControlPoints
+                .attr('cx', (d: EdgeVisualization) =>  d.control.x)
+                .attr('cy', (d: EdgeVisualization) =>  d.control.y);
+
             edgePathControlPoints.exit().remove();
 
-            var edgeTransitions = transitionsGroup.selectAll('text.transition')
-                .data(this.edges, (edge: EdgeVisualization) => edge.model);
+            var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions')
+                .data(this.edges);
 
-            edgeTransitions
-                .attr('x', (d: EdgeVisualization) =>  d.getTransitionPoint().x)
-                .attr('y', (d: EdgeVisualization) =>  d.getTransitionPoint().y)
-                .text((d: EdgeVisualization) => d.model.transition.toString());
+            edgeTransitionGroup
+                .enter()
+                .append('g')
+                .classed('edgeTransitions', true);
+
+            edgeTransitionGroup
+                .exit()
+                .transition()
+                .attr('opacity', 0)
+                .remove();
+
+            var edgeTransitions = edgeTransitionGroup.selectAll('text.transition')
+                .data((edge: EdgeVisualization) => edge.models.edges);
+
 
             var newEdgeTransitions = edgeTransitions
                 .enter()
@@ -345,38 +347,37 @@ module jsflap.Visualization {
                 .attr("font-family", "sans-serif")
                 .attr("font-size", "16px")
                 .attr("text-anchor", "middle")
-                .attr("fill", "#000")
+                .attr("fill", "#000");
 
-                // TODO: Optimize this so we don't have to run the Bezier formula twice
-                .attr('x', (d: EdgeVisualization) =>  d.getTransitionPoint().x)
-                .attr('y', (d: EdgeVisualization) =>  d.getTransitionPoint().y)
-                .text((d: EdgeVisualization) => d.model.transition.toString());
+            edgeTransitions
+                .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint().x)
+                .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint().y)
+                .text((d: Edge) => d.transition.toString());
+
 
             edgeTransitions.exit()
-                .transition()
-                .attr('opacity', 0)
                 .remove();
 
             newEdgeTransitions
-                .on('mousedown', (edge: EdgeVisualization) => {
+                .on('mousedown', (edge: Edge) => {
                     var event = d3.event;
                     if(this.state.mode !== Board.BoardMode.MOVE) {
                         event.stopPropagation();
                         event.preventDefault();
                     } else {
-                        this.state.modifyEdgeControl = edge;
+                        this.state.modifyEdgeControl = edge.visualization;
                     }
                 })
-                .on("mouseup", (d) => {
+                .on("mouseup", (d: Edge) => {
                     if(this.state.modifyEdgeControl) {
                         this.state.modifyEdgeControl = null;
                     } else {
                         this.editTransition(d);
                     }
                 })
-                .on('mouseover', (edge: EdgeVisualization) => {
-                    this.state.hoveringEdge = edge;
-                }).on('mouseout', (edge: EdgeVisualization) => {
+                .on('mouseover', (edge: Edge) => {
+                    this.state.hoveringEdge = edge.visualization;
+                }).on('mouseout', (edge: Edge) => {
                     this.state.hoveringEdge = null;
                 });
 
@@ -467,7 +468,7 @@ module jsflap.Visualization {
             return true;
         }
 
-        editTransition(d: EdgeVisualization, node? :SVGTextElement) {
+        editTransition(d: Edge, node? :SVGTextElement) {
             // Adapted from http://bl.ocks.org/GerHobbelt/2653660
 
             var _this = this;
@@ -486,7 +487,7 @@ module jsflap.Visualization {
             function updateTransition() {
                 var transition = new Transition.CharacterTransition((<HTMLInputElement> inp.node()).value || LAMBDA);
                 _this.board.updateEdgeTransition(d, transition);
-                el.text(function(d) { return d.model.transition.toString() });
+                el.text(function(d) { return d.transition.toString() });
                 _this.svg.select("foreignObject").remove();
                 _this.state.modifyEdgeTransition = null;
                 if(typeof _this.board.onBoardUpdateFn === 'function') {
@@ -509,7 +510,7 @@ module jsflap.Visualization {
                     }, 5);
                     _this.state.modifyEdgeTransition = this;
 
-                    var value = d.model.transition.toString();
+                    var value = d.transition.toString();
                     return value !== LAMBDA? value: '';
                 })
                 .attr("style", "width: 20px; border: none; padding: 3px; outline: none; background-color: #fff; border-radius: 3px")

@@ -69,6 +69,9 @@ module jsflap.Board {
             this.svg.on('mousemove', function () {
                 _this.mousemove(new MouseEvent(d3.event, this));
             });
+            this.svg.on('touchmove', function () {
+                _this.mousemove(new MouseEvent(d3.event, this));
+            });
             this.svg.on("contextmenu", function() {
                 $rootScope.$broadcast('contextmenu', {options: _this.state.contextMenuOptions, event: d3.event});
                 _this.state.contextMenuOptions = null;
@@ -108,9 +111,9 @@ module jsflap.Board {
 
                     var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
                     setTimeout(() => {
-                        var elm = this.svg.select('text.transition:last-child');
+                        var elm = this.svg.select('g.edgeTransitions:last-child text.transition:last-child');
                         if (elm.length > 0) {
-                            this.visualizations.editTransition(newEdge, <SVGTextElement> elm.node());
+                            this.visualizations.editTransition(newEdge.models.edges[0], <SVGTextElement> elm.node());
                         }
                     }, 10);
                     this.state.futureEdge.remove();
@@ -149,8 +152,8 @@ module jsflap.Board {
          * @param transition
          */
         public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition) {
-            var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
-                edgeV = new Visualization.EdgeVisualization(edge, from, to);
+            var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA);
+            var edgeV = new Visualization.EdgeVisualization(edge, from, to);
             return this.visualizations.addEdge(edgeV);
         }
 
@@ -159,8 +162,8 @@ module jsflap.Board {
          * @param edge
          * @param transition
          */
-        public updateEdgeTransition(edge: Visualization.EdgeVisualization, transition: Transition.ITransition) {
-            this.graph.updateEdgeTransition(edge.model, transition);
+        public updateEdgeTransition(edge: Edge, transition: Transition.ITransition) {
+            this.graph.updateEdgeTransition(edge, transition);
         }
 
         /**
@@ -298,7 +301,7 @@ module jsflap.Board {
                     });
                 } else {
                     // Can only be modify Edge control now
-                    this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.model.from.visualization, this.state.modifyEdgeControl.model.to.visualization, newPoint)
+                    this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.fromModel.visualization, this.state.modifyEdgeControl.toModel.visualization, newPoint)
                 }
                 this.visualizations.update();
             } else if(this.state.mode === BoardMode.ERASE && this.state.isErasing) {
@@ -312,7 +315,7 @@ module jsflap.Board {
          */
         private handleErasing(point: Point.IPoint) {
             if(this.state.hoveringEdge) {
-                this.graph.removeEdge(this.state.hoveringEdge.model);
+                this.state.hoveringEdge.models.edges.forEach((edge: Edge) => this.graph.removeEdge(edge));
                 this.visualizations.removeEdge(this.state.hoveringEdge);
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);

@@ -121,7 +121,7 @@ module jsflap.Visualization {
                 controlPointsGroup = this.svg.select('g.control-points');
 
             var nodes = nodesGroup.selectAll("circle.node")
-                .data(this.nodes, (node: NodeVisualization) => node.model);
+                .data(this.nodes, (node: NodeVisualization) => node.model.toString());
 
             nodes
                 .attr("r", (d: NodeVisualization) => d.radius);
@@ -178,7 +178,10 @@ module jsflap.Visualization {
                 .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
                 .attr("y", (d: NodeVisualization) => d.position.y + 5);
 
-            nodeLabels.exit().remove();
+            nodeLabels.exit()
+                .transition()
+                .attr('opacity', 0)
+                .remove();
 
             var initialNodes = nodesGroup.selectAll("path.initialPath")
                 .data(this.nodes.filter((node: NodeVisualization) => node.model.initial));
@@ -326,9 +329,14 @@ module jsflap.Visualization {
                 .remove();
 
 
-
             controlPointsGroup
-                .classed('ng-hide', this.state.mode !== Board.BoardMode.MOVE? 1: 0);
+                .style('display', this.state.mode === Board.BoardMode.MOVE? 'block': '')
+                .transition()
+                .duration(200)
+                .attr("opacity", this.state.mode === Board.BoardMode.MOVE? 1: 0)
+                .each('end', () => {
+                    controlPointsGroup.style('display', this.state.mode !== Board.BoardMode.MOVE? 'none': '');
+                });
 
             var edgePathControlPoints = controlPointsGroup.selectAll("circle.control")
                 .data(this.edges);
@@ -349,13 +357,13 @@ module jsflap.Visualization {
                         edge.recalculatePath();
                         edgePaths
                             .transition()
-                            .duration(750)
+                            .duration(500)
                             .ease('elastic')
                             .attr('d', (d: EdgeVisualization) => d.getPath());
 
                         edgeTransitions
                             .transition()
-                            .duration(750)
+                            .duration(500)
                             .ease('elastic')
                             .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).x)
                             .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y);
@@ -363,7 +371,7 @@ module jsflap.Visualization {
                         edgePathControlPoints
                             .transition()
                             .ease('elastic')
-                            .duration(750)
+                            .duration(500)
                             .attr('cx', (d: EdgeVisualization) =>  d.control.x)
                             .attr('cy', (d: EdgeVisualization) =>  d.control.y)
                             .each('end', () => {
@@ -572,6 +580,11 @@ module jsflap.Visualization {
             }
         }
 
+        /**
+         * Opens a new text field for editing a transition
+         * @param edge
+         * @param node
+         */
         editTransition(edge: Edge, node? :SVGTextElement) {
             // Adapted from http://bl.ocks.org/GerHobbelt/2653660
 
@@ -595,7 +608,12 @@ module jsflap.Visualization {
                     return;
                 }
                 var transition = new Transition.CharacterTransition((<HTMLInputElement> inp.node()).value || LAMBDA);
-                var similarTransitions = edge.visualization.models.edges.filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString());
+                console.log(transition.toString());
+                var similarTransitions = edge.visualization.models.edges.length > 1?
+                    edge.visualization.models.edges
+                        .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString())
+                        :[];
+
                 if(similarTransitions.length == 0) {
                     _this.board.updateEdgeTransition(edge, transition);
                     el.text(function (d) {
@@ -648,7 +666,7 @@ module jsflap.Visualization {
                         e.preventDefault();
 
                         updateTransition();
-                        inp.on('blur', null);
+                        //inp.on('blur', null);
                         this.remove();
                     }
                 });

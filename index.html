@@ -27,7 +27,7 @@
                 <ul class="dropdown">
                     <li><a href="#">Local Storage</a></li>
                     <li><a href="#">JFLAP file (.jff)</a></li>
-                    <li><a href="#">Automatta Definition (.txt)</a></li>
+                    <li><a href="#">Automata Definition (.txt)</a></li>
                 </ul>
             </li>
             <li><a href="#"><i class="fa fa-save"></i> Save</a></li>
@@ -36,17 +36,21 @@
 
         <!-- Left Nav Section -->
         <ul class="left">
-            <li ng-click="board.state.mode = 0; board.visualizations.update()" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
-            <li ng-click="board.state.mode = 1; board.visualizations.update()" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
-            <li ng-click="board.state.mode = 2; board.visualizations.update()" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
+            <li ng-click="board.state.mode = 0; board.visualizations.update()" class="mode_selector" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
+            <li ng-click="board.state.mode = 1; board.visualizations.update()" class="mode_selector" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
+            <li ng-click="board.state.mode = 2; board.visualizations.update()" class="mode_selector" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
+        </ul>
+
+        <ul class="center">
+            <li class="has-form">
+                <input type="text" placeholder="Untitled 1">
+            </li>
             <li class="has-dropdown">
-                <a href="#">NFA</a>
+                <a href="#" title="Finite Automaton">FA</a>
                 <ul class="dropdown">
-                    <li class="active"><a href="#">NFA</a></li>
-                    <li><a href="#">DFA</a></li>
-                    <li><a href="#">NPDA</a></li>
-                    <li><a href="#">DPDA</a></li>
-                    <li><a href="#">Turing Machine</a></li>
+                    <li class="active" title="Finite Automaton"><a href="#">FA</a></li>
+                    <li><a href="#" title="Push-down Automaton">PDA</a></li>
+                    <li><a href="#" title="Turing Machine">TM</a></li>
                 </ul>
             </li>
         </ul>

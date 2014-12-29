@@ -128,7 +128,9 @@ module jsflap.Visualization {
                     break;
                 case EdgeVisualizationPathMode.OPPOSING_A:
                 case EdgeVisualizationPathMode.OPPOSING_B:
-                    controlPoint.add(Point.MPoint.getNormalOffset(startPoint, endPoint, 20));
+                    controlPoint.add(Point.MPoint.getNormalOffset(startPoint, endPoint,
+                        // The separation should be 1/15  the distance or 15px, what ever is greater
+                        Math.max(startPoint.getDistanceTo(endPoint) / 15, 20)));
                     break;
             }
             return controlPoint;

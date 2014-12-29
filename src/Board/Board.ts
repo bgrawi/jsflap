@@ -368,10 +368,17 @@ module jsflap.Board {
                                     theta3 = (theta1 + theta2),
 
                                     // Find the original offset distance from the old midpoint
-                                    initialDistance = oldMidpoint.getDistanceTo(oldControlPoint),
+                                    oldDistance = oldMidpoint.getDistanceTo(oldControlPoint),
+
+                                    oldLength = oldMidpoint.getDistanceTo(axisNodePosition),
+                                    newLength = newMidpoint.getDistanceTo(axisNodePosition),
+
+                                    // Calculate the change in length to get a new distance from the control point
+                                    lengthRatio = newLength / oldLength,
+                                    newDistance = lengthRatio * oldDistance,
 
                                     // Now, from the new dragging point and the new midpoint, calculate the new midpoint offset
-                                    offset = Point.MPoint.getNormalOffset(newDraggingNodePoint, newMidpoint, initialDistance, theta3);
+                                    offset = Point.MPoint.getNormalOffset(newDraggingNodePoint, newMidpoint, newDistance, theta3);
 
                                 // We now know we need to adjust our new midpoint by the offset to get our point!
                                 controlPoint = newMidpoint.add(offset);
@@ -558,7 +565,11 @@ module jsflap.Board {
                     case 73: // i
                         var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
                         if(nearestNode.node && nearestNode.hover) {
-                            this.setInitialNode(nearestNode.node);
+                            if(!nearestNode.node.model.initial) {
+                                this.setInitialNode(nearestNode.node);
+                            } else {
+                                this.setInitialNode(null);
+                            }
                             this.visualizations.update();
                         }
                         break;

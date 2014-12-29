@@ -8,6 +8,7 @@
 /** LAYOUT OVERRIDES **/
 html, body {
     height: 100%;
+    overflow-y: hidden;
 }
 
 .main-row, .main-row .columns {
@@ -15,10 +16,7 @@ html, body {
     height: calc(100% - 3rem);
 }
 
-body.mode_1 svg[jsflap-board] circle.node,
-body.mode_1 svg[jsflap-board] text.nodeLabel,
-body.mode_1 svg[jsflap-board] circle.finalCircle,
-body.mode_1 svg[jsflap-board] circle.control {
+body.mode_1 svg[jsflap-board] > * {
     cursor: move;
 }
 
@@ -38,11 +36,15 @@ section.board-container {
 
 section.board-sidebar {
     width: 20%;
+    height: 100%;
+    overflow-y: auto;
     position: absolute;
     left: 80%;
     top: 0;
     bottom: 0;
     background-color: #F5F5F5;
+    box-sizing: border-box;
+    border-left: 5px solid #008CBA;
 }
 
 @media (max-width: 1366px) {
@@ -73,7 +75,7 @@ div.main-row {
 
 .text-heading {
     padding: 20px 5px;
-    background-color: #777;
+    background-color: #008CBA;
     color: #fff;
     text-align: center;
     font-variant: small-caps;
@@ -157,20 +159,20 @@ svg[jsflap-board] input.editTransition {
 
 svg[jsflap-board] path.edge {
     fill: transparent;
-    shape-rendering: optimizeSpeed;
+    shape-rendering: auto;
 }
 
 svg[jsflap-board] path.edge.rightAngle {
     shape-rendering: crispEdges;
 }
 
+/*svg[jsflap-board] #markerArrow {*/
+    /*shape-rendering: geometricPrecision !important;*/
+/*}*/
+
 
 svg[jsflap-board] input:focus {
     box-shadow: none;
-}
-
-svg[jsflap-board] circle.control {
-    z-index: 9999;
 }
 
 /** SVG THEMES **/
@@ -178,12 +180,14 @@ svg[jsflap-board] circle.control {
 svg[jsflap-board] circle.node {
     fill: #008cba;
     stroke: none;
+    transition: fill .3s, stroke .3s;
 }
 
 svg[jsflap-board] text.nodeLabel {
     font-family: sans-serif;
     font-size: 18px;
     fill: #FFF;
+    transition: fill .3s, stroke .3s;
 }
 
 svg[jsflap-board] text.transition {
@@ -195,20 +199,24 @@ svg[jsflap-board] text.transition {
 
 svg[jsflap-board] path.initialPath {
     fill: #333;
+    transition: fill .3s, stroke .3s;
 }
 
 svg[jsflap-board] circle.finalCircle {
     stroke: #FFF;
     stroke-width: 2;
     fill: none;
+    transition: fill .3s, stroke .3s;
 }
 svg[jsflap-board] path.edge {
     stroke: #333;
     stroke-width: 1;
+    transition: fill .3s, stroke .3s;
 }
 
 svg[jsflap-board] circle.control {
     fill: #AAA;
+    transition: fill .3s, stroke .3s;
 }
 
 /** SVG THEMES: Classic **/

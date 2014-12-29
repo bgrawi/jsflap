@@ -276,6 +276,8 @@ module jsflap.Graph {
             if(node) {
                 node.initial = true;
                 this.initialNode = node;
+            } else {
+                this.initialNode = null;
             }
             return node;
         }

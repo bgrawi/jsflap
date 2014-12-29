@@ -62,6 +62,56 @@ module jsflap.Point {
             return Math.atan2((this.y - other.y), (this.x - other.x));
         }
 
+        /**
+         * Adds a point
+         * @param other
+         */
+        public add(other: Point.IPoint): MPoint {
+            this.x += other.x;
+            this.y += other.y;
+            return this;
+        }
+
+        /**
+         * Subtracts a point
+         * @param other
+         */
+        public subtract(other: Point.IPoint): MPoint {
+            this.x -= other.x;
+            this.y -= other.y;
+            return this;
+        }
+
+        /**
+         * Helper function to generate a new point that is the midpoint between two other points
+         * @param point1
+         * @param point2
+         * @returns {jsflap.Point.MPoint}
+         */
+        static getMidpoint(point1: Point.IPoint, point2: Point.IPoint): Point.MPoint {
+            return new Point.MPoint(
+                ((point1.x + point2.x) / 2),
+                ((point1.y + point2.y) / 2)
+            );
+        }
+
+        /**
+         * Gets the normal offset point based on two points, an offset, and an option initial theta
+         * @param point1
+         * @param point2
+         * @param distance
+         * @param theta0
+         * @returns {jsflap.Point.MPoint}
+         */
+        static getNormalOffset(point1: Point.IPoint, point2: Point.IPoint, distance: number, theta0: number = Math.PI / 2): Point.MPoint {
+            var theta1 = point1.getAngleTo(point2) + theta0;
+            return new Point.MPoint(distance * Math.cos(theta1), distance * Math.sin(theta1));
+        }
+
+        /**
+         * Gets the coordinates as a string separated by a comma and a space: "x, y"
+         * @returns {string}
+         */
         public toString() {
             return this.x + ', ' + this.y;
         }

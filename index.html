@@ -30,7 +30,7 @@
                     <li><a href="#">Automatta Definition (.txt)</a></li>
                 </ul>
             </li>
-            <li class="active"><a href="#"><i class="fa fa-save"></i> Save</a></li>
+            <li><a href="#"><i class="fa fa-save"></i> Save</a></li>
 
         </ul>
 
@@ -54,16 +54,22 @@
 </nav>
 <div class="full main-row">
     <section class="board-container">
-        <svg tabindex="0" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" jsflap-board>
+        <svg tabindex="0" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" ng-class="activeTheme" jsflap-board>
             <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
                     orient="auto">
-                <path class="markerArrow" d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000;"></path>
+                <path class="markerArrow" d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000; shape-rendering: optimizeSpeed !important;"></path>
+            </marker>
+            <marker id="markerArrow2" markerWidth="13" markerHeight="14" refx="14" refy="5"
+                    orient="auto">
+                <path class="markerArrow" d="M0,10 L14,5 L0,0" style="stroke: #000000; fill: none; shape-rendering: optimizeSpeed !important;"></path>
             </marker>
             <g class="background"></g>
-            <g class="nodes"></g>
-            <g class="edges"></g>
-            <g class="transitions"></g>
-            <g class="control-points"></g>
+            <g class="items">
+                <g class="nodes"></g>
+                <g class="edges"></g>
+                <g class="transitions"></g>
+                <g class="control-points"></g>
+            </g>
         </svg>
     </section>
     <section class="board-sidebar">
@@ -89,6 +95,34 @@
             </label>
             <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
         </form>
+        <div class="text-heading">
+            Graph Info
+        </div>
+        <div class="text-subheading" style="padding: 7px 15px; font-size: 16px; background-color: #AAA; color: #FFF; text-align: left;">
+            <input id="graphDeterminism" type="checkbox" ng-model="graph.deterministic"><label for="graphDeterminism" style="font-size: 16px;color: #fff;">Deterministic</label> <div class="pull-right">Graph is {{!graph.isValid()?'in':''}}valid</div>
+        </div>
+        <pre style="padding: 5px; font-size: 16px; background-color: #f5f5f5">{{graph.toString()}}</pre>
+        <div class="text-heading">
+            Display Settings
+        </div>
+        <ul class="button-group" style="text-align: center; padding-top: 10px;">
+            <li ng-repeat="(themeClass, themeName) in availableThemes"><a href="#" class="button small" ng-class="themeClass == activeTheme? 'info': 'secondary'" ng-click="setActiveTheme(themeClass)">{{themeName}}</a></li>
+        </ul>
+        <div class="text-heading">
+            Keyboard Shortcuts
+        </div>
+        <div style="padding: 10px; font-size: 16px;">
+            <ul class="no-bullet">
+                <li><kbd>SHIFT</kbd>: Snaps edges to 45&deg; and nodes to a grid</li>
+                <li><kbd>SPACE</kbd>: Temporary MOVE mode (<i class="fa fa-arrows"></i>) while held</li>
+                <li><kbd>F</kbd>: Toggles node under the mouse's final status</li>
+                <li><kbd>I</kbd>: Toggles node under the mouse's initial status</li>
+                <li><kbd>D</kbd>: Enter DRAW mode (<i class="fa fa-pencil"></i>)</li>
+                <li><kbd>M</kbd>: Enter MOVE mode (<i class="fa fa-arrows"></i>)</li>
+                <li><kbd>E</kbd>: Enter ERASE mode (<i class="fa fa-eraser"></i>)</li>
+                <li><kbd>CTRL</kbd>: Temporarily freezes moved control points</li>
+            </ul>
+        </div>
     </section>
 </div>
 

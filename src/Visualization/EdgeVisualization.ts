@@ -1,4 +1,12 @@
 module jsflap.Visualization {
+
+    export enum EdgeVisualizationPathMode {
+        DEFAULT,
+        SELF,
+        OPPOSING_A,
+        OPPOSING_B
+    };
+
     export class EdgeVisualization {
 
         /**
@@ -14,7 +22,7 @@ module jsflap.Visualization {
         /**
          * The control point
          */
-        public control: Point.MPoint;
+        private _control: Point.MPoint;
 
         /**
          * The actual model that this is representing
@@ -37,13 +45,22 @@ module jsflap.Visualization {
         public path;
 
         /**
+         * If the user has moved the control point yet
+         * @type {boolean}
+         */
+        private _hasMovedControlPoint: boolean = false;
+
+        /**
+         * The type of path this edge visualization is representing
+         */
+        public pathMode: EdgeVisualizationPathMode = null;
+
+        /**
          * Creates the node
-         * @param start
-         * @param end
          * @param control
          * @param models
          */
-        constructor(models: any, start: Visualization.NodeVisualization, end: Visualization.NodeVisualization, control?: Point.MPoint) {
+        constructor(models: any, control?: Point.MPoint) {
             var edgeListModels: Array<Edge>;
             if(typeof models === 'array') {
                 edgeListModels = models;
@@ -52,7 +69,10 @@ module jsflap.Visualization {
             }
             this.models = new EdgeList();
             edgeListModels.forEach((edge: Edge) => this.addEdgeModel(edge));
-            this.recalculatePath(start, end, control);
+            this.pathMode = (this.fromModel !== this.toModel)?
+                EdgeVisualizationPathMode.DEFAULT:
+                EdgeVisualizationPathMode.SELF;
+            this.recalculatePath(control);
         }
 
         /**
@@ -75,53 +95,78 @@ module jsflap.Visualization {
 
         /**
          * Recalculates the path between nodes and a possibly already given control point
-         * @param start
-         * @param end
          * @param control
          */
-        public recalculatePath(start: NodeVisualization, end: NodeVisualization, control?: Point.MPoint) {
-            var pointOffset = new Point.MPoint(0, 0);
-            if(start !== end) {
-                this.start = start.getAnchorPointFrom(control? control: end.position);
-                this.end = end.getAnchorPointFrom(control? control: start.position);
-                this.control = control? control: this.getInitialControlPoint(pointOffset)
+        public recalculatePath(control?: Point.MPoint) {
+            if(this.pathMode !== EdgeVisualizationPathMode.SELF) {
+                var tempControlPoint = this.getInitialControlPoint(
+                    this.fromModel.visualization.position,
+                    this.toModel.visualization.position
+                );
+                this.start = this.fromModel.visualization.getAnchorPointFrom(control? control: tempControlPoint);
+                this.end = this.toModel.visualization.getAnchorPointFrom(control? control: tempControlPoint);
+                this._control = control? control: this.getInitialControlPoint();
             } else {
-                var anchorPoints = start.getSelfAnchorPoints(control);
+                var anchorPoints = this.fromModel.visualization.getSelfAnchorPoints(control);
                 this.start = anchorPoints[0];
                 this.end = anchorPoints[1];
-                pointOffset.y -= 80;
-                this.control = control? control: this.getInitialControlPoint(pointOffset);
+                this._control = control? control: this.getInitialControlPoint();
             }
-
         }
 
         /**
-         * Gets the intial control point with a given offset
-         * @param pointOffset
+         * Gets the initial control point with a given offset
          * @returns {jsflap.Point.MPoint}
          */
-        public getInitialControlPoint(pointOffset?: Point.IPoint) {
-            return new Point.MPoint(
-                ((this.start.x + this.end.x) / 2) + (pointOffset? pointOffset.x: 0),
-                ((this.start.y + this.end.y) / 2) + (pointOffset? pointOffset.y: 0)
-            );
+        public getInitialControlPoint(startPoint?: Point.IPoint, endPoint?: Point.IPoint) {
+            startPoint = startPoint? startPoint: this.start;
+            endPoint = endPoint? endPoint: this.end;
+            var controlPoint =  Point.MPoint.getMidpoint(startPoint, endPoint);
+            switch (this.pathMode) {
+                case EdgeVisualizationPathMode.SELF:
+                    controlPoint.y -= 80;
+                    break;
+                case EdgeVisualizationPathMode.OPPOSING_A:
+                case EdgeVisualizationPathMode.OPPOSING_B:
+                    controlPoint.add(Point.MPoint.getNormalOffset(startPoint, endPoint, 20));
+                    break;
+            }
+            return controlPoint;
         }
 
         /**
          * Determines if the control point has been moved from the start
-         * @param start
-         * @param end
          * @returns {boolean}
          */
-        public hasMovedControlPoint(start: NodeVisualization, end: NodeVisualization): boolean {
-            var initialControlPoint;
-            if(start !== end) {
-                initialControlPoint = this.getInitialControlPoint();
-            } else {
-                initialControlPoint = this.getInitialControlPoint(new Point.IMPoint(0, -80));
-            }
-            return !(Math.abs(this.control.x - initialControlPoint.x) <= 1 && Math.abs(this.control.y - initialControlPoint.y) <= 1);
+        public hasMovedControlPoint(): boolean {
+            return this._hasMovedControlPoint;
         }
+
+        /**
+         * Resets the control points position
+         */
+        public resetControlPoint() {
+            this._hasMovedControlPoint = false;
+            this._control = this.getInitialControlPoint();
+        }
+
+        /**
+         * Sets the control point
+         * @param point
+         */
+        set control(point: Point.MPoint) {
+            this._hasMovedControlPoint = true;
+            this._control = point;
+        }
+
+        /**
+         * Gets the control point
+         * @returns {Point.MPoint}
+         */
+        get control(): Point.MPoint {
+            return this._control;
+        }
+
 
         /**
          * Gets the path string
@@ -132,14 +177,14 @@ module jsflap.Visualization {
 
         /**
          * Gets the position of where the transition text should be
-         * @returns {jsflap.Point.IMPoint}
          */
-        public getTransitionPoint(modelNumber?: number): Point.IMPoint {
+        public getTransitionPoint(modelNumber?: number): Point.MPoint {
             // Quadratic Bezier Curve formula evaluated halfway
             var t = 0.5,
                 x = (1 - t) * (1 - t) * this.start.x + 2 * (1 - t) * t * this.control.x + t * t * this.end.x,
-                y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y - (this.getDirection() * (modelNumber? modelNumber: 0) * 20);
-            return new Point.IMPoint(x, y);
+                y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y;
+            return new Point.MPoint(x, y).add(Point.MPoint.getNormalOffset(this.start, this.end,
+                (this.pathMode !== EdgeVisualizationPathMode.SELF? 1: -1) * ((modelNumber? modelNumber: 0) * 20)));
         }
 
         /**

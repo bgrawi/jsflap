@@ -18,9 +18,13 @@ module jsflap.Board {
         public futureEdgeFrom: Visualization.NodeVisualization = null;
         public futureEdgeSnapping: boolean = false;
 
+        public ctrlKeyPressed: boolean = false;
+
         public draggingNode: Visualization.NodeVisualization = null;
         public isErasing: boolean = false;
         public hoveringEdge: Visualization.EdgeVisualization = null;
+        public hoveringTransition: Edge = null;
+        public isDraggingBoard: boolean = false;
 
         public quickMoveFrom: BoardMode = null;
 

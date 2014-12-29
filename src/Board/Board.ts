@@ -69,6 +69,9 @@ module jsflap.Board {
             this.svg.on('mousemove', function () {
                 _this.mousemove(new MouseEvent(d3.event, this));
             });
+            this.svg.on('touchmove', function () {
+                _this.mousemove(new MouseEvent(d3.event, this));
+            });
             this.svg.on("contextmenu", function() {
                 $rootScope.$broadcast('contextmenu', {options: _this.state.contextMenuOptions, event: d3.event});
                 _this.state.contextMenuOptions = null;
@@ -106,11 +109,14 @@ module jsflap.Board {
                     }
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
-                    var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode);
+                    var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode),
+                        newEdgeModel = newEdge.models.edges[newEdge.models.edges.length - 1];
                     setTimeout(() => {
-                        var elm = this.svg.select('text.transition:last-child');
+                        var elm = this.svg.selectAll('g.edgeTransitions text.transition')
+                            .filter((possibleEdge: Edge) => possibleEdge === newEdgeModel);
+                        //console.log(elm);
                         if (elm.length > 0) {
-                            this.visualizations.editTransition(newEdge, <SVGTextElement> elm.node());
+                            this.visualizations.editTransition(newEdgeModel, <SVGTextElement> elm.node());
                         }
                     }, 10);
                     this.state.futureEdge.remove();
@@ -122,6 +128,7 @@ module jsflap.Board {
             } else if(this.state.mode === BoardMode.MOVE) {
                 this.state.draggingNode = null;
                 this.state.modifyEdgeControl = null;
+                this.state.isDraggingBoard = false;
             } else if(this.state.mode === BoardMode.ERASE) {
                 this.state.isErasing = false;
             }
@@ -150,17 +157,47 @@ module jsflap.Board {
          */
         public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition) {
             var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
-                edgeV = new Visualization.EdgeVisualization(edge, from, to);
-            return this.visualizations.addEdge(edgeV);
+                foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
+
+            // If there already is a visualization between these two edges, add the edge to that model
+            if(foundEdgeV) {
+                foundEdgeV.addEdgeModel(edge);
+
+                // Visualizations don't auto-update here, so we need to force call it
+                this.visualizations.update();
+                return foundEdgeV;
+            } else {
+                var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(to.model, from.model);
+                var edgeV = new Visualization.EdgeVisualization(edge);
+                if(foundOppositeEdgeV) {
+                    // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
+                    if(foundOppositeEdgeV.getDirection() === 1) {
+                        foundOppositeEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_A;
+                        edgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_B;
+                    } else {
+                        foundOppositeEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_B;
+                        edgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_A;
+                    }
+                    foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint()? foundOppositeEdgeV.control: null);
+                    edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint()? edgeV.control: null);
+                }
+
+                return this.visualizations.addEdge(edgeV);
+            }
         }
 
         /**
-         * Updates a edge's transition
+         * Updates a edge's transition by also updating all known hashes as well
          * @param edge
          * @param transition
          */
-        public updateEdgeTransition(edge: Visualization.EdgeVisualization, transition: Transition.ITransition) {
-            this.graph.updateEdgeTransition(edge.model, transition);
+        public updateEdgeTransition(edge: Edge, transition: Transition.ITransition) {
+            var oldHash = edge.toString();
+            edge.transition = transition;
+            this.graph.getEdges().updateEdgeHash(oldHash);
+            edge.visualization.models.updateEdgeHash(oldHash);
+            edge.from.toEdges.updateEdgeHash(oldHash);
+            edge.to.fromEdges.updateEdgeHash(oldHash);
         }
 
         /**
@@ -212,9 +249,11 @@ module jsflap.Board {
 
                     this.state.futureEdgeFrom = this.addNode(event.point);
                 }
-            } else if(this.state.mode === BoardMode.MOVE) {
+            } else if(this.state.mode === BoardMode.MOVE && !this.state.modifyEdgeControl) {
                 if (nearestNode.node && nearestNode.hover) {
                     this.state.draggingNode = nearestNode.node;
+                } else {
+                    this.state.isDraggingBoard = true;
                 }
             } else if(this.state.mode === BoardMode.ERASE) {
                 this.state.isErasing = true;
@@ -233,7 +272,6 @@ module jsflap.Board {
          */
         private mousemove(event: MouseEvent) {
             var point = event.point.getMPoint();
-            this.state.lastMousePoint = event.point.getMPoint();
 
             if(event.event.which > 1) {
                 return false;
@@ -278,32 +316,115 @@ module jsflap.Board {
                     this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
                     this.state.futureEdge.addTo(this.svg);
                 }
-            } else if(this.state.mode === BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl)) {
-                var newPoint = point.getMPoint();
+            } else if(this.state.mode === BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
+                var snappedPoint = point.getMPoint();
                 if(this.state.futureEdgeSnapping) {
-                    newPoint.x = (Math.round(newPoint.x / 20) * 20);
-                    newPoint.y = (Math.round(newPoint.y / 20) * 20);
+                    snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
+                    snappedPoint.y = (Math.round(snappedPoint.y / 20) * 20);
                 }
 
                 if(this.state.draggingNode) {
-                    this.state.draggingNode.position = newPoint;
-                    this.state.draggingNode.model.toEdges.edges.forEach((edgeModel) => {
-                        var hasMovedControlPoint = edgeModel.visualization.hasMovedControlPoint(edgeModel.from.visualization, edgeModel.to.visualization);
-                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization, hasMovedControlPoint? edgeModel.visualization.control: null);
-                    });
+                    var oldDraggingNodePoint = this.state.draggingNode.position.getMPoint();
+                    this.state.draggingNode.position = snappedPoint;
+                    var newDraggingNodePoint = this.state.draggingNode.position;
 
-                    this.state.draggingNode.model.fromEdges.edges.forEach((edgeModel) => {
-                        var hasMovedControlPoint = edgeModel.visualization.hasMovedControlPoint(edgeModel.from.visualization, edgeModel.to.visualization);
-                        edgeModel.visualization.recalculatePath(edgeModel.from.visualization, edgeModel.to.visualization, hasMovedControlPoint? edgeModel.visualization.control: null);
+                    var updateFn: (edgeModel: Edge) => void = null;
+
+                    /// Allow toggling off control point re-drawing. CTRL Key is not the best key but will do for now
+                    if(!this.state.ctrlKeyPressed) {
+
+                        var adjustedEdges = {};
+
+                        updateFn = (edgeModel: Edge) => {
+                            var edgeV = edgeModel.visualization,
+                                edgeVHash = edgeV.fromModel.toString() + ', ' + edgeV.toModel.toString();
+
+                            // Only do this function ONCE per edge visualization
+                            if(!adjustedEdges.hasOwnProperty(edgeVHash)) {
+                                adjustedEdges[edgeVHash] = true;
+                            }  else {
+                                return;
+                            }
+                            var controlPoint;
+                            if (edgeV.hasMovedControlPoint() && edgeV.pathMode !== Visualization.EdgeVisualizationPathMode.SELF) {
+                                var otherNode = edgeModel.from === this.state.draggingNode.model ? edgeModel.to.visualization : edgeModel.from.visualization;
+
+                                // Complicated algorithm to determine new control point location:
+                                // Setup common points
+                                var oldControlPoint = edgeV.control.getMPoint(),
+                                    axisNodePosition = otherNode.position,
+
+                                    // Calculate the initial and final midpoints
+                                    oldMidpoint = Point.MPoint.getMidpoint(oldDraggingNodePoint, axisNodePosition),
+                                    newMidpoint = Point.MPoint.getMidpoint(newDraggingNodePoint, axisNodePosition),
+
+                                    // Calculate the angles between the old midpoint and the old control point
+                                    theta1 = oldMidpoint.getAngleTo(oldControlPoint),
+
+                                    // With respect to closest x-axis, calculate the angle of the slope of the line
+                                    theta2 = Math.PI - oldMidpoint.getAngleTo(axisNodePosition),
+
+                                    // Get the total angle between the x-axis and the point that is off the old midpoint
+                                    theta3 = (theta1 + theta2),
+
+                                    // Find the original offset distance from the old midpoint
+                                    initialDistance = oldMidpoint.getDistanceTo(oldControlPoint),
+
+                                    // Now, from the new dragging point and the new midpoint, calculate the new midpoint offset
+                                    offset = Point.MPoint.getNormalOffset(newDraggingNodePoint, newMidpoint, initialDistance, theta3);
+
+                                // We now know we need to adjust our new midpoint by the offset to get our point!
+                                controlPoint = newMidpoint.add(offset);
+                                // end 3 hours of work
+                            } else if(edgeV.hasMovedControlPoint() && edgeV.pathMode === Visualization.EdgeVisualizationPathMode.SELF) {
+                                controlPoint = edgeV.control.getMPoint().add(newDraggingNodePoint.getMPoint().subtract(oldDraggingNodePoint));
+                            }
+                            edgeV.recalculatePath(controlPoint ? controlPoint : null);
+                        };
+                    }
+                    this.state.draggingNode.updateEdgeVisualizationPaths(updateFn);
+                } else if(this.state.modifyEdgeControl) {
+
+                    // Update the control point
+                    this.state.modifyEdgeControl.control = snappedPoint;
+                    this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.control)
+                } else if(this.state.isDraggingBoard) {
+                    // Move all the elements of the board
+                    // Gets the delta between the points
+                    point.subtract(this.state.lastMousePoint);
+
+                    // Keep track of control points so that they are only added once
+                    var controlPoints = {};
+
+                    // Custom update function to ensure control points are moved correctly
+                    var updateFn = (edgeModel: Edge) => {
+                        var controlPoint: Point.MPoint = null;
+
+                        // Only bother keeping the relative location of the control point if it has been moved
+                        if(edgeModel.visualization.hasMovedControlPoint()) {
+                            var edgeHash = edgeModel.toString();
+
+                            // Only do the addition once per edge
+                            if(!controlPoints.hasOwnProperty(edgeHash)) {
+                                controlPoints[edgeHash] = edgeModel.visualization.control.add(point);
+                                controlPoint = controlPoints[edgeHash];
+                            } else {
+                                controlPoint = controlPoints[edgeHash];
+                            }
+                        }
+                        edgeModel.visualization.recalculatePath(controlPoint?controlPoint: null);
+                    };
+                    this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
+                        node.position.add(point);
+                        node.updateEdgeVisualizationPaths(updateFn);
                     });
-                } else {
-                    // Can only be modify Edge control now
-                    this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.model.from.visualization, this.state.modifyEdgeControl.model.to.visualization, newPoint)
                 }
                 this.visualizations.update();
             } else if(this.state.mode === BoardMode.ERASE && this.state.isErasing) {
                 this.handleErasing(point);
             }
+
+            this.state.lastMousePoint = event.point.getMPoint();
         }
 
         /**
@@ -311,27 +432,70 @@ module jsflap.Board {
          * @param point
          */
         private handleErasing(point: Point.IPoint) {
-            if(this.state.hoveringEdge) {
-                this.graph.removeEdge(this.state.hoveringEdge.model);
+
+            /**
+             * If this edge was an opposing edge, we need to reset the other edge's mode
+             * @param edgeV
+             */
+            var handleOpposingEdgeCollapsing = (edgeV: Visualization.EdgeVisualization) => {
+                if(edgeV.pathMode === Visualization.EdgeVisualizationPathMode.OPPOSING_A ||
+                    edgeV.pathMode === Visualization.EdgeVisualizationPathMode.OPPOSING_B) {
+                    var otherEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
+                    if(otherEdgeV) {
+                        otherEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.DEFAULT;
+                        otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint()? otherEdgeV.control: null);
+                    }
+                }
+            };
+
+            // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
+            if(this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.edges[0])) {
+
+                // Delete each edge from this visualization
+                this.state.hoveringEdge.models.edges.forEach((edge: Edge) => this.graph.removeEdge(edge));
+
+                handleOpposingEdgeCollapsing(this.state.hoveringEdge);
                 this.visualizations.removeEdge(this.state.hoveringEdge);
+            }
+            // If we are hovering over a specific transition and have not already erased it
+            else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
+                console.log('Hasdfkjh');
+                var edgeV = this.state.hoveringTransition.visualization;
+
+                // Delete this edge from the visualization
+                edgeV.models.remove(this.state.hoveringTransition);
+                this.graph.removeEdge(this.state.hoveringTransition);
+
+                // If we have removed the last edge, remove the entire visualization
+                if(edgeV.models.size === 0) {
+                    handleOpposingEdgeCollapsing(edgeV);
+                    this.visualizations.removeEdge(edgeV);
+                } else {
+
+                    // Now we need to re-index the visualizations
+                    edgeV.models.edges.forEach((edge: Edge, index: number) => {
+                        edge.visualizationNumber = index;
+                    });
+
+                    // And force a update
+                    this.visualizations.update();
+                }
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);
                 if(nearestNode.node && nearestNode.hover) {
 
                     // Need to copy the edges because when the edges are deleted, the indexing gets messed up
-                    var toEdges = nearestNode.node.model.toEdges.edges.slice(0);
-                    toEdges.forEach((edgeModel) => {
-                        console.log(edgeModel.toString());
 
-                        this.graph.removeEdge(edgeModel);
-                        this.visualizations.removeEdge(edgeModel.visualization);
-                    });
+                    var toEdges = nearestNode.node.model.toEdges.edges.slice(0),
+                        fromEdges = nearestNode.node.model.fromEdges.edges.slice(0),
+                        deleteFn = (edgeModel: Edge) => {
+                            this.graph.removeEdge(edgeModel);
+                            this.visualizations.removeEdge(edgeModel.visualization);
+                        };
 
-                    var fromEdges = nearestNode.node.model.fromEdges.edges.slice(0);
-                    fromEdges.forEach((edgeModel) => {
-                        this.graph.removeEdge(edgeModel);
-                        this.visualizations.removeEdge(edgeModel.visualization);
-                    });
+                    toEdges.forEach(deleteFn);
+                    fromEdges.forEach(deleteFn);
+
                     this.graph.removeNode(nearestNode.node.model);
                     this.visualizations.removeNode(nearestNode.node);
                 }
@@ -343,13 +507,16 @@ module jsflap.Board {
          * @param event
          */
         private keydown(event) {
-            if(event.which === 16 && !this.state.futureEdgeSnapping) {
-                this.state.futureEdgeSnapping = true;
-            }
-
             // if not editing a textbox
             if(this.state.modifyEdgeTransition === null) {
                 switch(event.which) {
+                    case 16: // SHIFT
+                        this.state.futureEdgeSnapping = true;
+                        break;
+
+                    case 17: // CTRL
+                        this.state.ctrlKeyPressed = true;
+                        break;
 
                     // QUICK EDIT
                     case 32: // spacebar
@@ -408,9 +575,14 @@ module jsflap.Board {
                 this.state.futureEdgeSnapping = false;
             }
 
+            if(event.which === 17 && this.state.ctrlKeyPressed) {
+                this.state.ctrlKeyPressed = false;
+            }
+
             if (event.which === 32) {
                 this.state.draggingNode = null;
                 this.state.modifyEdgeControl = null;
+                this.state.isDraggingBoard = false;
                 this.state.mode = this.state.quickMoveFrom;
                 this.state.quickMoveFrom = null;
                 if(this.state.modifyEdgeControl) {

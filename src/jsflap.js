@@ -158,9 +158,11 @@
             this.graph = new jsflap.Graph.FAGraph(false);
             this.board = null;
 
+            $scope.graphString = '';
             this.onBoardUpdate = function() {
                 $timeout(function() {
                     $scope.$broadcast('boardUpdate');
+                    $scope.graphString = $scope.graph.toString();
                 }, 1);
             };
 
@@ -171,8 +173,19 @@
                 window.board = self.board;
             };
 
+            $scope.availableThemes = {
+                'theme-modern': 'Modern Theme',
+                'theme-classic': 'Classic Theme'
+            };
+
+            $scope.activeTheme = 'theme-modern';
+            $scope.setActiveTheme = function(className) {
+                $scope.activeTheme = className;
+            };
+
             // For easy debugging
             window.graph = this.graph;
+            $scope.graph = this.graph;
         })
         .controller('ContextController', function($scope) {
             $scope.message2 = 'the context';

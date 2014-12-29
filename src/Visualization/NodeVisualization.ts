@@ -27,6 +27,27 @@ module jsflap.Visualization {
             model.setVisualization(this);
         }
 
+        /**
+         * Updates the edges that this node is connected to, useful for when this node's position changes
+         */
+        public updateEdgeVisualizationPaths(updateFn?: (value: Edge, index: number, array: Edge[]) => void) {
+            if(!updateFn) {
+                updateFn = (edgeModel: Edge) => {
+                    edgeModel.visualization.recalculatePath(edgeModel.visualization.hasMovedControlPoint()? edgeModel.visualization.control: null);
+                };
+            }
+            this.forEachEdge(updateFn);
+        }
+
+        /**
+         * Calls the forEach method on both model.toEdges and model.fromEdges
+         * @param callBackFn
+         */
+        public forEachEdge(callBackFn: (value: Edge, index: number, array: Edge[]) => void) {
+            this.model.toEdges.edges.forEach(callBackFn);
+            this.model.fromEdges.edges.forEach(callBackFn);
+        }
+
 
         /**
          * Gets an anchor point on the edge of the circle from any other given point

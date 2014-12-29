@@ -103,6 +103,21 @@ module jsflap {
         }
 
         /**
+         * Updates an edge's hash if it has changed
+         * @param oldHash
+         * @returns {*}
+         */
+        public updateEdgeHash(oldHash: string): Edge {
+            var edgeObj = this.get(oldHash);
+            if(edgeObj) {
+                delete this.edgeMap[oldHash];
+                this.edgeMap[edgeObj.toString()] = edgeObj;
+                return edgeObj;
+            }
+            return null;
+        }
+
+        /**
          * Gets the number of edges
          * @returns {number}
          */

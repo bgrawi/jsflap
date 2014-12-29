@@ -36,8 +36,6 @@ module jsflap.Graph {
         markFinalNode(node: Node): Node;
         unmarkFinalNode(node: Node): Node;
 
-        updateEdgeTransition(edge: Edge, transition: Transition.ITransition): Edge;
-
         getAlphabet(): Object;
 
         toString(): string;

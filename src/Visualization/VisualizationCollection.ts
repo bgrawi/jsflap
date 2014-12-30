@@ -142,7 +142,7 @@ module jsflap.Visualization {
                 .attr("r", (d: NodeVisualization) => d.radius)
                 .attr('opacity', 1);
 
-            var nodesMovement = shouldAnimateMovement? nodes.transition().ease('cubic-out').duration(50): nodes;
+            var nodesMovement: any = shouldAnimateMovement? nodes.transition().ease('cubic-out').duration(50): nodes;
             nodesMovement
                 .attr("cx", (d: NodeVisualization) => d.position.x)
                 .attr("cy", (d: NodeVisualization) => d.position.y);
@@ -173,7 +173,7 @@ module jsflap.Visualization {
             nodeLabels
                 .text((d: NodeVisualization) => d.model.label);
 
-            var nodeLabelsMovement = shouldAnimateMovement? nodeLabels.transition().ease('cubic-out').duration(50): nodeLabels;
+            var nodeLabelsMovement: any = shouldAnimateMovement? nodeLabels.transition().ease('cubic-out').duration(50): nodeLabels;
             nodeLabelsMovement
                 .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
                 .attr("y", (d: NodeVisualization) => d.position.y + 5);
@@ -232,7 +232,7 @@ module jsflap.Visualization {
                 .classed('finalCircle', true)
                 .attr("r", (d: NodeVisualization) => d.radius - 3);
 
-            var finalNodesMovement = shouldAnimateMovement? finalNodes.transition().ease('cubic-out').duration(50): finalNodes;
+            var finalNodesMovement: any = shouldAnimateMovement? finalNodes.transition().ease('cubic-out').duration(50): finalNodes;
             finalNodesMovement
                 .attr("cx", (d: NodeVisualization) => d.position.x)
                 .attr("cy", (d: NodeVisualization) => d.position.y);

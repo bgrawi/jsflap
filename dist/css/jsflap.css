@@ -287,3 +287,30 @@ svg[jsflap-board].theme-classic circle.control {
     background-color: #eee;
     border: 1px solid #ddd;
 }
+/** The Desktop CSS-specific code **/
+body {
+    border: 3px solid #333;
+    border-top: none;
+}
+
+nav.top-bar {
+    -webkit-user-select: none;
+    -webkit-app-region: drag;
+}
+
+nav.top-bar a {
+    -webkit-app-region: no-drag;
+}
+
+.window-buttons {
+    position: relative;
+    margin-right: -3px;
+}
+
+.close-window {
+    background-color: #C3272B !important;
+}
+
+.close-window:hover {
+    background-color: #e02a2f !important;
+}

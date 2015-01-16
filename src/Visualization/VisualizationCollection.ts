@@ -74,7 +74,7 @@ module jsflap.Visualization {
                 initialOption = {
                     display: 'Remove Initial',
                     callback: () => {
-                        this.board.setInitialNode(null);
+                        this.board.setInitialNode(null, true);
                         this.update();
                     }
                 };
@@ -82,7 +82,7 @@ module jsflap.Visualization {
                 initialOption = {
                     display: 'Make Initial',
                     callback: () => {
-                        this.board.setInitialNode(node);
+                        this.board.setInitialNode(node, true);
                         this.update();
                     }
                 };
@@ -92,7 +92,7 @@ module jsflap.Visualization {
                 finalOption = {
                     display: 'Remove Final',
                     callback: () => {
-                        this.board.unmarkFinalNode(node);
+                        this.board.unmarkFinalNode(node, true);
                         this.update();
                     }
                 };
@@ -100,7 +100,7 @@ module jsflap.Visualization {
                 finalOption = {
                     display: 'Make Final',
                     callback: () => {
-                        this.board.markFinalNode(node);
+                        this.board.markFinalNode(node, true);
                         this.update();
                     }
                 };

@@ -779,9 +779,10 @@ var jsflap;
                         _this.state.ctrlKeyPressed = true;
                     }
                     if (!(event.target instanceof HTMLInputElement)) {
-                        _this.keydown(event);
+                        var result = _this.keydown(event);
                         $rootScope.$digest();
                     }
+                    return result;
                 });
                 document.addEventListener('keyup', function (event) {
                     // Always monitor modifier keys regardless of context
@@ -792,9 +793,10 @@ var jsflap;
                         _this.state.ctrlKeyPressed = false;
                     }
                     if (!(event.target instanceof HTMLInputElement)) {
-                        _this.keyup(event);
+                        var result = _this.keyup(event);
                         $rootScope.$digest();
                     }
+                    return result;
                 });
             };
             /**
@@ -948,28 +950,133 @@ var jsflap;
             /**
              * Sets the initial node for the graph
              * @param node
+             * @param trackHistory
              */
-            Board.prototype.setInitialNode = function (node) {
+            Board.prototype.setInitialNode = function (node, trackHistory) {
+                var _this = this;
+                var prevInitialNode = this.graph.getInitialNode();
                 if (node) {
                     this.graph.setInitialNode(node.model);
+                    if (trackHistory) {
+                        this.undoManager.add({
+                            undo: function () {
+                                var foundNode;
+                                if (prevInitialNode) {
+                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
+                                }
+                                else {
+                                    foundNode = null;
+                                }
+                                if (foundNode) {
+                                    _this.graph.setInitialNode(foundNode.model);
+                                }
+                                else {
+                                    _this.graph.setInitialNode(null);
+                                }
+                                _this.visualizations.update();
+                            },
+                            redo: function () {
+                                var foundNode;
+                                if (prevInitialNode) {
+                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                                }
+                                else {
+                                    foundNode = null;
+                                }
+                                if (foundNode) {
+                                    if (foundNode) {
+                                        _this.graph.setInitialNode(foundNode.model);
+                                    }
+                                    else {
+                                        _this.graph.setInitialNode(null);
+                                    }
+                                    _this.visualizations.update();
+                                }
+                            }
+                        });
+                    }
                 }
                 else {
                     this.graph.setInitialNode(null);
+                    if (trackHistory) {
+                        this.undoManager.add({
+                            undo: function () {
+                                var foundNode;
+                                if (prevInitialNode) {
+                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
+                                }
+                                else {
+                                    foundNode = null;
+                                }
+                                if (foundNode) {
+                                    _this.graph.setInitialNode(foundNode.model);
+                                }
+                                else {
+                                    _this.graph.setInitialNode(null);
+                                }
+                                _this.visualizations.update();
+                            },
+                            redo: function () {
+                                _this.graph.setInitialNode(null);
+                                _this.visualizations.update();
+                            }
+                        });
+                    }
                 }
             };
             /**
              * Marks the final node for the graph
              * @param node
+             * @param trackHistory
              */
-            Board.prototype.markFinalNode = function (node) {
+            Board.prototype.markFinalNode = function (node, trackHistory) {
+                var _this = this;
                 this.graph.markFinalNode(node.model);
+                if (trackHistory) {
+                    this.undoManager.add({
+                        undo: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.unmarkFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        },
+                        redo: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.markFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        }
+                    });
+                }
             };
             /**
              * Unmarks the final node for the graph
              * @param node
+             * @param trackHistory
              */
-            Board.prototype.unmarkFinalNode = function (node) {
+            Board.prototype.unmarkFinalNode = function (node, trackHistory) {
+                var _this = this;
                 this.graph.unmarkFinalNode(node.model);
+                if (trackHistory) {
+                    this.undoManager.add({
+                        undo: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.markFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        },
+                        redo: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.unmarkFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        }
+                    });
+                }
             };
             /**
              * Mousedown event listener
@@ -1259,7 +1366,7 @@ var jsflap;
                     case 70:
                         var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
                         if (nearestNode.node && nearestNode.hover) {
-                            nearestNode.node.model.final ? this.unmarkFinalNode(nearestNode.node) : this.markFinalNode(nearestNode.node);
+                            nearestNode.node.model.final ? this.unmarkFinalNode(nearestNode.node, true) : this.markFinalNode(nearestNode.node, true);
                             this.visualizations.update();
                         }
                         break;
@@ -1267,10 +1374,10 @@ var jsflap;
                         var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
                         if (nearestNode.node && nearestNode.hover) {
                             if (!nearestNode.node.model.initial) {
-                                this.setInitialNode(nearestNode.node);
+                                this.setInitialNode(nearestNode.node, true);
                             }
                             else {
-                                this.setInitialNode(null);
+                                this.setInitialNode(null, true);
                             }
                             this.visualizations.update();
                         }
@@ -1278,7 +1385,9 @@ var jsflap;
                     case 89:
                         if (this.state.ctrlKeyPressed) {
                             this.undoManager.redo();
+                            event.preventDefault();
                         }
+                        return false;
                         break;
                     case 90:
                         if (this.state.ctrlKeyPressed) {
@@ -1288,9 +1397,12 @@ var jsflap;
                             else {
                                 this.undoManager.undo();
                             }
+                            event.preventDefault();
                         }
+                        return false;
                         break;
                 }
+                return true;
             };
             /**
              * Sets the board mode and updates accordingly
@@ -1323,6 +1435,7 @@ var jsflap;
                     }
                     this.visualizations.update();
                 }
+                return true;
             };
             return Board;
         })();
@@ -2497,7 +2610,7 @@ var jsflap;
                     initialOption = {
                         display: 'Remove Initial',
                         callback: function () {
-                            _this.board.setInitialNode(null);
+                            _this.board.setInitialNode(null, true);
                             _this.update();
                         }
                     };
@@ -2506,7 +2619,7 @@ var jsflap;
                     initialOption = {
                         display: 'Make Initial',
                         callback: function () {
-                            _this.board.setInitialNode(node);
+                            _this.board.setInitialNode(node, true);
                             _this.update();
                         }
                     };
@@ -2515,7 +2628,7 @@ var jsflap;
                     finalOption = {
                         display: 'Remove Final',
                         callback: function () {
-                            _this.board.unmarkFinalNode(node);
+                            _this.board.unmarkFinalNode(node, true);
                             _this.update();
                         }
                     };
@@ -2524,7 +2637,7 @@ var jsflap;
                     finalOption = {
                         display: 'Make Final',
                         callback: function () {
-                            _this.board.markFinalNode(node);
+                            _this.board.markFinalNode(node, true);
                             _this.update();
                         }
                     };

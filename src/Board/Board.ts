@@ -106,9 +106,10 @@ module jsflap.Board {
                 }
 
                 if(!(event.target instanceof HTMLInputElement)) {
-                    _this.keydown(event);
+                    var result = _this.keydown(event);
                     $rootScope.$digest();
                 }
+                return result;
             });
             document.addEventListener('keyup', function (event) {
 
@@ -121,9 +122,10 @@ module jsflap.Board {
                 }
 
                 if(!(event.target instanceof HTMLInputElement)) {
-                    _this.keyup(event);
+                    var result = _this.keyup(event);
                     $rootScope.$digest();
                 }
+                return result
             });
         }
 
@@ -298,29 +300,126 @@ module jsflap.Board {
         /**
          * Sets the initial node for the graph
          * @param node
+         * @param trackHistory
          */
-        public setInitialNode(node: Visualization.NodeVisualization) {
+        public setInitialNode(node: Visualization.NodeVisualization, trackHistory?: boolean) {
+            var prevInitialNode = this.graph.getInitialNode();
             if(node) {
                 this.graph.setInitialNode(node.model);
+                if(trackHistory) {
+                    this.undoManager.add({
+                        undo: () => {
+                            var foundNode;
+                            if(prevInitialNode) {
+                                foundNode = this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
+                            } else {
+                                foundNode = null;
+                            }
+                            if(foundNode) {
+                                this.graph.setInitialNode(foundNode.model);
+                            } else {
+                                this.graph.setInitialNode(null);
+                            }
+                            this.visualizations.update();
+                        },
+                        redo: () => {
+                            var foundNode;
+                            if(prevInitialNode) {
+                                foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            } else {
+                                foundNode = null;
+                            }
+                            if(foundNode) {
+                                if(foundNode) {
+                                    this.graph.setInitialNode(foundNode.model);
+                                } else {
+                                    this.graph.setInitialNode(null);
+                                }
+                                this.visualizations.update();
+                            }
+                        }
+                    });
+                }
             } else {
                 this.graph.setInitialNode(null);
+                if(trackHistory) {
+                    this.undoManager.add({
+                        undo: () => {
+                            var foundNode;
+                            if(prevInitialNode) {
+                                 foundNode = this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
+                            } else {
+                                foundNode = null;
+                            }
+                            if(foundNode) {
+                                this.graph.setInitialNode(foundNode.model);
+                            } else {
+                                this.graph.setInitialNode(null);
+                            }
+                            this.visualizations.update();
+                        },
+                        redo: () => {
+                            this.graph.setInitialNode(null);
+                            this.visualizations.update();
+                        }
+                    });
+                }
             }
         }
 
         /**
          * Marks the final node for the graph
          * @param node
+         * @param trackHistory
          */
-        public markFinalNode(node: Visualization.NodeVisualization) {
+        public markFinalNode(node: Visualization.NodeVisualization, trackHistory?: boolean) {
             this.graph.markFinalNode(node.model);
+            if(trackHistory) {
+                this.undoManager.add({
+                    undo: () => {
+                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                        if(foundNode) {
+                            this.graph.unmarkFinalNode(foundNode.model);
+                            this.visualizations.update();
+                        }
+                    },
+                    redo: () => {
+                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                        if(foundNode) {
+                            this.graph.markFinalNode(foundNode.model);
+                            this.visualizations.update();
+                        }
+                    }
+                });
+            }
         }
 
         /**
          * Unmarks the final node for the graph
          * @param node
+         * @param trackHistory
          */
-        public unmarkFinalNode(node: Visualization.NodeVisualization) {
+        public unmarkFinalNode(node: Visualization.NodeVisualization, trackHistory?: boolean) {
             this.graph.unmarkFinalNode(node.model);
+
+            if(trackHistory) {
+                this.undoManager.add({
+                    undo: () => {
+                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                        if(foundNode) {
+                            this.graph.markFinalNode(foundNode.model);
+                            this.visualizations.update();
+                        }
+                    },
+                    redo: () => {
+                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                        if(foundNode) {
+                            this.graph.unmarkFinalNode(foundNode.model);
+                            this.visualizations.update();
+                        }
+                    }
+                });
+            }
         }
 
         /**
@@ -674,7 +773,7 @@ module jsflap.Board {
                 case 70: // f
                     var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
                     if(nearestNode.node && nearestNode.hover) {
-                        nearestNode.node.model.final? this.unmarkFinalNode(nearestNode.node): this.markFinalNode(nearestNode.node);
+                        nearestNode.node.model.final? this.unmarkFinalNode(nearestNode.node, true): this.markFinalNode(nearestNode.node, true);
                         this.visualizations.update();
                     }
                     break;
@@ -682,9 +781,9 @@ module jsflap.Board {
                     var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
                     if(nearestNode.node && nearestNode.hover) {
                         if(!nearestNode.node.model.initial) {
-                            this.setInitialNode(nearestNode.node);
+                            this.setInitialNode(nearestNode.node, true);
                         } else {
-                            this.setInitialNode(null);
+                            this.setInitialNode(null, true);
                         }
                         this.visualizations.update();
                     }
@@ -693,7 +792,9 @@ module jsflap.Board {
                 case 89: // Y (For CTRL-Y)
                     if(this.state.ctrlKeyPressed) {
                         this.undoManager.redo();
+                        event.preventDefault();
                     }
+                    return false;
                     break;
 
                 case 90: // Z (For CTRL-Z)
@@ -703,9 +804,12 @@ module jsflap.Board {
                         } else {
                             this.undoManager.undo();
                         }
+                        event.preventDefault();
                     }
+                    return false;
                     break;
             }
+            return true;
         }
 
         /**
@@ -739,7 +843,7 @@ module jsflap.Board {
                 }
                 this.visualizations.update();
             }
-
+            return true;
         }
 
     }

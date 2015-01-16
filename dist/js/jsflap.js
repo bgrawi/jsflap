@@ -302,10 +302,16 @@ var jsflap;
         /**
          * Adds a new edge to the list
          * @param edge
+         * @param index
          */
-        EdgeList.prototype.add = function (edge) {
+        EdgeList.prototype.add = function (edge, index) {
             if (!this.has(edge)) {
-                this.edges.push(edge);
+                if (typeof index !== 'number') {
+                    this.edges.push(edge);
+                }
+                else {
+                    this.edges.splice(index, 0, edge);
+                }
                 this.edgeMap[edge.toString()] = edge;
                 return edge;
             }
@@ -823,7 +829,7 @@ var jsflap;
                             neededToCreateNode = true;
                         }
                         this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
-                        var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode), newEdgeModel = newEdge.models.edges[newEdge.models.edges.length - 1];
+                        var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode), newEdgeModelIndex = newEdge.models.edges.length - 1, newEdgeModel = newEdge.models.edges[newEdgeModelIndex];
                         setTimeout(function () {
                             var elm = _this.svg.selectAll('g.edgeTransitions text.transition').filter(function (possibleEdge) { return possibleEdge === newEdgeModel; });
                             //console.log(elm);
@@ -835,10 +841,17 @@ var jsflap;
                         var startingNodeV = this.state.futureEdgeFrom, endingNodeV = endingNode, edgeV = newEdge;
                         this.undoManager.add({
                             undo: function () {
+                                var foundStartingNodeModel = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label).model, foundEndingNodeModel = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label).model;
+                                edgeV = _this.visualizations.getEdgeVisualizationByNodes(foundStartingNodeModel, foundEndingNodeModel);
+                                var foundEdge = edgeV.models.edges[newEdgeModelIndex];
+                                //debugger;
+                                if (foundEdge) {
+                                    newEdgeModel = foundEdge;
+                                    _this.removeEdgeTransistion(edgeV, newEdgeModel);
+                                }
                                 if (neededToCreateNode) {
                                     _this.removeNodeAndSaveSettings(endingNodeV);
                                 }
-                                _this.removeEdgeTransistion(edgeV, newEdgeModel);
                             },
                             redo: function () {
                                 var foundStartingNode = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label), foundEndingNode = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
@@ -852,7 +865,7 @@ var jsflap;
                                     if (neededToCreateNode) {
                                         endingNodeV = _this.restoreNode(endingNodeV);
                                     }
-                                    edgeV = _this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition);
+                                    edgeV = _this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition, newEdgeModelIndex);
                                     newEdgeModel = edgeV.models.edges[edgeV.models.edges.length - 1];
                                 }
                             }
@@ -906,11 +919,14 @@ var jsflap;
              * @param to
              * @param transition
              */
-            Board.prototype.addEdge = function (from, to, transition) {
+            Board.prototype.addEdge = function (from, to, transition, index) {
                 var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
                 // If there already is a visualization between these two edges, add the edge to that model
                 if (foundEdgeV) {
-                    foundEdgeV.addEdgeModel(edge);
+                    foundEdgeV.addEdgeModel(edge, typeof index === 'number' ? index : null);
+                    if (typeof index === 'number') {
+                        foundEdgeV.reindexEdgeModels();
+                    }
                     // Visualizations don't auto-update here, so we need to force call it
                     this.visualizations.update();
                     return foundEdgeV;
@@ -1258,12 +1274,30 @@ var jsflap;
              * @param point
              */
             Board.prototype.handleErasing = function (point) {
+                var _this = this;
                 // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
                 if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.edges[0])) {
                     this.removeEdge(this.state.hoveringEdge);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                    this.removeEdgeTransistion(this.state.hoveringTransition.visualization, this.state.hoveringTransition);
+                    var edge = this.state.hoveringTransition, edgeV = edge.visualization, edgeT = edge.transition, fromNodeV = edgeV.fromModel.visualization, toNodeV = edgeV.toModel.visualization, edgeIndex = edgeV.models.edges.indexOf(edge);
+                    this.removeEdgeTransistion(edgeV, edge);
+                    this.undoManager.add({
+                        undo: function () {
+                            fromNodeV = _this.visualizations.getNodeVisualizationByLabel(edge.from.label);
+                            toNodeV = _this.visualizations.getNodeVisualizationByLabel(edge.to.label);
+                            _this.addEdge(fromNodeV, toNodeV, edgeT, edgeIndex);
+                        },
+                        redo: function () {
+                            var fromModel = _this.visualizations.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.visualizations.getNodeVisualizationByLabel(edge.to.label).model;
+                            edgeV = _this.visualizations.getEdgeVisualizationByNodes(fromModel, toModel);
+                            if (edgeV) {
+                                fromNodeV = edgeV.fromModel.visualization;
+                                toNodeV = edgeV.toModel.visualization;
+                                _this.removeEdgeTransistion(edgeV, edge);
+                            }
+                        }
+                    });
                 }
                 else {
                     var nearestNode = this.visualizations.getNearestNode(point);
@@ -1300,9 +1334,7 @@ var jsflap;
                 edgeV.models.remove(edgeModel);
                 this.graph.removeEdge(edgeModel);
                 // Now we need to re-index the visualizations
-                edgeV.models.edges.forEach(function (edge, index) {
-                    edge.visualizationNumber = index;
-                });
+                edgeV.reindexEdgeModels();
                 // And force a update
                 this.visualizations.update();
             };
@@ -1501,6 +1533,278 @@ var jsflap;
         Board.MouseEvent = MouseEvent;
     })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachine = (function () {
+            /**
+             * Creates a new machine based on a graph
+             * @param graph
+             */
+            function FAMachine(graph) {
+                this.setGraph(graph);
+            }
+            /**
+             * Sets the graph for the machine
+             * @param graph
+             */
+            FAMachine.prototype.setGraph = function (graph) {
+                this.graph = graph;
+            };
+            /**
+             * Runs a string on the machine to see if it passes or fails
+             * @param input
+             * @returns {boolean}
+             * @param graph
+             */
+            FAMachine.prototype.run = function (input, graph) {
+                if (graph) {
+                    this.graph = graph;
+                }
+                if (!this.graph.isValid()) {
+                    throw new Error('Invalid graph');
+                }
+                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
+                // Trivial case
+                if (!initialNode) {
+                    return false;
+                }
+                // Setup for backtracking
+                this.visitedStates = {};
+                this.visitedStates[initialState.toString()] = initialState;
+                this.queue = [initialState];
+                while (this.queue.length > 0) {
+                    // Get the state off the front of the queue
+                    this.currentState = this.queue.shift();
+                    // Check if we are in a final state
+                    if (this.currentState.isFinal()) {
+                        return true;
+                    }
+                    // Get the next possible valid states based on the input
+                    var nextStates = this.currentState.getNextStates();
+                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
+                        var nextState = nextStates[nextStateIndex];
+                        // Check if we have already visited this state before
+                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                            // We haven't, add it to our visited state list and queue
+                            this.visitedStates[nextState.toString()] = nextState;
+                            this.queue.push(nextState);
+                        }
+                    }
+                }
+                // If we got here the states were all invalid
+                return false;
+            };
+            return FAMachine;
+        })();
+        Machine.FAMachine = FAMachine;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachineState = (function () {
+            /**
+             * Create a new NFA Machine state
+             * @param input
+             * @param node
+             */
+            function FAMachineState(input, node) {
+                this.input = input;
+                this.node = node;
+            }
+            /**
+             * Determines if this state is final
+             * @returns {boolean}
+             */
+            FAMachineState.prototype.isFinal = function () {
+                return this.input.length === 0 && this.node.final;
+            };
+            /**
+             * Gets the next possible states
+             * @returns {Array}
+             */
+            FAMachineState.prototype.getNextStates = function () {
+                var edgeList = this.node.toEdges.edges, nextStates = [];
+                for (var edgeName in edgeList) {
+                    if (edgeList.hasOwnProperty(edgeName)) {
+                        var edge = edgeList[edgeName];
+                        // See if we can follow this edge
+                        var transition = edge.transition;
+                        if (transition.canFollowOn(this.input)) {
+                            var inputLength = transition.character.length === 1 && transition.character !== jsflap.LAMBDA ? 1 : 0;
+                            nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
+                        }
+                    }
+                }
+                return nextStates;
+            };
+            /**
+             * Returns a string representation of the state
+             * @returns {string}
+             */
+            FAMachineState.prototype.toString = function () {
+                return '(' + this.input + ', ' + this.node.toString() + ')';
+            };
+            return FAMachineState;
+        })();
+        Machine.FAMachineState = FAMachineState;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Point;
+    (function (Point) {
+        /**
+         * The point class
+         */
+        var MPoint = (function () {
+            /**
+             * Create a new mutable point
+             * @param x
+             * @param y
+             */
+            function MPoint(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.MPoint}
+             */
+            MPoint.prototype.getMPoint = function () {
+                return new Point.MPoint(this.x, this.y);
+            };
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.IMPoint}
+             */
+            MPoint.prototype.getIMPoint = function () {
+                return new Point.IMPoint(this.x, this.y);
+            };
+            /**
+             * Gets the distance between two points
+             * @param other
+             * @returns {number}
+             */
+            MPoint.prototype.getDistanceTo = function (other) {
+                return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
+            };
+            /**
+             * Gets the angle between two points
+             * @param other
+             * @returns {number}
+             */
+            MPoint.prototype.getAngleTo = function (other) {
+                return Math.atan2((this.y - other.y), (this.x - other.x));
+            };
+            /**
+             * Adds a point
+             * @param other
+             */
+            MPoint.prototype.add = function (other) {
+                this.x += other.x;
+                this.y += other.y;
+                return this;
+            };
+            /**
+             * Subtracts a point
+             * @param other
+             */
+            MPoint.prototype.subtract = function (other) {
+                this.x -= other.x;
+                this.y -= other.y;
+                return this;
+            };
+            /**
+             * Helper function to generate a new point that is the midpoint between two other points
+             * @param point1
+             * @param point2
+             * @returns {jsflap.Point.MPoint}
+             */
+            MPoint.getMidpoint = function (point1, point2) {
+                return new Point.MPoint(((point1.x + point2.x) / 2), ((point1.y + point2.y) / 2));
+            };
+            /**
+             * Gets the normal offset point based on two points, an offset, and an option initial theta
+             * @param point1
+             * @param point2
+             * @param distance
+             * @param theta0
+             * @returns {jsflap.Point.MPoint}
+             */
+            MPoint.getNormalOffset = function (point1, point2, distance, theta0) {
+                if (theta0 === void 0) { theta0 = Math.PI / 2; }
+                var theta1 = point1.getAngleTo(point2) + theta0;
+                return new Point.MPoint(distance * Math.cos(theta1), distance * Math.sin(theta1));
+            };
+            /**
+             * Gets the coordinates as a string separated by a comma and a space: "x, y"
+             * @returns {string}
+             */
+            MPoint.prototype.toString = function () {
+                return this.x + ', ' + this.y;
+            };
+            return MPoint;
+        })();
+        Point.MPoint = MPoint;
+    })(Point = jsflap.Point || (jsflap.Point = {}));
+})(jsflap || (jsflap = {}));
+
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+///<reference path="MPoint.ts"/>
+var jsflap;
+(function (jsflap) {
+    var Point;
+    (function (Point) {
+        /**
+         * The point class
+         */
+        var IMPoint = (function (_super) {
+            __extends(IMPoint, _super);
+            /**
+             * Create a new imutable point
+             * @param x
+             * @param y
+             */
+            function IMPoint(x, y) {
+                _super.call(this, x, y);
+            }
+            Object.defineProperty(IMPoint, "x", {
+                set: function (value) {
+                    throw new Error("Can't change coordinates of an immutable point");
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(IMPoint, "y", {
+                set: function (value) {
+                    throw new Error("Can't change coordinates of an immutable point");
+                },
+                enumerable: true,
+                configurable: true
+            });
+            return IMPoint;
+        })(Point.MPoint);
+        Point.IMPoint = IMPoint;
+    })(Point = jsflap.Point || (jsflap.Point = {}));
+})(jsflap || (jsflap = {}));
+
+
 
 var jsflap;
 (function (jsflap) {
@@ -1932,278 +2236,6 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
-    var Machine;
-    (function (Machine) {
-        var FAMachine = (function () {
-            /**
-             * Creates a new machine based on a graph
-             * @param graph
-             */
-            function FAMachine(graph) {
-                this.setGraph(graph);
-            }
-            /**
-             * Sets the graph for the machine
-             * @param graph
-             */
-            FAMachine.prototype.setGraph = function (graph) {
-                this.graph = graph;
-            };
-            /**
-             * Runs a string on the machine to see if it passes or fails
-             * @param input
-             * @returns {boolean}
-             * @param graph
-             */
-            FAMachine.prototype.run = function (input, graph) {
-                if (graph) {
-                    this.graph = graph;
-                }
-                if (!this.graph.isValid()) {
-                    throw new Error('Invalid graph');
-                }
-                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
-                // Trivial case
-                if (!initialNode) {
-                    return false;
-                }
-                // Setup for backtracking
-                this.visitedStates = {};
-                this.visitedStates[initialState.toString()] = initialState;
-                this.queue = [initialState];
-                while (this.queue.length > 0) {
-                    // Get the state off the front of the queue
-                    this.currentState = this.queue.shift();
-                    // Check if we are in a final state
-                    if (this.currentState.isFinal()) {
-                        return true;
-                    }
-                    // Get the next possible valid states based on the input
-                    var nextStates = this.currentState.getNextStates();
-                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
-                        var nextState = nextStates[nextStateIndex];
-                        // Check if we have already visited this state before
-                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
-                            // We haven't, add it to our visited state list and queue
-                            this.visitedStates[nextState.toString()] = nextState;
-                            this.queue.push(nextState);
-                        }
-                    }
-                }
-                // If we got here the states were all invalid
-                return false;
-            };
-            return FAMachine;
-        })();
-        Machine.FAMachine = FAMachine;
-    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Machine;
-    (function (Machine) {
-        var FAMachineState = (function () {
-            /**
-             * Create a new NFA Machine state
-             * @param input
-             * @param node
-             */
-            function FAMachineState(input, node) {
-                this.input = input;
-                this.node = node;
-            }
-            /**
-             * Determines if this state is final
-             * @returns {boolean}
-             */
-            FAMachineState.prototype.isFinal = function () {
-                return this.input.length === 0 && this.node.final;
-            };
-            /**
-             * Gets the next possible states
-             * @returns {Array}
-             */
-            FAMachineState.prototype.getNextStates = function () {
-                var edgeList = this.node.toEdges.edges, nextStates = [];
-                for (var edgeName in edgeList) {
-                    if (edgeList.hasOwnProperty(edgeName)) {
-                        var edge = edgeList[edgeName];
-                        // See if we can follow this edge
-                        var transition = edge.transition;
-                        if (transition.canFollowOn(this.input)) {
-                            var inputLength = transition.character.length === 1 && transition.character !== jsflap.LAMBDA ? 1 : 0;
-                            nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
-                        }
-                    }
-                }
-                return nextStates;
-            };
-            /**
-             * Returns a string representation of the state
-             * @returns {string}
-             */
-            FAMachineState.prototype.toString = function () {
-                return '(' + this.input + ', ' + this.node.toString() + ')';
-            };
-            return FAMachineState;
-        })();
-        Machine.FAMachineState = FAMachineState;
-    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-
-
-var jsflap;
-(function (jsflap) {
-    var Point;
-    (function (Point) {
-        /**
-         * The point class
-         */
-        var MPoint = (function () {
-            /**
-             * Create a new mutable point
-             * @param x
-             * @param y
-             */
-            function MPoint(x, y) {
-                this.x = x;
-                this.y = y;
-            }
-            /**
-             * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.MPoint}
-             */
-            MPoint.prototype.getMPoint = function () {
-                return new Point.MPoint(this.x, this.y);
-            };
-            /**
-             * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.IMPoint}
-             */
-            MPoint.prototype.getIMPoint = function () {
-                return new Point.IMPoint(this.x, this.y);
-            };
-            /**
-             * Gets the distance between two points
-             * @param other
-             * @returns {number}
-             */
-            MPoint.prototype.getDistanceTo = function (other) {
-                return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
-            };
-            /**
-             * Gets the angle between two points
-             * @param other
-             * @returns {number}
-             */
-            MPoint.prototype.getAngleTo = function (other) {
-                return Math.atan2((this.y - other.y), (this.x - other.x));
-            };
-            /**
-             * Adds a point
-             * @param other
-             */
-            MPoint.prototype.add = function (other) {
-                this.x += other.x;
-                this.y += other.y;
-                return this;
-            };
-            /**
-             * Subtracts a point
-             * @param other
-             */
-            MPoint.prototype.subtract = function (other) {
-                this.x -= other.x;
-                this.y -= other.y;
-                return this;
-            };
-            /**
-             * Helper function to generate a new point that is the midpoint between two other points
-             * @param point1
-             * @param point2
-             * @returns {jsflap.Point.MPoint}
-             */
-            MPoint.getMidpoint = function (point1, point2) {
-                return new Point.MPoint(((point1.x + point2.x) / 2), ((point1.y + point2.y) / 2));
-            };
-            /**
-             * Gets the normal offset point based on two points, an offset, and an option initial theta
-             * @param point1
-             * @param point2
-             * @param distance
-             * @param theta0
-             * @returns {jsflap.Point.MPoint}
-             */
-            MPoint.getNormalOffset = function (point1, point2, distance, theta0) {
-                if (theta0 === void 0) { theta0 = Math.PI / 2; }
-                var theta1 = point1.getAngleTo(point2) + theta0;
-                return new Point.MPoint(distance * Math.cos(theta1), distance * Math.sin(theta1));
-            };
-            /**
-             * Gets the coordinates as a string separated by a comma and a space: "x, y"
-             * @returns {string}
-             */
-            MPoint.prototype.toString = function () {
-                return this.x + ', ' + this.y;
-            };
-            return MPoint;
-        })();
-        Point.MPoint = MPoint;
-    })(Point = jsflap.Point || (jsflap.Point = {}));
-})(jsflap || (jsflap = {}));
-
-var __extends = this.__extends || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
-};
-///<reference path="MPoint.ts"/>
-var jsflap;
-(function (jsflap) {
-    var Point;
-    (function (Point) {
-        /**
-         * The point class
-         */
-        var IMPoint = (function (_super) {
-            __extends(IMPoint, _super);
-            /**
-             * Create a new imutable point
-             * @param x
-             * @param y
-             */
-            function IMPoint(x, y) {
-                _super.call(this, x, y);
-            }
-            Object.defineProperty(IMPoint, "x", {
-                set: function (value) {
-                    throw new Error("Can't change coordinates of an immutable point");
-                },
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(IMPoint, "y", {
-                set: function (value) {
-                    throw new Error("Can't change coordinates of an immutable point");
-                },
-                enumerable: true,
-                configurable: true
-            });
-            return IMPoint;
-        })(Point.MPoint);
-        Point.IMPoint = IMPoint;
-    })(Point = jsflap.Point || (jsflap.Point = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-var jsflap;
-(function (jsflap) {
     var Transition;
     (function (Transition) {
         /**
@@ -2317,21 +2349,30 @@ var jsflap;
             /**
              * Adds an edge model to this visualization
              * @param edge
+             * @param index
              */
-            EdgeVisualization.prototype.addEdgeModel = function (edge) {
+            EdgeVisualization.prototype.addEdgeModel = function (edge, index) {
                 if (!this.fromModel || !this.toModel) {
                     this.fromModel = edge.from;
                     this.toModel = edge.to;
-                    edge.setVisualization(this, this.models.edges.length);
-                    return this.models.add(edge);
+                    edge.setVisualization(this, typeof index === 'number' ? index : this.models.edges.length);
+                    return this.models.add(edge, index);
                 }
                 else if (edge.from === this.fromModel && edge.to === this.toModel) {
-                    edge.setVisualization(this, this.models.edges.length);
+                    edge.setVisualization(this, typeof index === 'number' ? index : this.models.edges.length);
                     return this.models.add(edge);
                 }
                 else {
                     return null;
                 }
+            };
+            /**
+             * Reindexs the visualization numbers of the edges
+             */
+            EdgeVisualization.prototype.reindexEdgeModels = function () {
+                this.models.edges.forEach(function (edge, index) {
+                    edge.visualizationNumber = index;
+                });
             };
             /**
              * Recalculates the path between nodes and a possibly already given control point
@@ -2914,11 +2955,9 @@ var jsflap;
                 el.node();
                 function applyTransition(edge, transition) {
                     _this.board.updateEdgeTransition(edge, transition);
-                    el.text(function (d) {
-                        return d.transition.toString();
-                    });
                     _this.svg.select("foreignObject").remove();
                     _this.state.modifyEdgeTransition = null;
+                    _this.update();
                     if (typeof _this.board.onBoardUpdateFn === 'function') {
                         _this.board.onBoardUpdateFn();
                     }
@@ -2935,10 +2974,16 @@ var jsflap;
                         if (trackHistory) {
                             _this.board.undoManager.add({
                                 undo: function () {
-                                    applyTransition(edge, previousTransition);
+                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.edges.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); });
+                                    if (foundEdges.length === 1) {
+                                        applyTransition(foundEdges[0], previousTransition);
+                                    }
                                 },
                                 redo: function () {
-                                    applyTransition(edge, transition);
+                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.edges.filter(function (otherEdge) { return otherEdge.transition.toString() === previousTransition.toString(); });
+                                    if (foundEdges.length === 1) {
+                                        applyTransition(foundEdges[0], transition);
+                                    }
                                 }
                             });
                         }

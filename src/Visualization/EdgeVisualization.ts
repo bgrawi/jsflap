@@ -78,19 +78,29 @@ module jsflap.Visualization {
         /**
          * Adds an edge model to this visualization
          * @param edge
+         * @param index
          */
-        public addEdgeModel(edge: Edge): Edge {
+        public addEdgeModel(edge: Edge, index?: number): Edge {
             if(!this.fromModel || !this.toModel) {
                 this.fromModel = edge.from;
                 this.toModel = edge.to;
-                edge.setVisualization(this, this.models.edges.length);
-                return this.models.add(edge);
+                edge.setVisualization(this, typeof index === 'number'? index: this.models.edges.length);
+                return this.models.add(edge, index);
             } else if(edge.from === this.fromModel && edge.to === this.toModel) {
-                edge.setVisualization(this, this.models.edges.length);
+                edge.setVisualization(this, typeof index === 'number'? index: this.models.edges.length);
                 return this.models.add(edge);
             } else {
                 return null;
             }
+        }
+
+        /**
+         * Reindexs the visualization numbers of the edges
+         */
+        public reindexEdgeModels() {
+            this.models.edges.forEach((edge: Edge, index: number) => {
+                edge.visualizationNumber = index;
+            });
         }
 
         /**

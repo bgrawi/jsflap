@@ -616,17 +616,15 @@ module jsflap.Visualization {
             var el = d3.select(target);
             var frm = this.svg.append("foreignObject");
 
-            var previousTransition = edge.transition;
+            var previousTransition = <Transition.CharacterTransition> edge.transition;
 
             el.node();
 
             function applyTransition(edge, transition) {
                 _this.board.updateEdgeTransition(edge, transition);
-                el.text(function (d) {
-                    return d.transition.toString()
-                });
                 _this.svg.select("foreignObject").remove();
                 _this.state.modifyEdgeTransition = null;
+                _this.update();
                 if (typeof _this.board.onBoardUpdateFn === 'function') {
                     _this.board.onBoardUpdateFn();
                 }
@@ -649,10 +647,24 @@ module jsflap.Visualization {
                     if(trackHistory) {
                         _this.board.undoManager.add({
                             undo: () => {
-                                applyTransition(edge, previousTransition);
+                                var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model,
+                                    toModel = _this.getNodeVisualizationByLabel(edge.to.label).model,
+                                    edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel),
+                                    foundEdges = edgeV.models.edges
+                                    .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString());
+                                if(foundEdges.length === 1) {
+                                    applyTransition(foundEdges[0], previousTransition);
+                                }
                             },
                             redo: () => {
-                                applyTransition(edge, transition);
+                                var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model,
+                                    toModel = _this.getNodeVisualizationByLabel(edge.to.label).model,
+                                    edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel),
+                                    foundEdges = edgeV.models.edges
+                                    .filter((otherEdge: Edge) => otherEdge.transition.toString() === previousTransition.toString());
+                                if(foundEdges.length === 1) {
+                                    applyTransition(foundEdges[0], transition);
+                                }
                             }
                         });
                     }

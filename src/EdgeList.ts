@@ -36,10 +36,15 @@ module jsflap {
         /**
          * Adds a new edge to the list
          * @param edge
+         * @param index
          */
-        public add(edge: Edge): Edge {
+        public add(edge: Edge, index?: number): Edge {
             if(!this.has(edge)) {
-                this.edges.push(edge);
+                if(typeof index !== 'number') {
+                    this.edges.push(edge);
+                } else {
+                    this.edges.splice(index, 0, edge);
+                }
                 this.edgeMap[edge.toString()] = edge;
                 return edge;
             } else {

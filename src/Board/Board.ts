@@ -157,7 +157,8 @@ module jsflap.Board {
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
                     var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode),
-                        newEdgeModel = newEdge.models.edges[newEdge.models.edges.length - 1];
+                        newEdgeModelIndex = newEdge.models.edges.length - 1,
+                        newEdgeModel = newEdge.models.edges[newEdgeModelIndex];
                     setTimeout(() => {
                         var elm = this.svg.selectAll('g.edgeTransitions text.transition')
                             .filter((possibleEdge: Edge) => possibleEdge === newEdgeModel);
@@ -173,10 +174,18 @@ module jsflap.Board {
                         edgeV: Visualization.EdgeVisualization = newEdge;
                     this.undoManager.add({
                         undo: () => {
+                            var foundStartingNodeModel = this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label).model,
+                                foundEndingNodeModel = this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label).model;
+                            edgeV = this.visualizations.getEdgeVisualizationByNodes(foundStartingNodeModel, foundEndingNodeModel);
+                            var foundEdge = edgeV.models.edges[newEdgeModelIndex];
+                            //debugger;
+                            if(foundEdge) {
+                                newEdgeModel = foundEdge;
+                                this.removeEdgeTransistion(edgeV, newEdgeModel);
+                            }
                             if(neededToCreateNode) {
                                 this.removeNodeAndSaveSettings(endingNodeV);
                             }
-                            this.removeEdgeTransistion(edgeV, newEdgeModel);
                         },
                         redo: () => {
                             var foundStartingNode = this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label),
@@ -192,7 +201,7 @@ module jsflap.Board {
                                 if(neededToCreateNode) {
                                     endingNodeV = this.restoreNode(endingNodeV);
                                 }
-                                edgeV = this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition);
+                                edgeV = this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition, newEdgeModelIndex);
                                 newEdgeModel = edgeV.models.edges[edgeV.models.edges.length - 1];
                             }
                         }
@@ -252,13 +261,16 @@ module jsflap.Board {
          * @param to
          * @param transition
          */
-        public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition) {
+        public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition, index?: number) {
             var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
                 foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
 
             // If there already is a visualization between these two edges, add the edge to that model
             if(foundEdgeV) {
-                foundEdgeV.addEdgeModel(edge);
+                foundEdgeV.addEdgeModel(edge, typeof index === 'number'? index: null);
+                if(typeof index === 'number') {
+                    foundEdgeV.reindexEdgeModels();
+                }
 
                 // Visualizations don't auto-update here, so we need to force call it
                 this.visualizations.update();
@@ -650,7 +662,31 @@ module jsflap.Board {
             }
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                this.removeEdgeTransistion(this.state.hoveringTransition.visualization, this.state.hoveringTransition);
+                var edge = this.state.hoveringTransition,
+                    edgeV = edge.visualization,
+                    edgeT = edge.transition,
+                    fromNodeV = edgeV.fromModel.visualization,
+                    toNodeV = edgeV.toModel.visualization,
+                    edgeIndex = edgeV.models.edges.indexOf(edge);
+                this.removeEdgeTransistion(edgeV, edge);
+                this.undoManager.add({
+                    undo: () => {
+
+                        fromNodeV = this.visualizations.getNodeVisualizationByLabel(edge.from.label);
+                        toNodeV = this.visualizations.getNodeVisualizationByLabel(edge.to.label);
+                        this.addEdge(fromNodeV, toNodeV, edgeT, edgeIndex);
+                    },
+                    redo: () => {
+                        var fromModel = this.visualizations.getNodeVisualizationByLabel(edge.from.label).model,
+                            toModel = this.visualizations.getNodeVisualizationByLabel(edge.to.label).model;
+                        edgeV = this.visualizations.getEdgeVisualizationByNodes(fromModel, toModel);
+                        if(edgeV) {
+                            fromNodeV = edgeV.fromModel.visualization;
+                            toNodeV = edgeV.toModel.visualization;
+                            this.removeEdgeTransistion(edgeV, edge);
+                        }
+                    }
+                });
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);
                 if(nearestNode.node && nearestNode.hover) {
@@ -691,9 +727,7 @@ module jsflap.Board {
             this.graph.removeEdge(edgeModel);
 
             // Now we need to re-index the visualizations
-            edgeV.models.edges.forEach((edge: Edge, index: number) => {
-                edge.visualizationNumber = index;
-            });
+            edgeV.reindexEdgeModels();
 
             // And force a update
             this.visualizations.update();

@@ -38,6 +38,12 @@ module jsflap.Board {
         public nodeCount = 0;
 
         /**
+         * The undo manager
+         * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), redo: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
+         */
+        private undoManager = jsflap.getUndoManager();
+
+        /**
          * Represents both the visualization and the graph underneath
          * @param svg
          * @param graph
@@ -154,12 +160,14 @@ module jsflap.Board {
          * Adds a node to the board
          * @param point
          * @returns {jsflap.Visualization.NodeVisualization}
+         * @param label
          */
-        public addNode(point: Point.IPoint): Visualization.NodeVisualization {
-            var node = this.graph.addNode('q' + this.nodeCount++),
+        public addNode(point: Point.IPoint, label?: string): Visualization.NodeVisualization {
+            var nodeNumber = this.nodeCount++;
+            var node = this.graph.addNode(label? label: 'q' + nodeNumber),
                 nodeV = new Visualization.NodeVisualization(node, point.getMPoint());
 
-            if(this.nodeCount === 1) {
+            if(this.visualizations.nodes.length === 0) {
                 this.setInitialNode(nodeV);
             }
             return this.visualizations.addNode(nodeV);
@@ -263,7 +271,17 @@ module jsflap.Board {
 
                     // Only add a node if the user is not currently click out of editing a transition OR is near a node
 
+                    var nodeV: Visualization.NodeVisualization;
+                    this.undoManager.add({
+                        undo: () => {
+                            this.removeNode(nodeV);
+                        },
+                        redo: () => {
+                            nodeV = this.addNode(event.point, nodeV.model.label);
+                        }
+                    });
                     this.state.futureEdgeFrom = this.addNode(event.point);
+                    nodeV = this.state.futureEdgeFrom;
                 }
             } else if(this.state.mode === BoardMode.MOVE && !this.state.modifyEdgeControl) {
                 if (nearestNode.node && nearestNode.hover) {
@@ -482,7 +500,6 @@ module jsflap.Board {
             }
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                console.log('Hasdfkjh');
                 var edgeV = this.state.hoveringTransition.visualization;
 
                 // Delete this edge from the visualization
@@ -506,23 +523,30 @@ module jsflap.Board {
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);
                 if(nearestNode.node && nearestNode.hover) {
-
-                    // Need to copy the edges because when the edges are deleted, the indexing gets messed up
-
-                    var toEdges = nearestNode.node.model.toEdges.edges.slice(0),
-                        fromEdges = nearestNode.node.model.fromEdges.edges.slice(0),
-                        deleteFn = (edgeModel: Edge) => {
-                            this.graph.removeEdge(edgeModel);
-                            this.visualizations.removeEdge(edgeModel.visualization);
-                        };
-
-                    toEdges.forEach(deleteFn);
-                    fromEdges.forEach(deleteFn);
-
-                    this.graph.removeNode(nearestNode.node.model);
-                    this.visualizations.removeNode(nearestNode.node);
+                    this.removeNode(nearestNode.node);
                 }
             }
+        }
+
+        /**
+         * Removes a node from the graph
+         * @param nodeV
+         */
+        public removeNode(nodeV: Visualization.NodeVisualization) {
+            // Need to copy the edges because when the edges are deleted, the indexing gets messed up
+
+            var toEdges = nodeV.model.toEdges.edges.slice(0),
+                fromEdges = nodeV.model.fromEdges.edges.slice(0),
+                deleteFn = (edgeModel: Edge) => {
+                    this.graph.removeEdge(edgeModel);
+                    this.visualizations.removeEdge(edgeModel.visualization);
+                };
+
+            toEdges.forEach(deleteFn);
+            fromEdges.forEach(deleteFn);
+
+            this.graph.removeNode(nodeV.model);
+            this.visualizations.removeNode(nodeV);
         }
 
         /**
@@ -625,5 +649,6 @@ module jsflap.Board {
             }
 
         }
+
     }
 }

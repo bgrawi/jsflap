@@ -603,6 +603,111 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
+    /**
+     * Gets a new undo manager
+     * @returns {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), redo: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
+     */
+    function getUndoManager() {
+        /*
+         ADAPTED FROM:
+         Simple Javascript undo and redo.
+         https://github.com/ArthurClemens/Javascript-Undo-Manager
+         LICENCE: MIT
+         */
+        var commands = [], index = -1, isExecuting = false, callback, 
+        // functions
+        execute;
+        execute = function (command, action) {
+            if (!command || typeof command[action] !== "function") {
+                return this;
+            }
+            isExecuting = true;
+            command[action]();
+            isExecuting = false;
+            return this;
+        };
+        return {
+            /*
+             Add a command to the queue.
+             */
+            add: function (command) {
+                if (isExecuting) {
+                    return this;
+                }
+                // if we are here after having called undo,
+                // invalidate items higher on the stack
+                commands.splice(index + 1, commands.length - index);
+                commands.push(command);
+                // set the current index to the end
+                index = commands.length - 1;
+                if (callback) {
+                    callback();
+                }
+                return this;
+            },
+            /*
+             Pass a function to be called on undo and redo actions.
+             */
+            setCallback: function (callbackFunc) {
+                callback = callbackFunc;
+            },
+            /*
+             Perform undo: call the undo function at the current index and decrease the index by 1.
+             */
+            undo: function () {
+                var command = commands[index];
+                if (!command) {
+                    return this;
+                }
+                execute(command, "undo");
+                index -= 1;
+                if (callback) {
+                    callback();
+                }
+                return this;
+            },
+            /*
+             Perform redo: call the redo function at the next index and increase the index by 1.
+             */
+            redo: function () {
+                var command = commands[index + 1];
+                if (!command) {
+                    return this;
+                }
+                execute(command, "redo");
+                index += 1;
+                if (callback) {
+                    callback();
+                }
+                return this;
+            },
+            /*
+             Clears the memory, losing all stored states. Reset the index.
+             */
+            clear: function () {
+                var prev_size = commands.length;
+                commands = [];
+                index = -1;
+                if (callback && (prev_size > 0)) {
+                    callback();
+                }
+            },
+            hasUndo: function () {
+                return index !== -1;
+            },
+            hasRedo: function () {
+                return index < (commands.length - 1);
+            },
+            getCommands: function () {
+                return commands;
+            }
+        };
+    }
+    jsflap.getUndoManager = getUndoManager;
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
     var Board;
     (function (_Board) {
         var Board = (function () {
@@ -622,6 +727,11 @@ var jsflap;
                  * @type {number}
                  */
                 this.nodeCount = 0;
+                /**
+                 * The undo manager
+                 * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), redo: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
+                 */
+                this.undoManager = jsflap.getUndoManager();
                 this.svg = d3.select(svg);
                 this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
                 this.graph = graph;
@@ -720,10 +830,12 @@ var jsflap;
              * Adds a node to the board
              * @param point
              * @returns {jsflap.Visualization.NodeVisualization}
+             * @param label
              */
-            Board.prototype.addNode = function (point) {
-                var node = this.graph.addNode('q' + this.nodeCount++), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
-                if (this.nodeCount === 1) {
+            Board.prototype.addNode = function (point, label) {
+                var nodeNumber = this.nodeCount++;
+                var node = this.graph.addNode(label ? label : 'q' + nodeNumber), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
+                if (this.visualizations.nodes.length === 0) {
                     this.setInitialNode(nodeV);
                 }
                 return this.visualizations.addNode(nodeV);
@@ -806,6 +918,7 @@ var jsflap;
              * @param event
              */
             Board.prototype.mousedown = function (event) {
+                var _this = this;
                 event.event.preventDefault();
                 if (event.event.which > 1) {
                     return false;
@@ -817,7 +930,17 @@ var jsflap;
                     }
                     else if (this.state.modifyEdgeTransition === null) {
                         // Only add a node if the user is not currently click out of editing a transition OR is near a node
+                        var nodeV;
+                        this.undoManager.add({
+                            undo: function () {
+                                _this.removeNode(nodeV);
+                            },
+                            redo: function () {
+                                nodeV = _this.addNode(event.point, nodeV.model.label);
+                            }
+                        });
                         this.state.futureEdgeFrom = this.addNode(event.point);
+                        nodeV = this.state.futureEdgeFrom;
                     }
                 }
                 else if (this.state.mode === 1 /* MOVE */ && !this.state.modifyEdgeControl) {
@@ -992,7 +1115,6 @@ var jsflap;
                     this.visualizations.removeEdge(this.state.hoveringEdge);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                    console.log('Hasdfkjh');
                     var edgeV = this.state.hoveringTransition.visualization;
                     // Delete this edge from the visualization
                     edgeV.models.remove(this.state.hoveringTransition);
@@ -1014,17 +1136,25 @@ var jsflap;
                 else {
                     var nearestNode = this.visualizations.getNearestNode(point);
                     if (nearestNode.node && nearestNode.hover) {
-                        // Need to copy the edges because when the edges are deleted, the indexing gets messed up
-                        var toEdges = nearestNode.node.model.toEdges.edges.slice(0), fromEdges = nearestNode.node.model.fromEdges.edges.slice(0), deleteFn = function (edgeModel) {
-                            _this.graph.removeEdge(edgeModel);
-                            _this.visualizations.removeEdge(edgeModel.visualization);
-                        };
-                        toEdges.forEach(deleteFn);
-                        fromEdges.forEach(deleteFn);
-                        this.graph.removeNode(nearestNode.node.model);
-                        this.visualizations.removeNode(nearestNode.node);
+                        this.removeNode(nearestNode.node);
                     }
                 }
+            };
+            /**
+             * Removes a node from the graph
+             * @param nodeV
+             */
+            Board.prototype.removeNode = function (nodeV) {
+                // Need to copy the edges because when the edges are deleted, the indexing gets messed up
+                var _this = this;
+                var toEdges = nodeV.model.toEdges.edges.slice(0), fromEdges = nodeV.model.fromEdges.edges.slice(0), deleteFn = function (edgeModel) {
+                    _this.graph.removeEdge(edgeModel);
+                    _this.visualizations.removeEdge(edgeModel.visualization);
+                };
+                toEdges.forEach(deleteFn);
+                fromEdges.forEach(deleteFn);
+                this.graph.removeNode(nodeV.model);
+                this.visualizations.removeNode(nodeV);
             };
             /**
              * The keydown event listener

@@ -102,8 +102,18 @@ section.board-sidebar {
     transition: background-color .25s;
 }
 
+.top-bar li > a.disabled {
+    color: #BBB;
+}
+
 .top-bar li:not(.active) > a:hover {
     background-color: #444 !important;
+}
+
+.top-bar li:not(.active) > a.disabled:hover {
+    background-color: #333 !important;
+    color: #BBB;
+    cursor: default;
 }
 
 .top-bar .graph-title > input {

@@ -589,6 +589,7 @@ module jsflap.Board {
          * @param mode
          */
         public setMode(mode: BoardMode): boolean {
+            mode = +mode;
             if(mode !== this.state.mode) {
                 this.state.mode = mode;
                 this.visualizations.update();
@@ -611,7 +612,7 @@ module jsflap.Board {
                 this.state.ctrlKeyPressed = false;
             }
 
-            if (event.which === 32) {
+            if (event.which === 32 && this.state.mode === BoardMode.MOVE && this.state.quickMoveFrom !== null) {
                 this.state.draggingNode = null;
                 this.state.modifyEdgeControl = null;
                 this.state.isDraggingBoard = false;

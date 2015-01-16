@@ -1083,6 +1083,7 @@ var jsflap;
              * @param mode
              */
             Board.prototype.setMode = function (mode) {
+                mode = +mode;
                 if (mode !== this.state.mode) {
                     this.state.mode = mode;
                     this.visualizations.update();
@@ -1103,7 +1104,7 @@ var jsflap;
                 if (event.which === 17 && this.state.ctrlKeyPressed) {
                     this.state.ctrlKeyPressed = false;
                 }
-                if (event.which === 32) {
+                if (event.which === 32 && this.state.mode === 1 /* MOVE */ && this.state.quickMoveFrom !== null) {
                     this.state.draggingNode = null;
                     this.state.modifyEdgeControl = null;
                     this.state.isDraggingBoard = false;

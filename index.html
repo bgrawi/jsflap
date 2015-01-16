@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="vendor/foundation-5.5.0/css/foundation.min.css">
     <link href="vendor/font-awesome-4.2.0/css/font-awesome.min.css" rel="stylesheet">
     <link rel="stylesheet" href="dist/css/jsflap.css">
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 </head>
 <body ng-app="jsflap" ng-controller="AppController" jsflap-app ng-class="'mode_' + board.state.mode">
 <top-bar role="navigation">
@@ -100,7 +101,7 @@
         <div class="text-subheading">
             <div class="row full">
                 <div class="small-12 columns text-subheading-status" ng-class="{'bg-color-valid': graph.isValid(), 'bg-color-invalid': !graph.isValid()}">
-                    <div class="center">Graph is {{!graph.isValid()?'Inv':'V'}}alid</div>
+                    <div class="center">Graph is {{!graph.isValid()?'in':''}}valid</div>
                 </div>
             </div>
         </div>
@@ -108,7 +109,7 @@
             <ul class="button-group even-2">
                 <li>
                     <button type="button" class="button secondary" ng-model="graph.deterministic" btn-checkbox>
-                        <i class="fa" ng-class="{'fa-check-square': graph.deterministic, 'fa-square-o': !graph.deterministic}"></i> Deterministic
+                        <i class="fa fa-fw" ng-class="{'fa-check-square': graph.deterministic, 'fa-square-o': !graph.deterministic}"></i> Deterministic
                     </button>
                 </li>
                 <li>

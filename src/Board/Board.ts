@@ -114,7 +114,6 @@ module jsflap.Board {
          * @param event
          */
         private mouseup(event: MouseEvent) {
-
             if(event.event.which > 1) {
                 return false;
             }
@@ -141,6 +140,34 @@ module jsflap.Board {
                             this.visualizations.editTransition(newEdgeModel, <SVGTextElement> elm.node());
                         }
                     }, 10);
+
+                    // Manage undoing and redoing of this action
+                    var startingNodeV: Visualization.NodeVisualization = this.state.futureEdgeFrom,
+                        endingNodeV: Visualization.NodeVisualization = endingNode,
+                        edgeV: Visualization.EdgeVisualization = newEdge,
+                        endingNodePoint = event.point.getMPoint();
+                    this.undoManager.add({
+                        undo: () => {
+                            this.removeNodeAndSaveSettings(endingNodeV);
+                            this.nodeCount--;
+                            this.removeEdge(edgeV);
+                        },
+                        redo: () => {
+                            var findStartingNode = this.visualizations.nodes.filter((nodeV: Visualization.NodeVisualization) => {
+                                return nodeV.model.label === startingNodeV.model.label;
+                            });
+                            if(findStartingNode.length > 0) {
+                                if (findStartingNode[0] !== startingNodeV) {
+                                    startingNodeV = findStartingNode[0];
+                                }
+                                endingNodeV = this.restoreNode(endingNodeV);
+                                edgeV = this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition);
+                                newEdgeModel = edgeV.models.edges[edgeV.models.edges.length - 1];
+                            }
+                        }
+                    });
+
+                    // Remove the future edge
                     this.state.futureEdge.remove();
                     this.state.futureEdge = null;
                     this.state.futureEdgeFrom = null;
@@ -160,17 +187,32 @@ module jsflap.Board {
          * Adds a node to the board
          * @param point
          * @returns {jsflap.Visualization.NodeVisualization}
-         * @param label
          */
-        public addNode(point: Point.IPoint, label?: string): Visualization.NodeVisualization {
-            var nodeNumber = this.nodeCount++;
-            var node = this.graph.addNode(label? label: 'q' + nodeNumber),
+        public addNode(point: Point.IPoint): Visualization.NodeVisualization {
+            var node = this.graph.addNode('q' + this.nodeCount++),
                 nodeV = new Visualization.NodeVisualization(node, point.getMPoint());
 
             if(this.visualizations.nodes.length === 0) {
                 this.setInitialNode(nodeV);
             }
             return this.visualizations.addNode(nodeV);
+        }
+
+        /**
+         * Restores a node visualization to the board
+         * @param nodeV
+         * @returns {Visualization.NodeVisualization}
+         */
+        public restoreNode(nodeV: Visualization.NodeVisualization) {
+            var node = this.graph.addNode(nodeV.model.label),
+                newNodeV = new Visualization.NodeVisualization(node, nodeV.position);
+            if(nodeV.model.final) {
+                this.markFinalNode(newNodeV);
+            }
+            if(nodeV.model.initial) {
+                this.setInitialNode(newNodeV);
+            }
+            return this.visualizations.addNode(newNodeV);
         }
 
         /**
@@ -274,10 +316,10 @@ module jsflap.Board {
                     var nodeV: Visualization.NodeVisualization;
                     this.undoManager.add({
                         undo: () => {
-                            this.removeNode(nodeV);
+                            this.removeNodeAndSaveSettings(nodeV);
                         },
                         redo: () => {
-                            nodeV = this.addNode(event.point, nodeV.model.label);
+                            nodeV = this.restoreNode(nodeV);
                         }
                     });
                     this.state.futureEdgeFrom = this.addNode(event.point);
@@ -474,29 +516,9 @@ module jsflap.Board {
          */
         private handleErasing(point: Point.IPoint) {
 
-            /**
-             * If this edge was an opposing edge, we need to reset the other edge's mode
-             * @param edgeV
-             */
-            var handleOpposingEdgeCollapsing = (edgeV: Visualization.EdgeVisualization) => {
-                if(edgeV.pathMode === Visualization.EdgeVisualizationPathMode.OPPOSING_A ||
-                    edgeV.pathMode === Visualization.EdgeVisualizationPathMode.OPPOSING_B) {
-                    var otherEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
-                    if(otherEdgeV) {
-                        otherEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.DEFAULT;
-                        otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint()? otherEdgeV.control: null);
-                    }
-                }
-            };
-
             // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
             if(this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.edges[0])) {
-
-                // Delete each edge from this visualization
-                this.state.hoveringEdge.models.edges.forEach((edge: Edge) => this.graph.removeEdge(edge));
-
-                handleOpposingEdgeCollapsing(this.state.hoveringEdge);
-                this.visualizations.removeEdge(this.state.hoveringEdge);
+                this.removeEdge(this.state.hoveringEdge);
             }
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
@@ -508,7 +530,7 @@ module jsflap.Board {
 
                 // If we have removed the last edge, remove the entire visualization
                 if(edgeV.models.size === 0) {
-                    handleOpposingEdgeCollapsing(edgeV);
+                    this._handleOpposingEdgeCollapsing(edgeV);
                     this.visualizations.removeEdge(edgeV);
                 } else {
 
@@ -526,6 +548,37 @@ module jsflap.Board {
                     this.removeNode(nearestNode.node);
                 }
             }
+        }
+
+        /**
+         * Handles collapsing other edges when removing their opposing edge
+         * @param edgeV
+         * @private
+         */
+        private _handleOpposingEdgeCollapsing(edgeV: Visualization.EdgeVisualization) {
+            if(edgeV.pathMode === Visualization.EdgeVisualizationPathMode.OPPOSING_A ||
+                edgeV.pathMode === Visualization.EdgeVisualizationPathMode.OPPOSING_B) {
+                var otherEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
+                if(otherEdgeV) {
+                    otherEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.DEFAULT;
+                    otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint()? otherEdgeV.control: null);
+                }
+            }
+        }
+
+        /**
+         * Removes an edge from the graph
+         * @param edgeV
+         */
+        public removeEdge(edgeV: Visualization.EdgeVisualization) {
+
+            // Delete each edge from this visualization
+            if(edgeV.models.size > 0) {
+                edgeV.models.edges.forEach((edge: Edge) => this.graph.removeEdge(edge));
+            }
+
+            this._handleOpposingEdgeCollapsing(edgeV);
+            this.visualizations.removeEdge(edgeV);
         }
 
         /**
@@ -547,6 +600,18 @@ module jsflap.Board {
 
             this.graph.removeNode(nodeV.model);
             this.visualizations.removeNode(nodeV);
+        }
+
+        /**
+         * Removes a node, but saves the node's settings before it is removed
+         * @param nodeV
+         */
+        public removeNodeAndSaveSettings(nodeV: Visualization.NodeVisualization) {
+            var saveInitial = nodeV.model.initial,
+                saveFinal = nodeV.model.final;
+            this.removeNode(nodeV);
+            nodeV.model.initial = saveInitial;
+            nodeV.model.final = saveFinal;
         }
 
         /**

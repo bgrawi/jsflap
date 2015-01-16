@@ -811,6 +811,29 @@ var jsflap;
                                 _this.visualizations.editTransition(newEdgeModel, elm.node());
                             }
                         }, 10);
+                        // Manage undoing and redoing of this action
+                        var startingNodeV = this.state.futureEdgeFrom, endingNodeV = endingNode, edgeV = newEdge, endingNodePoint = event.point.getMPoint();
+                        this.undoManager.add({
+                            undo: function () {
+                                _this.removeNodeAndSaveSettings(endingNodeV);
+                                _this.nodeCount--;
+                                _this.removeEdge(edgeV);
+                            },
+                            redo: function () {
+                                var findStartingNode = _this.visualizations.nodes.filter(function (nodeV) {
+                                    return nodeV.model.label === startingNodeV.model.label;
+                                });
+                                if (findStartingNode.length > 0) {
+                                    if (findStartingNode[0] !== startingNodeV) {
+                                        startingNodeV = findStartingNode[0];
+                                    }
+                                    endingNodeV = _this.restoreNode(endingNodeV);
+                                    edgeV = _this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition);
+                                    newEdgeModel = edgeV.models.edges[edgeV.models.edges.length - 1];
+                                }
+                            }
+                        });
+                        // Remove the future edge
                         this.state.futureEdge.remove();
                         this.state.futureEdge = null;
                         this.state.futureEdgeFrom = null;
@@ -830,15 +853,28 @@ var jsflap;
              * Adds a node to the board
              * @param point
              * @returns {jsflap.Visualization.NodeVisualization}
-             * @param label
              */
-            Board.prototype.addNode = function (point, label) {
-                var nodeNumber = this.nodeCount++;
-                var node = this.graph.addNode(label ? label : 'q' + nodeNumber), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
+            Board.prototype.addNode = function (point) {
+                var node = this.graph.addNode('q' + this.nodeCount++), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
                 if (this.visualizations.nodes.length === 0) {
                     this.setInitialNode(nodeV);
                 }
                 return this.visualizations.addNode(nodeV);
+            };
+            /**
+             * Restores a node visualization to the board
+             * @param nodeV
+             * @returns {Visualization.NodeVisualization}
+             */
+            Board.prototype.restoreNode = function (nodeV) {
+                var node = this.graph.addNode(nodeV.model.label), newNodeV = new jsflap.Visualization.NodeVisualization(node, nodeV.position);
+                if (nodeV.model.final) {
+                    this.markFinalNode(newNodeV);
+                }
+                if (nodeV.model.initial) {
+                    this.setInitialNode(newNodeV);
+                }
+                return this.visualizations.addNode(newNodeV);
             };
             /**
              * Adds an edge to the board given two nodes and a future edge
@@ -933,10 +969,10 @@ var jsflap;
                         var nodeV;
                         this.undoManager.add({
                             undo: function () {
-                                _this.removeNode(nodeV);
+                                _this.removeNodeAndSaveSettings(nodeV);
                             },
                             redo: function () {
-                                nodeV = _this.addNode(event.point, nodeV.model.label);
+                                nodeV = _this.restoreNode(nodeV);
                             }
                         });
                         this.state.futureEdgeFrom = this.addNode(event.point);
@@ -1093,26 +1129,9 @@ var jsflap;
              * @param point
              */
             Board.prototype.handleErasing = function (point) {
-                var _this = this;
-                /**
-                 * If this edge was an opposing edge, we need to reset the other edge's mode
-                 * @param edgeV
-                 */
-                var handleOpposingEdgeCollapsing = function (edgeV) {
-                    if (edgeV.pathMode === 2 /* OPPOSING_A */ || edgeV.pathMode === 3 /* OPPOSING_B */) {
-                        var otherEdgeV = _this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
-                        if (otherEdgeV) {
-                            otherEdgeV.pathMode = 0 /* DEFAULT */;
-                            otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint() ? otherEdgeV.control : null);
-                        }
-                    }
-                };
                 // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
                 if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.edges[0])) {
-                    // Delete each edge from this visualization
-                    this.state.hoveringEdge.models.edges.forEach(function (edge) { return _this.graph.removeEdge(edge); });
-                    handleOpposingEdgeCollapsing(this.state.hoveringEdge);
-                    this.visualizations.removeEdge(this.state.hoveringEdge);
+                    this.removeEdge(this.state.hoveringEdge);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
                     var edgeV = this.state.hoveringTransition.visualization;
@@ -1121,7 +1140,7 @@ var jsflap;
                     this.graph.removeEdge(this.state.hoveringTransition);
                     // If we have removed the last edge, remove the entire visualization
                     if (edgeV.models.size === 0) {
-                        handleOpposingEdgeCollapsing(edgeV);
+                        this._handleOpposingEdgeCollapsing(edgeV);
                         this.visualizations.removeEdge(edgeV);
                     }
                     else {
@@ -1141,6 +1160,33 @@ var jsflap;
                 }
             };
             /**
+             * Handles collapsing other edges when removing their opposing edge
+             * @param edgeV
+             * @private
+             */
+            Board.prototype._handleOpposingEdgeCollapsing = function (edgeV) {
+                if (edgeV.pathMode === 2 /* OPPOSING_A */ || edgeV.pathMode === 3 /* OPPOSING_B */) {
+                    var otherEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
+                    if (otherEdgeV) {
+                        otherEdgeV.pathMode = 0 /* DEFAULT */;
+                        otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint() ? otherEdgeV.control : null);
+                    }
+                }
+            };
+            /**
+             * Removes an edge from the graph
+             * @param edgeV
+             */
+            Board.prototype.removeEdge = function (edgeV) {
+                var _this = this;
+                // Delete each edge from this visualization
+                if (edgeV.models.size > 0) {
+                    edgeV.models.edges.forEach(function (edge) { return _this.graph.removeEdge(edge); });
+                }
+                this._handleOpposingEdgeCollapsing(edgeV);
+                this.visualizations.removeEdge(edgeV);
+            };
+            /**
              * Removes a node from the graph
              * @param nodeV
              */
@@ -1155,6 +1201,16 @@ var jsflap;
                 fromEdges.forEach(deleteFn);
                 this.graph.removeNode(nodeV.model);
                 this.visualizations.removeNode(nodeV);
+            };
+            /**
+             * Removes a node, but saves the node's settings before it is removed
+             * @param nodeV
+             */
+            Board.prototype.removeNodeAndSaveSettings = function (nodeV) {
+                var saveInitial = nodeV.model.initial, saveFinal = nodeV.model.final;
+                this.removeNode(nodeV);
+                nodeV.model.initial = saveInitial;
+                nodeV.model.final = saveFinal;
             };
             /**
              * The keydown event listener

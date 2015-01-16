@@ -96,12 +96,30 @@ module jsflap.Board {
                 d3.event.preventDefault();
             });
             document.addEventListener('keydown', function (event) {
+
+                // Always monitor modifier keys regardless of context
+                if(event.which === 16) {
+                    _this.state.shiftKeyPressed = true;
+                }
+                if(event.which === 17) {
+                    _this.state.ctrlKeyPressed = true;
+                }
+
                 if(!(event.target instanceof HTMLInputElement)) {
                     _this.keydown(event);
                     $rootScope.$digest();
                 }
             });
             document.addEventListener('keyup', function (event) {
+
+                // Always monitor modifier keys regardless of context
+                if(event.which === 16) {
+                    _this.state.shiftKeyPressed = false;
+                }
+                if(event.which === 17) {
+                    _this.state.ctrlKeyPressed = false;
+                }
+
                 if(!(event.target instanceof HTMLInputElement)) {
                     _this.keyup(event);
                     $rootScope.$digest();
@@ -116,6 +134,10 @@ module jsflap.Board {
         private mouseup(event: MouseEvent) {
             if(event.event.which > 1) {
                 return false;
+            }
+
+            if(this.state.shiftKeyPressed) {
+                this.state.shiftKeyPressed = false;
             }
 
             if(this.state.mode === BoardMode.DRAW) {
@@ -363,7 +385,7 @@ module jsflap.Board {
             if(this.state.mode === BoardMode.DRAW) {
 
                 if (this.state.futureEdge !== null) {
-                    if (this.state.futureEdgeSnapping) {
+                    if (this.state.shiftKeyPressed) {
                         var x1 = this.state.futureEdge.start.x,
                             x2 = point.x,
                             y1 = this.state.futureEdge.start.y,
@@ -401,7 +423,7 @@ module jsflap.Board {
                 }
             } else if(this.state.mode === BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                 var snappedPoint = point.getMPoint();
-                if(this.state.futureEdgeSnapping) {
+                if(this.state.shiftKeyPressed) {
                     snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
                     snappedPoint.y = (Math.round(snappedPoint.y / 20) * 20);
                 }
@@ -626,73 +648,63 @@ module jsflap.Board {
          * @param event
          */
         private keydown(event) {
-            // if not editing a textbox
-            if(this.state.modifyEdgeTransition === null) {
-                switch(event.which) {
-                    case 16: // SHIFT
-                        this.state.futureEdgeSnapping = true;
-                        break;
+            switch(event.which) {
 
-                    case 17: // CTRL
-                        this.state.ctrlKeyPressed = true;
-                        break;
+                // QUICK EDIT
+                case 32: // spacebar
+                    if(this.state.mode !== BoardMode.MOVE) {
+                        this.state.quickMoveFrom = this.state.mode;
+                        this.state.mode = BoardMode.MOVE;
+                        this.visualizations.update();
+                    }
+                    break;
 
-                    // QUICK EDIT
-                    case 32: // spacebar
-                        if(this.state.mode !== BoardMode.MOVE) {
-                            this.state.quickMoveFrom = this.state.mode;
-                            this.state.mode = BoardMode.MOVE;
-                            this.visualizations.update();
+                // MODE SWITCHING
+                case 68: // d
+                    this.setMode(BoardMode.DRAW);
+                    break;
+                case 69: // e
+                    this.setMode(BoardMode.ERASE);
+                    break;
+                case 77: // m
+                    this.setMode(BoardMode.MOVE);
+                    break;
+
+                // QUICK NODE SETTINGS
+                case 70: // f
+                    var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                    if(nearestNode.node && nearestNode.hover) {
+                        nearestNode.node.model.final? this.unmarkFinalNode(nearestNode.node): this.markFinalNode(nearestNode.node);
+                        this.visualizations.update();
+                    }
+                    break;
+                case 73: // i
+                    var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                    if(nearestNode.node && nearestNode.hover) {
+                        if(!nearestNode.node.model.initial) {
+                            this.setInitialNode(nearestNode.node);
+                        } else {
+                            this.setInitialNode(null);
                         }
-                        break;
+                        this.visualizations.update();
+                    }
+                    break;
 
-                    // MODE SWITCHING
-                    case 68: // d
-                        this.setMode(BoardMode.DRAW);
-                        break;
-                    case 69: // e
-                        this.setMode(BoardMode.ERASE);
-                        break;
-                    case 77: // m
-                        this.setMode(BoardMode.MOVE);
-                        break;
+                case 89: // Y (For CTRL-Y)
+                    if(this.state.ctrlKeyPressed) {
+                        this.undoManager.redo();
+                    }
+                    break;
 
-                    // QUICK NODE SETTINGS
-                    case 70: // f
-                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
-                        if(nearestNode.node && nearestNode.hover) {
-                            nearestNode.node.model.final? this.unmarkFinalNode(nearestNode.node): this.markFinalNode(nearestNode.node);
-                            this.visualizations.update();
-                        }
-                        break;
-                    case 73: // i
-                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
-                        if(nearestNode.node && nearestNode.hover) {
-                            if(!nearestNode.node.model.initial) {
-                                this.setInitialNode(nearestNode.node);
-                            } else {
-                                this.setInitialNode(null);
-                            }
-                            this.visualizations.update();
-                        }
-                        break;
-
-                    case 89: // Y (For CTRL-Y)
-                        if(this.state.ctrlKeyPressed) {
+                case 90: // Z (For CTRL-Z)
+                    if(this.state.ctrlKeyPressed) {
+                        if(this.state.shiftKeyPressed) {
                             this.undoManager.redo();
+                        } else {
+                            this.undoManager.undo();
                         }
-                        break;
-
-                    case 90: // Z (For CTRL-Z)
-                        if(this.state.ctrlKeyPressed) {
-                            if(this.state.futureEdgeSnapping) { // SHIFT
-                                this.undoManager.redo();
-                            } else {
-                                this.undoManager.undo();
-                            }
-                        }
-                        break;
-                }
+                    }
+                    break;
             }
         }
 
@@ -716,14 +728,6 @@ module jsflap.Board {
          * @param event
          */
         private keyup(event) {
-            if(event.which === 16 && this.state.futureEdgeSnapping) {
-                this.state.futureEdgeSnapping = false;
-            }
-
-            if(event.which === 17 && this.state.ctrlKeyPressed) {
-                this.state.ctrlKeyPressed = false;
-            }
-
             if (event.which === 32 && this.state.mode === BoardMode.MOVE && this.state.quickMoveFrom !== null) {
                 this.state.draggingNode = null;
                 this.state.modifyEdgeControl = null;

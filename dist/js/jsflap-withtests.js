@@ -404,7 +404,7 @@ var jsflap;
                     return false;
                 }
                 if (this.state.futureEdge !== null) {
-                    if (this.state.futureEdgeSnapping) {
+                    if (this.state.shiftKeyPressed) {
                         var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
                         if (dx !== 0) {
                             point.x = x1 + trigSide * distance * Math.cos(dTheta);
@@ -431,8 +431,8 @@ var jsflap;
              * @param event
              */
             Board.prototype.keydown = function (event) {
-                if (event.which === 16 && !this.state.futureEdgeSnapping) {
-                    this.state.futureEdgeSnapping = true;
+                if (event.which === 16 && !this.state.shiftKeyPressed) {
+                    this.state.shiftKeyPressed = true;
                 }
             };
             /**
@@ -440,8 +440,8 @@ var jsflap;
              * @param event
              */
             Board.prototype.keyup = function (event) {
-                if (event.which === 16 && this.state.futureEdgeSnapping) {
-                    this.state.futureEdgeSnapping = false;
+                if (event.which === 16 && this.state.shiftKeyPressed) {
+                    this.state.shiftKeyPressed = false;
                 }
             };
             return Board;

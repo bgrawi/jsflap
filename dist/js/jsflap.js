@@ -771,12 +771,26 @@ var jsflap;
                     d3.event.preventDefault();
                 });
                 document.addEventListener('keydown', function (event) {
+                    // Always monitor modifier keys regardless of context
+                    if (event.which === 16) {
+                        _this.state.shiftKeyPressed = true;
+                    }
+                    if (event.which === 17) {
+                        _this.state.ctrlKeyPressed = true;
+                    }
                     if (!(event.target instanceof HTMLInputElement)) {
                         _this.keydown(event);
                         $rootScope.$digest();
                     }
                 });
                 document.addEventListener('keyup', function (event) {
+                    // Always monitor modifier keys regardless of context
+                    if (event.which === 16) {
+                        _this.state.shiftKeyPressed = false;
+                    }
+                    if (event.which === 17) {
+                        _this.state.ctrlKeyPressed = false;
+                    }
                     if (!(event.target instanceof HTMLInputElement)) {
                         _this.keyup(event);
                         $rootScope.$digest();
@@ -791,6 +805,9 @@ var jsflap;
                 var _this = this;
                 if (event.event.which > 1) {
                     return false;
+                }
+                if (this.state.shiftKeyPressed) {
+                    this.state.shiftKeyPressed = false;
                 }
                 if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.futureEdge) {
@@ -1013,7 +1030,7 @@ var jsflap;
                 }
                 if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.futureEdge !== null) {
-                        if (this.state.futureEdgeSnapping) {
+                        if (this.state.shiftKeyPressed) {
                             var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
                             if (dx !== 0) {
                                 point.x = x1 + trigSide * distance * Math.cos(dTheta);
@@ -1037,7 +1054,7 @@ var jsflap;
                 }
                 else if (this.state.mode === 1 /* MOVE */ && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                     var snappedPoint = point.getMPoint();
-                    if (this.state.futureEdgeSnapping) {
+                    if (this.state.shiftKeyPressed) {
                         snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
                         snappedPoint.y = (Math.round(snappedPoint.y / 20) * 20);
                     }
@@ -1222,66 +1239,57 @@ var jsflap;
              * @param event
              */
             Board.prototype.keydown = function (event) {
-                // if not editing a textbox
-                if (this.state.modifyEdgeTransition === null) {
-                    switch (event.which) {
-                        case 16:
-                            this.state.futureEdgeSnapping = true;
-                            break;
-                        case 17:
-                            this.state.ctrlKeyPressed = true;
-                            break;
-                        case 32:
-                            if (this.state.mode !== 1 /* MOVE */) {
-                                this.state.quickMoveFrom = this.state.mode;
-                                this.state.mode = 1 /* MOVE */;
-                                this.visualizations.update();
+                switch (event.which) {
+                    case 32:
+                        if (this.state.mode !== 1 /* MOVE */) {
+                            this.state.quickMoveFrom = this.state.mode;
+                            this.state.mode = 1 /* MOVE */;
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 68:
+                        this.setMode(0 /* DRAW */);
+                        break;
+                    case 69:
+                        this.setMode(2 /* ERASE */);
+                        break;
+                    case 77:
+                        this.setMode(1 /* MOVE */);
+                        break;
+                    case 70:
+                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                        if (nearestNode.node && nearestNode.hover) {
+                            nearestNode.node.model.final ? this.unmarkFinalNode(nearestNode.node) : this.markFinalNode(nearestNode.node);
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 73:
+                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                        if (nearestNode.node && nearestNode.hover) {
+                            if (!nearestNode.node.model.initial) {
+                                this.setInitialNode(nearestNode.node);
                             }
-                            break;
-                        case 68:
-                            this.setMode(0 /* DRAW */);
-                            break;
-                        case 69:
-                            this.setMode(2 /* ERASE */);
-                            break;
-                        case 77:
-                            this.setMode(1 /* MOVE */);
-                            break;
-                        case 70:
-                            var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
-                            if (nearestNode.node && nearestNode.hover) {
-                                nearestNode.node.model.final ? this.unmarkFinalNode(nearestNode.node) : this.markFinalNode(nearestNode.node);
-                                this.visualizations.update();
+                            else {
+                                this.setInitialNode(null);
                             }
-                            break;
-                        case 73:
-                            var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
-                            if (nearestNode.node && nearestNode.hover) {
-                                if (!nearestNode.node.model.initial) {
-                                    this.setInitialNode(nearestNode.node);
-                                }
-                                else {
-                                    this.setInitialNode(null);
-                                }
-                                this.visualizations.update();
-                            }
-                            break;
-                        case 89:
-                            if (this.state.ctrlKeyPressed) {
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 89:
+                        if (this.state.ctrlKeyPressed) {
+                            this.undoManager.redo();
+                        }
+                        break;
+                    case 90:
+                        if (this.state.ctrlKeyPressed) {
+                            if (this.state.shiftKeyPressed) {
                                 this.undoManager.redo();
                             }
-                            break;
-                        case 90:
-                            if (this.state.ctrlKeyPressed) {
-                                if (this.state.futureEdgeSnapping) {
-                                    this.undoManager.redo();
-                                }
-                                else {
-                                    this.undoManager.undo();
-                                }
+                            else {
+                                this.undoManager.undo();
                             }
-                            break;
-                    }
+                        }
+                        break;
                 }
             };
             /**
@@ -1304,12 +1312,6 @@ var jsflap;
              * @param event
              */
             Board.prototype.keyup = function (event) {
-                if (event.which === 16 && this.state.futureEdgeSnapping) {
-                    this.state.futureEdgeSnapping = false;
-                }
-                if (event.which === 17 && this.state.ctrlKeyPressed) {
-                    this.state.ctrlKeyPressed = false;
-                }
                 if (event.which === 32 && this.state.mode === 1 /* MOVE */ && this.state.quickMoveFrom !== null) {
                     this.state.draggingNode = null;
                     this.state.modifyEdgeControl = null;
@@ -1343,7 +1345,7 @@ var jsflap;
                 this.mode = 0 /* DRAW */;
                 this.futureEdge = null;
                 this.futureEdgeFrom = null;
-                this.futureEdgeSnapping = false;
+                this.shiftKeyPressed = false;
                 this.ctrlKeyPressed = false;
                 this.draggingNode = null;
                 this.isErasing = false;
@@ -2534,7 +2536,7 @@ var jsflap;
              */
             VisualizationCollection.prototype.update = function () {
                 var _this = this;
-                var shouldAnimateMovement = this.state.futureEdgeSnapping && this.state.mode === 1 /* MOVE */;
+                var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === 1 /* MOVE */;
                 var nodesGroup = this.svg.select('g.nodes'), edgesGroup = this.svg.select('g.edges'), transitionsGroup = this.svg.select('g.transitions'), controlPointsGroup = this.svg.select('g.control-points');
                 var nodes = nodesGroup.selectAll("circle.node").data(this.nodes, function (node) { return node.model.toString(); });
                 nodes.attr("r", function (d) { return d.radius; });

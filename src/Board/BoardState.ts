@@ -16,7 +16,7 @@ module jsflap.Board {
 
         public futureEdge: Visualization.FutureEdgeVisualization = null;
         public futureEdgeFrom: Visualization.NodeVisualization = null;
-        public futureEdgeSnapping: boolean = false;
+        public shiftKeyPressed: boolean = false;
 
         public ctrlKeyPressed: boolean = false;
 

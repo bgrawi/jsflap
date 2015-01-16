@@ -113,7 +113,7 @@ module jsflap.Visualization {
          * Updates the visualizations
          */
         public update() {
-            var shouldAnimateMovement = this.state.futureEdgeSnapping && this.state.mode === Board.BoardMode.MOVE;
+            var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === Board.BoardMode.MOVE;
 
             var nodesGroup = this.svg.select('g.nodes'),
                 edgesGroup = this.svg.select('g.edges'),

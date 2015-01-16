@@ -581,6 +581,22 @@ module jsflap.Visualization {
         }
 
         /**
+         * Gets a node visualization by its label
+         * @param label
+         * @returns {*}
+         */
+        getNodeVisualizationByLabel(label: string): NodeVisualization {
+            var query = this.nodes.filter((nodeV: Visualization.NodeVisualization) => {
+                return nodeV.model.label === label;
+            });
+            if(query.length > 0) {
+                return query[0];
+            } else {
+                return null;
+            }
+        }
+
+        /**
          * Opens a new text field for editing a transition
          * @param edge
          * @param node

@@ -122,11 +122,13 @@ module jsflap.Board {
 
                 if (this.state.futureEdge) {
                     var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
-                    var endingNode;
+                    var endingNode,
+                        neededToCreateNode = false;
                     if (nearestNode.node && nearestNode.distance < 40) {
                         endingNode = nearestNode.node;
                     } else {
                         endingNode = this.addNode(this.state.futureEdge.end);
+                        neededToCreateNode = true;
                     }
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
@@ -144,23 +146,28 @@ module jsflap.Board {
                     // Manage undoing and redoing of this action
                     var startingNodeV: Visualization.NodeVisualization = this.state.futureEdgeFrom,
                         endingNodeV: Visualization.NodeVisualization = endingNode,
-                        edgeV: Visualization.EdgeVisualization = newEdge,
-                        endingNodePoint = event.point.getMPoint();
+                        edgeV: Visualization.EdgeVisualization = newEdge;
                     this.undoManager.add({
                         undo: () => {
-                            this.removeNodeAndSaveSettings(endingNodeV);
-                            this.nodeCount--;
+                            if(neededToCreateNode) {
+                                this.removeNodeAndSaveSettings(endingNodeV);
+                            }
                             this.removeEdge(edgeV);
                         },
                         redo: () => {
-                            var findStartingNode = this.visualizations.nodes.filter((nodeV: Visualization.NodeVisualization) => {
-                                return nodeV.model.label === startingNodeV.model.label;
-                            });
-                            if(findStartingNode.length > 0) {
-                                if (findStartingNode[0] !== startingNodeV) {
-                                    startingNodeV = findStartingNode[0];
+                            var foundStartingNode = this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label),
+                                foundEndingNode = this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
+                            if(foundStartingNode) {
+                                if (foundStartingNode !== startingNodeV) {
+                                    startingNodeV = foundStartingNode;
                                 }
-                                endingNodeV = this.restoreNode(endingNodeV);
+                                if (foundEndingNode !== null && foundEndingNode !== endingNodeV) {
+                                    endingNodeV = foundEndingNode;
+                                }
+
+                                if(neededToCreateNode) {
+                                    endingNodeV = this.restoreNode(endingNodeV);
+                                }
                                 edgeV = this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition);
                                 newEdgeModel = edgeV.models.edges[edgeV.models.edges.length - 1];
                             }
@@ -667,6 +674,22 @@ module jsflap.Board {
                                 this.setInitialNode(null);
                             }
                             this.visualizations.update();
+                        }
+                        break;
+
+                    case 89: // Y (For CTRL-Y)
+                        if(this.state.ctrlKeyPressed) {
+                            this.undoManager.redo();
+                        }
+                        break;
+
+                    case 90: // Z (For CTRL-Z)
+                        if(this.state.ctrlKeyPressed) {
+                            if(this.state.futureEdgeSnapping) { // SHIFT
+                                this.undoManager.redo();
+                            } else {
+                                this.undoManager.undo();
+                            }
                         }
                         break;
                 }

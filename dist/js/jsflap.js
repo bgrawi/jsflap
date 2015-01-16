@@ -795,12 +795,13 @@ var jsflap;
                 if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.futureEdge) {
                         var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
-                        var endingNode;
+                        var endingNode, neededToCreateNode = false;
                         if (nearestNode.node && nearestNode.distance < 40) {
                             endingNode = nearestNode.node;
                         }
                         else {
                             endingNode = this.addNode(this.state.futureEdge.end);
+                            neededToCreateNode = true;
                         }
                         this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
                         var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode), newEdgeModel = newEdge.models.edges[newEdge.models.edges.length - 1];
@@ -812,22 +813,26 @@ var jsflap;
                             }
                         }, 10);
                         // Manage undoing and redoing of this action
-                        var startingNodeV = this.state.futureEdgeFrom, endingNodeV = endingNode, edgeV = newEdge, endingNodePoint = event.point.getMPoint();
+                        var startingNodeV = this.state.futureEdgeFrom, endingNodeV = endingNode, edgeV = newEdge;
                         this.undoManager.add({
                             undo: function () {
-                                _this.removeNodeAndSaveSettings(endingNodeV);
-                                _this.nodeCount--;
+                                if (neededToCreateNode) {
+                                    _this.removeNodeAndSaveSettings(endingNodeV);
+                                }
                                 _this.removeEdge(edgeV);
                             },
                             redo: function () {
-                                var findStartingNode = _this.visualizations.nodes.filter(function (nodeV) {
-                                    return nodeV.model.label === startingNodeV.model.label;
-                                });
-                                if (findStartingNode.length > 0) {
-                                    if (findStartingNode[0] !== startingNodeV) {
-                                        startingNodeV = findStartingNode[0];
+                                var foundStartingNode = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label), foundEndingNode = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
+                                if (foundStartingNode) {
+                                    if (foundStartingNode !== startingNodeV) {
+                                        startingNodeV = foundStartingNode;
                                     }
-                                    endingNodeV = _this.restoreNode(endingNodeV);
+                                    if (foundEndingNode !== null && foundEndingNode !== endingNodeV) {
+                                        endingNodeV = foundEndingNode;
+                                    }
+                                    if (neededToCreateNode) {
+                                        endingNodeV = _this.restoreNode(endingNodeV);
+                                    }
                                     edgeV = _this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition);
                                     newEdgeModel = edgeV.models.edges[edgeV.models.edges.length - 1];
                                 }
@@ -1259,6 +1264,21 @@ var jsflap;
                                     this.setInitialNode(null);
                                 }
                                 this.visualizations.update();
+                            }
+                            break;
+                        case 89:
+                            if (this.state.ctrlKeyPressed) {
+                                this.undoManager.redo();
+                            }
+                            break;
+                        case 90:
+                            if (this.state.ctrlKeyPressed) {
+                                if (this.state.futureEdgeSnapping) {
+                                    this.undoManager.redo();
+                                }
+                                else {
+                                    this.undoManager.undo();
+                                }
                             }
                             break;
                     }
@@ -2732,6 +2752,22 @@ var jsflap;
              */
             VisualizationCollection.prototype.getEdgeVisualizationByNodes = function (from, to) {
                 var query = this.edges.filter(function (edge) { return edge.fromModel === from && edge.toModel === to; });
+                if (query.length > 0) {
+                    return query[0];
+                }
+                else {
+                    return null;
+                }
+            };
+            /**
+             * Gets a node visualization by its label
+             * @param label
+             * @returns {*}
+             */
+            VisualizationCollection.prototype.getNodeVisualizationByLabel = function (label) {
+                var query = this.nodes.filter(function (nodeV) {
+                    return nodeV.model.label === label;
+                });
                 if (query.length > 0) {
                     return query[0];
                 }

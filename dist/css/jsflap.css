@@ -405,17 +405,20 @@ nav.top-bar {
     -webkit-app-region: drag;
 }
 
-nav.top-bar a {
+nav.top-bar a, nav.top-bar input {
     -webkit-app-region: no-drag;
 }
 
 .window-buttons {
     position: relative;
-    margin-right: -3px;
 }
 
 .close-window {
     background-color: #C3272B !important;
+}
+
+.close-window:hover {
+    background-color: #992728 !important;
 }
 
 .close-window:hover {

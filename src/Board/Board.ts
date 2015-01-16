@@ -60,6 +60,8 @@ module jsflap.Board {
          */
         private registerBindings($rootScope) {
             var _this = this;
+
+            // Mouse events
             this.svg.on('mouseup', function () {
                 _this.mouseup(new MouseEvent(d3.event, this));
             });
@@ -69,21 +71,35 @@ module jsflap.Board {
             this.svg.on('mousemove', function () {
                 _this.mousemove(new MouseEvent(d3.event, this));
             });
+
+            // Touch events
+            this.svg.on('touchstart', function () {
+                _this.mousedown(new MouseEvent(d3.event, this));
+            });
             this.svg.on('touchmove', function () {
                 _this.mousemove(new MouseEvent(d3.event, this));
             });
+            this.svg.on('touchend', function () {
+                _this.mouseup(new MouseEvent(d3.event, this));
+            });
+
+            // Context menu events
             this.svg.on("contextmenu", function() {
                 $rootScope.$broadcast('contextmenu', {options: _this.state.contextMenuOptions, event: d3.event});
                 _this.state.contextMenuOptions = null;
                 d3.event.preventDefault();
             });
             document.addEventListener('keydown', function (event) {
-                _this.keydown(event);
-                $rootScope.$digest();
+                if(!(event.target instanceof HTMLInputElement)) {
+                    _this.keydown(event);
+                    $rootScope.$digest();
+                }
             });
             document.addEventListener('keyup', function (event) {
-                _this.keyup(event);
-                $rootScope.$digest();
+                if(!(event.target instanceof HTMLInputElement)) {
+                    _this.keyup(event);
+                    $rootScope.$digest();
+                }
             });
         }
 
@@ -536,22 +552,13 @@ module jsflap.Board {
 
                     // MODE SWITCHING
                     case 68: // d
-                        if(this.state.mode !== BoardMode.DRAW) {
-                            this.state.mode = BoardMode.DRAW;
-                            this.visualizations.update();
-                        }
+                        this.setMode(BoardMode.DRAW);
                         break;
                     case 69: // e
-                        if(this.state.mode !== BoardMode.ERASE) {
-                            this.state.mode = BoardMode.ERASE;
-                            this.visualizations.update();
-                        }
+                        this.setMode(BoardMode.ERASE);
                         break;
                     case 77: // m
-                        if(this.state.mode !== BoardMode.MOVE) {
-                            this.state.mode = BoardMode.MOVE;
-                            this.visualizations.update();
-                        }
+                        this.setMode(BoardMode.MOVE);
                         break;
 
                     // QUICK NODE SETTINGS
@@ -574,6 +581,20 @@ module jsflap.Board {
                         }
                         break;
                 }
+            }
+        }
+
+        /**
+         * Sets the board mode and updates accordingly
+         * @param mode
+         */
+        public setMode(mode: BoardMode): boolean {
+            if(mode !== this.state.mode) {
+                this.state.mode = mode;
+                this.visualizations.update();
+                return true;
+            } else {
+                return false;
             }
         }
 

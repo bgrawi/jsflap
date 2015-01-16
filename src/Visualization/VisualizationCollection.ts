@@ -608,7 +608,6 @@ module jsflap.Visualization {
                     return;
                 }
                 var transition = new Transition.CharacterTransition((<HTMLInputElement> inp.node()).value || LAMBDA);
-                console.log(transition.toString());
                 var similarTransitions = edge.visualization.models.edges.length > 1?
                     edge.visualization.models.edges
                         .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString())

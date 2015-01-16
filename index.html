@@ -9,24 +9,23 @@
     <link rel="stylesheet" href="dist/css/jsflap.css">
 </head>
 <body ng-app="jsflap" ng-controller="AppController" jsflap-app ng-class="'mode_' + board.state.mode">
-<nav class="top-bar" data-topbar role="navigation">
+<top-bar role="navigation">
     <ul class="title-area">
         <li class="name">
             <h1><a href="#"><i class="fa fa-flag"></i> JSFLAP</a></h1>
         </li>
-        <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
+        <li toggle-top-bar class="menu-icon"><a href="#"><span>Menu</span></a></li>
     </ul>
 
-    <section class="top-bar-section">
+    <!-- DESKTOP-ONLY -->
+    <ul class="right window-buttons">
+        <li><a href="javascript:window.pressedMinimize();"><i class="fa fa-minus"></i></a></li>
+        <li><a href="javascript:window.pressedMaximize();"><i class="fa fa-square-o"></i></a></li>
+        <li><a href="javascript:window.close();" class="close-window"><i class="fa fa-times"></i></a></li>
+    </ul>
+    <!-- /DESKTOP-ONLY -->
 
-        <!-- DESKTOP-ONLY -->
-        <ul class="right window-buttons">
-            <li><a href="javascript:window.pressedMinimize();"><i class="fa fa-minus"></i></a></li>
-            <li><a href="javascript:window.pressedMaximize();"><i class="fa fa-square-o"></i></a></li>
-            <li><a href="javascript:window.close();" class="close-window"><i class="fa fa-times"></i></a></li>
-        </ul>
-        <!-- /DESKTOP-ONLY -->
-
+    <top-bar-section>
         <!-- Right Nav Section -->
         <ul class="right">
             <li><a href="#"><i class="fa fa-undo"></i></a></li>
@@ -45,29 +44,61 @@
 
         <!-- Left Nav Section -->
         <ul class="left">
-            <li ng-click="board.state.mode = 0; board.visualizations.update()" class="mode_selector" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
-            <li ng-click="board.state.mode = 1; board.visualizations.update()" class="mode_selector" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
-            <li ng-click="board.state.mode = 2; board.visualizations.update()" class="mode_selector" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
+            <li has-dropdown>
+                <a href="#">File</a>
+                <ul top-bar-dropdown>
+                    <li><a href="/"><i class="fa fa-file fa-fw"></i> New</a></li>
+                    <li has-dropdown>
+                        <a href="#"><i class="fa fa-folder-open fa-fw"></i> Open...</a>
+                        <ul top-bar-dropdown>
+                            <li><a href="#">Local Storage</a></li>
+                            <li><a href="#">JFLAP file (.jff)</a></li>
+                            <li><a href="#">Automata Definition (.txt)</a></li>
+                        </ul>
+                    </li>
+                    <li has-dropdown>
+                        <a href="#"><i class="fa fa-save fa-fw"></i> Save...</a>
+                        <ul top-bar-dropdown>
+                            <li><a href="#">Local Storage</a></li>
+                            <li><a href="#">JFLAP file (.jff)</a></li>
+                            <li><a href="#">Automata Definition (.txt)</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <li ng-click="board.setMode(0)" class="mode_selector" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
+            <li ng-click="board.setMode(1)" class="mode_selector" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
+            <li ng-click="board.setMode(2)" class="mode_selector" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
         </ul>
 
         <ul class="center">
-            <li class="has-form">
-                <input type="text" placeholder="Untitled 1">
+            <li class="has-form graph-title">
+                <input ng-model="graphMeta.title" type="text" placeholder="Untitled 1">
             </li>
-            <li class="has-dropdown">
-                <a href="#" title="Finite Automaton">FA</a>
-                <ul class="dropdown">
-                    <li class="active" title="Finite Automaton"><a href="#">FA</a></li>
-                    <li><a href="#" title="Push-down Automaton">PDA</a></li>
-                    <li><a href="#" title="Turing Machine">TM</a></li>
+        </ul>
+
+        <!-- Right Nav Section -->
+        <ul class="right">
+            <li><a href="#"><i class="fa fa-undo"></i></a></li>
+            <li><a href="#"><i class="fa fa-undo fa-flip-horizontal"></i></a></li>
+            <li><a href="#" ng-click="openHelpModal()"><i class="fa fa-question-circle"></i></a></li>
+            <li has-dropdown>
+                <a href="#"><i class="fa fa-cog"></i></a>
+                <ul top-bar-dropdown>
+                    <li has-dropdown>
+                        <a href="#"><i class="fa fa-folder-open"></i> Theme</a>
+                        <ul top-bar-dropdown>
+                            <li ng-repeat="(themeKey, themeName) in availableThemes" ng-class="themeKey === settings.theme? 'active': ''"><a href="#" ng-click="settings.theme = themeKey">{{themeName}}</a></li>
+                        </ul>
+                    </li>
                 </ul>
             </li>
         </ul>
-    </section>
-</nav>
+    </top-bar-section>
+</top-bar>
 <div class="full main-row">
     <section class="board-container">
-        <svg tabindex="0" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" ng-class="activeTheme" jsflap-board>
+        <svg tabindex="0" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" ng-class="'theme-' + settings.theme" jsflap-board>
             <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
                     orient="auto">
                 <path class="markerArrow" d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000; shape-rendering: optimizeSpeed !important;"></path>
@@ -87,18 +118,45 @@
     </section>
     <section class="board-sidebar">
         <div class="text-heading">
+            Graph Settings
+        </div>
+        <div class="text-subheading">
+            <div class="row full">
+                <div class="small-12 columns text-subheading-status" ng-class="{'bg-color-valid': graph.isValid(), 'bg-color-invalid': !graph.isValid()}">
+                    <div class="center">Graph is {{!graph.isValid()?'Inv':'V'}}alid</div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-bottom: -20px">
+            <ul class="button-group even-2">
+                <li>
+                    <button type="button" class="button secondary" ng-model="graph.deterministic" btn-checkbox>
+                        <i class="fa" ng-class="{'fa-check-square': graph.deterministic, 'fa-square-o': !graph.deterministic}"></i> Deterministic
+                    </button>
+                </li>
+                <li>
+                    <button type="button" class="button secondary dropdown" dropdown-toggle="#graph-settings-type">
+                        {{graphMeta.type}}
+                    </button>
+                </li>
+            </ul>
+            <ul id="graph-settings-type" class="f-dropdown">
+                <li ng-repeat="(type, displayType) in availableTypes"><a href="#" ng-click="graphMeta.type = type">{{displayType}}</a></li>
+            </ul>
+        </div>
+        <div class="text-heading">
             Test Machine
         </div>
         <form name="testInputsForm" jsflap-test-inputs="">
             <div class="text-subheading">
                 <div class="row full">
-                    <div class="small-4 columns" style="padding: 5px; color: #fff; background-color: #26A65B;">
+                    <div class="small-4 columns bg-color-valid text-subheading-status">
                         {{resultTotals[1]}} Accepted
                     </div>
-                    <div class="small-4 columns" style="padding: 5px; color: #fff; background-color: #C3272B;">
+                    <div class="small-4 columns bg-color-invalid text-subheading-status">
                         {{resultTotals[0]}} Rejected
                     </div>
-                    <div class="small-4 columns" style="padding: 5px; color: #fff; background-color: #AAA;">
+                    <div class="small-4 columns bg-color-gray1 text-subheading-status">
                         {{resultTotals[2]}} Unknown
                     </div>
                 </div>
@@ -108,34 +166,6 @@
             </label>
             <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
         </form>
-        <div class="text-heading">
-            Graph Info
-        </div>
-        <div class="text-subheading" style="padding: 7px 15px; font-size: 16px; background-color: #AAA; color: #FFF; text-align: left;">
-            <input id="graphDeterminism" type="checkbox" ng-model="graph.deterministic"><label for="graphDeterminism" style="font-size: 16px;color: #fff;">Deterministic</label> <div class="pull-right">Graph is {{!graph.isValid()?'in':''}}valid</div>
-        </div>
-        <pre style="padding: 5px; font-size: 16px; background-color: #f5f5f5">{{graph.toString()}}</pre>
-        <div class="text-heading">
-            Display Settings
-        </div>
-        <ul class="button-group" style="text-align: center; padding-top: 10px;">
-            <li ng-repeat="(themeClass, themeName) in availableThemes"><a href="#" class="button small" ng-class="themeClass == activeTheme? 'info': 'secondary'" ng-click="setActiveTheme(themeClass)">{{themeName}}</a></li>
-        </ul>
-        <div class="text-heading">
-            Keyboard Shortcuts
-        </div>
-        <div style="padding: 10px; font-size: 16px;">
-            <ul class="no-bullet">
-                <li><kbd>SHIFT</kbd>: Snaps edges to 45&deg; and nodes to a grid</li>
-                <li><kbd>SPACE</kbd>: Temporary MOVE mode (<i class="fa fa-arrows"></i>) while held</li>
-                <li><kbd>F</kbd>: Toggles node under the mouse's final status</li>
-                <li><kbd>I</kbd>: Toggles node under the mouse's initial status</li>
-                <li><kbd>D</kbd>: Enter DRAW mode (<i class="fa fa-pencil"></i>)</li>
-                <li><kbd>M</kbd>: Enter MOVE mode (<i class="fa fa-arrows"></i>)</li>
-                <li><kbd>E</kbd>: Enter ERASE mode (<i class="fa fa-eraser"></i>)</li>
-                <li><kbd>CTRL</kbd>: Temporarily freezes moved control points</li>
-            </ul>
-        </div>
     </section>
 </div>
 

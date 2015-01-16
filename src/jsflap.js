@@ -2,7 +2,7 @@
 (function(window, angular) {
     "use strict";
 
-    angular.module('jsflap', []);
+    angular.module('jsflap', ['mm.foundation']);
     angular.module('jsflap')
         .directive('jsflapBoard', function($rootScope) {
             return {
@@ -154,7 +154,7 @@
                 }
             }
         })
-        .controller('AppController', function($scope, $timeout) {
+        .controller('AppController', function($scope, $timeout, $modal) {
             this.graph = new jsflap.Graph.FAGraph(false);
             this.board = null;
 
@@ -174,13 +174,30 @@
             };
 
             $scope.availableThemes = {
-                'theme-modern': 'Modern Theme',
-                'theme-classic': 'Classic Theme'
+                'modern': 'Modern Theme',
+                'classic': 'Classic Theme'
             };
 
-            $scope.activeTheme = 'theme-modern';
-            $scope.setActiveTheme = function(className) {
-                $scope.activeTheme = className;
+            $scope.availableTypes = {
+                'FA': 'Finite Automation',
+                'PDA': 'Push-down Automation',
+                'TM': 'Turning Machine'
+            };
+
+            $scope.graphMeta = {
+                title: '',
+                type: 'FA'
+            };
+
+            $scope.settings = {
+                theme: 'modern'
+            };
+
+            $scope.openHelpModal = function () {
+                var modalInstance = $modal.open({
+                    templateUrl: 'templates/HelpModal.html',
+                    controller: 'HelpModalController'
+                });
             };
 
             // For easy debugging
@@ -189,5 +206,14 @@
         })
         .controller('ContextController', function($scope) {
             $scope.message2 = 'the context';
+        })
+        .controller('HelpModalController', function($scope, $modalInstance) {
+            $scope.ok = function () {
+                $modalInstance.close();
+            };
+
+            $scope.cancel = function () {
+                $modalInstance.dismiss('cancel');
+            };
         });
 }(window, window.angular));

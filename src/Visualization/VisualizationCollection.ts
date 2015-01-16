@@ -469,7 +469,7 @@ module jsflap.Visualization {
                     if(this.state.modifyEdgeControl) {
                         this.state.modifyEdgeControl = null;
                     } else if(this.state.mode === Board.BoardMode.DRAW) {
-                        this.editTransition(d);
+                        this.editTransition(d, null, true);
                     }
                 })
                 .on('mouseover', (edge: Edge) => {
@@ -600,8 +600,9 @@ module jsflap.Visualization {
          * Opens a new text field for editing a transition
          * @param edge
          * @param node
+         * @param trackHistory
          */
-        editTransition(edge: Edge, node? :SVGTextElement) {
+        editTransition(edge: Edge, node?: SVGTextElement, trackHistory?: boolean) {
             // Adapted from http://bl.ocks.org/GerHobbelt/2653660
 
             var _this = this;
@@ -615,7 +616,21 @@ module jsflap.Visualization {
             var el = d3.select(target);
             var frm = this.svg.append("foreignObject");
 
+            var previousTransition = edge.transition;
+
             el.node();
+
+            function applyTransition(edge, transition) {
+                _this.board.updateEdgeTransition(edge, transition);
+                el.text(function (d) {
+                    return d.transition.toString()
+                });
+                _this.svg.select("foreignObject").remove();
+                _this.state.modifyEdgeTransition = null;
+                if (typeof _this.board.onBoardUpdateFn === 'function') {
+                    _this.board.onBoardUpdateFn();
+                }
+            }
 
             function updateTransition() {
                 if(_this.state.modifyEdgeTransition !== inp.node()) {
@@ -630,17 +645,19 @@ module jsflap.Visualization {
                         :[];
 
                 if(similarTransitions.length == 0) {
-                    _this.board.updateEdgeTransition(edge, transition);
-                    el.text(function (d) {
-                        return d.transition.toString()
-                    });
-                    _this.svg.select("foreignObject").remove();
-                    _this.state.modifyEdgeTransition = null;
-                    if (typeof _this.board.onBoardUpdateFn === 'function') {
-                        _this.board.onBoardUpdateFn();
+                    applyTransition(edge, transition);
+                    if(trackHistory) {
+                        _this.board.undoManager.add({
+                            undo: () => {
+                                applyTransition(edge, previousTransition);
+                            },
+                            redo: () => {
+                                applyTransition(edge, transition);
+                            }
+                        });
                     }
                 } else {
-                    _this.editTransition(edge, target);
+                    _this.editTransition(edge, target, !!trackHistory);
                 }
             }
 

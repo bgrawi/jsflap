@@ -838,7 +838,7 @@ var jsflap;
                                 if (neededToCreateNode) {
                                     _this.removeNodeAndSaveSettings(endingNodeV);
                                 }
-                                _this.removeEdge(edgeV);
+                                _this.removeEdgeTransistion(edgeV, newEdgeModel);
                             },
                             redo: function () {
                                 var foundStartingNode = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label), foundEndingNode = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
@@ -1263,23 +1263,7 @@ var jsflap;
                     this.removeEdge(this.state.hoveringEdge);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                    var edgeV = this.state.hoveringTransition.visualization;
-                    // Delete this edge from the visualization
-                    edgeV.models.remove(this.state.hoveringTransition);
-                    this.graph.removeEdge(this.state.hoveringTransition);
-                    // If we have removed the last edge, remove the entire visualization
-                    if (edgeV.models.size === 0) {
-                        this._handleOpposingEdgeCollapsing(edgeV);
-                        this.visualizations.removeEdge(edgeV);
-                    }
-                    else {
-                        // Now we need to re-index the visualizations
-                        edgeV.models.edges.forEach(function (edge, index) {
-                            edge.visualizationNumber = index;
-                        });
-                        // And force a update
-                        this.visualizations.update();
-                    }
+                    this.removeEdgeTransistion(this.state.hoveringTransition.visualization, this.state.hoveringTransition);
                 }
                 else {
                     var nearestNode = this.visualizations.getNearestNode(point);
@@ -1301,6 +1285,26 @@ var jsflap;
                         otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint() ? otherEdgeV.control : null);
                     }
                 }
+            };
+            /**
+             * Removes a transition from an edge, and the edge itself if its the last transition
+             * @param edgeV
+             * @param edgeModel
+             */
+            Board.prototype.removeEdgeTransistion = function (edgeV, edgeModel) {
+                // If this is the last transition on the edge, just remove the whole edge
+                if (edgeV.models.size === 1) {
+                    return this.removeEdge(edgeV);
+                }
+                // Delete this edge from the visualization
+                edgeV.models.remove(edgeModel);
+                this.graph.removeEdge(edgeModel);
+                // Now we need to re-index the visualizations
+                edgeV.models.edges.forEach(function (edge, index) {
+                    edge.visualizationNumber = index;
+                });
+                // And force a update
+                this.visualizations.update();
             };
             /**
              * Removes an edge from the graph
@@ -2780,7 +2784,7 @@ var jsflap;
                         _this.state.modifyEdgeControl = null;
                     }
                     else if (_this.state.mode === 0 /* DRAW */) {
-                        _this.editTransition(d);
+                        _this.editTransition(d, null, true);
                     }
                 }).on('mouseover', function (edge) {
                     _this.state.hoveringTransition = edge;
@@ -2894,8 +2898,9 @@ var jsflap;
              * Opens a new text field for editing a transition
              * @param edge
              * @param node
+             * @param trackHistory
              */
-            VisualizationCollection.prototype.editTransition = function (edge, node) {
+            VisualizationCollection.prototype.editTransition = function (edge, node, trackHistory) {
                 // Adapted from http://bl.ocks.org/GerHobbelt/2653660
                 var _this = this;
                 // TODO: Generalize this transition editing
@@ -2905,7 +2910,19 @@ var jsflap;
                 var bbox = target.getBBox();
                 var el = d3.select(target);
                 var frm = this.svg.append("foreignObject");
+                var previousTransition = edge.transition;
                 el.node();
+                function applyTransition(edge, transition) {
+                    _this.board.updateEdgeTransition(edge, transition);
+                    el.text(function (d) {
+                        return d.transition.toString();
+                    });
+                    _this.svg.select("foreignObject").remove();
+                    _this.state.modifyEdgeTransition = null;
+                    if (typeof _this.board.onBoardUpdateFn === 'function') {
+                        _this.board.onBoardUpdateFn();
+                    }
+                }
                 function updateTransition() {
                     if (_this.state.modifyEdgeTransition !== inp.node()) {
                         // The user was no longer editing the transition, don't do anything
@@ -2914,18 +2931,20 @@ var jsflap;
                     var transition = new jsflap.Transition.CharacterTransition(inp.node().value || jsflap.LAMBDA);
                     var similarTransitions = edge.visualization.models.edges.length > 1 ? edge.visualization.models.edges.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
                     if (similarTransitions.length == 0) {
-                        _this.board.updateEdgeTransition(edge, transition);
-                        el.text(function (d) {
-                            return d.transition.toString();
-                        });
-                        _this.svg.select("foreignObject").remove();
-                        _this.state.modifyEdgeTransition = null;
-                        if (typeof _this.board.onBoardUpdateFn === 'function') {
-                            _this.board.onBoardUpdateFn();
+                        applyTransition(edge, transition);
+                        if (trackHistory) {
+                            _this.board.undoManager.add({
+                                undo: function () {
+                                    applyTransition(edge, previousTransition);
+                                },
+                                redo: function () {
+                                    applyTransition(edge, transition);
+                                }
+                            });
                         }
                     }
                     else {
-                        _this.editTransition(edge, target);
+                        _this.editTransition(edge, target, !!trackHistory);
                     }
                 }
                 var inp = frm.attr("x", position.left - 3).attr("y", bbox.y - 3).attr("width", 30).attr("height", 25).append("xhtml:form").append("input").attr("value", function () {

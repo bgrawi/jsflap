@@ -41,7 +41,7 @@ module jsflap.Board {
          * The undo manager
          * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), redo: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
          */
-        private undoManager = jsflap.getUndoManager();
+        public undoManager = jsflap.getUndoManager();
 
         /**
          * Represents both the visualization and the graph underneath
@@ -176,7 +176,7 @@ module jsflap.Board {
                             if(neededToCreateNode) {
                                 this.removeNodeAndSaveSettings(endingNodeV);
                             }
-                            this.removeEdge(edgeV);
+                            this.removeEdgeTransistion(edgeV, newEdgeModel);
                         },
                         redo: () => {
                             var foundStartingNode = this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label),
@@ -650,26 +650,7 @@ module jsflap.Board {
             }
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                var edgeV = this.state.hoveringTransition.visualization;
-
-                // Delete this edge from the visualization
-                edgeV.models.remove(this.state.hoveringTransition);
-                this.graph.removeEdge(this.state.hoveringTransition);
-
-                // If we have removed the last edge, remove the entire visualization
-                if(edgeV.models.size === 0) {
-                    this._handleOpposingEdgeCollapsing(edgeV);
-                    this.visualizations.removeEdge(edgeV);
-                } else {
-
-                    // Now we need to re-index the visualizations
-                    edgeV.models.edges.forEach((edge: Edge, index: number) => {
-                        edge.visualizationNumber = index;
-                    });
-
-                    // And force a update
-                    this.visualizations.update();
-                }
+                this.removeEdgeTransistion(this.state.hoveringTransition.visualization, this.state.hoveringTransition);
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);
                 if(nearestNode.node && nearestNode.hover) {
@@ -692,6 +673,30 @@ module jsflap.Board {
                     otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint()? otherEdgeV.control: null);
                 }
             }
+        }
+
+        /**
+         * Removes a transition from an edge, and the edge itself if its the last transition
+         * @param edgeV
+         * @param edgeModel
+         */
+        public removeEdgeTransistion(edgeV: Visualization.EdgeVisualization, edgeModel: Edge) {
+
+            // If this is the last transition on the edge, just remove the whole edge
+            if(edgeV.models.size === 1) {
+                return this.removeEdge(edgeV);
+            }
+            // Delete this edge from the visualization
+            edgeV.models.remove(edgeModel);
+            this.graph.removeEdge(edgeModel);
+
+            // Now we need to re-index the visualizations
+            edgeV.models.edges.forEach((edge: Edge, index: number) => {
+                edge.visualizationNumber = index;
+            });
+
+            // And force a update
+            this.visualizations.update();
         }
 
         /**

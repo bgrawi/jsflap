@@ -2,7 +2,7 @@
 (function(window, angular) {
     "use strict";
 
-    angular.module('jsflap', []);
+    angular.module('jsflap', ['mm.foundation']);
     angular.module('jsflap')
         .directive('jsflapBoard', function($rootScope) {
             return {
@@ -154,7 +154,7 @@
                 }
             }
         })
-        .controller('AppController', function($scope, $timeout) {
+        .controller('AppController', function($scope, $timeout, $modal) {
             this.graph = new jsflap.Graph.FAGraph(false);
             this.board = null;
 
@@ -174,13 +174,30 @@
             };
 
             $scope.availableThemes = {
-                'theme-modern': 'Modern Theme',
-                'theme-classic': 'Classic Theme'
+                'modern': 'Modern Theme',
+                'classic': 'Classic Theme'
             };
 
-            $scope.activeTheme = 'theme-modern';
-            $scope.setActiveTheme = function(className) {
-                $scope.activeTheme = className;
+            $scope.availableTypes = {
+                'FA': 'Finite Automation',
+                'PDA': 'Push-down Automation',
+                'TM': 'Turning Machine'
+            };
+
+            $scope.graphMeta = {
+                title: '',
+                type: 'FA'
+            };
+
+            $scope.settings = {
+                theme: 'modern'
+            };
+
+            $scope.openHelpModal = function () {
+                var modalInstance = $modal.open({
+                    templateUrl: 'templates/HelpModal.html',
+                    controller: 'HelpModalController'
+                });
             };
 
             // For easy debugging
@@ -189,6 +206,15 @@
         })
         .controller('ContextController', function($scope) {
             $scope.message2 = 'the context';
+        })
+        .controller('HelpModalController', function($scope, $modalInstance) {
+            $scope.ok = function () {
+                $modalInstance.close();
+            };
+
+            $scope.cancel = function () {
+                $modalInstance.dismiss('cancel');
+            };
         });
 }(window, window.angular));
 var jsflap;
@@ -608,6 +634,7 @@ var jsflap;
              */
             Board.prototype.registerBindings = function ($rootScope) {
                 var _this = this;
+                // Mouse events
                 this.svg.on('mouseup', function () {
                     _this.mouseup(new _Board.MouseEvent(d3.event, this));
                 });
@@ -617,21 +644,33 @@ var jsflap;
                 this.svg.on('mousemove', function () {
                     _this.mousemove(new _Board.MouseEvent(d3.event, this));
                 });
+                // Touch events
+                this.svg.on('touchstart', function () {
+                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
+                });
                 this.svg.on('touchmove', function () {
                     _this.mousemove(new _Board.MouseEvent(d3.event, this));
                 });
+                this.svg.on('touchend', function () {
+                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
+                });
+                // Context menu events
                 this.svg.on("contextmenu", function () {
                     $rootScope.$broadcast('contextmenu', { options: _this.state.contextMenuOptions, event: d3.event });
                     _this.state.contextMenuOptions = null;
                     d3.event.preventDefault();
                 });
                 document.addEventListener('keydown', function (event) {
-                    _this.keydown(event);
-                    $rootScope.$digest();
+                    if (!(event.target instanceof HTMLInputElement)) {
+                        _this.keydown(event);
+                        $rootScope.$digest();
+                    }
                 });
                 document.addEventListener('keyup', function (event) {
-                    _this.keyup(event);
-                    $rootScope.$digest();
+                    if (!(event.target instanceof HTMLInputElement)) {
+                        _this.keyup(event);
+                        $rootScope.$digest();
+                    }
                 });
             };
             /**
@@ -1009,22 +1048,13 @@ var jsflap;
                             }
                             break;
                         case 68:
-                            if (this.state.mode !== 0 /* DRAW */) {
-                                this.state.mode = 0 /* DRAW */;
-                                this.visualizations.update();
-                            }
+                            this.setMode(0 /* DRAW */);
                             break;
                         case 69:
-                            if (this.state.mode !== 2 /* ERASE */) {
-                                this.state.mode = 2 /* ERASE */;
-                                this.visualizations.update();
-                            }
+                            this.setMode(2 /* ERASE */);
                             break;
                         case 77:
-                            if (this.state.mode !== 1 /* MOVE */) {
-                                this.state.mode = 1 /* MOVE */;
-                                this.visualizations.update();
-                            }
+                            this.setMode(1 /* MOVE */);
                             break;
                         case 70:
                             var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
@@ -1046,6 +1076,20 @@ var jsflap;
                             }
                             break;
                     }
+                }
+            };
+            /**
+             * Sets the board mode and updates accordingly
+             * @param mode
+             */
+            Board.prototype.setMode = function (mode) {
+                if (mode !== this.state.mode) {
+                    this.state.mode = mode;
+                    this.visualizations.update();
+                    return true;
+                }
+                else {
+                    return false;
                 }
             };
             /**
@@ -2530,7 +2574,6 @@ var jsflap;
                         return;
                     }
                     var transition = new jsflap.Transition.CharacterTransition(inp.node().value || jsflap.LAMBDA);
-                    console.log(transition.toString());
                     var similarTransitions = edge.visualization.models.edges.length > 1 ? edge.visualization.models.edges.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
                     if (similarTransitions.length == 0) {
                         _this.board.updateEdgeTransition(edge, transition);

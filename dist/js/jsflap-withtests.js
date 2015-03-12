@@ -111,7 +111,7 @@ var jsflap;
              * @returns {number}
              */
             get: function () {
-                return this.edges.length;
+                return this.items.length;
             },
             enumerable: true,
             configurable: true

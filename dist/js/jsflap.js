@@ -233,6 +233,7 @@ var jsflap;
          * @param transition
          */
         function Edge(from, to, transition) {
+            this._hashCode = jsflap.Utils.getUUID();
             this.from = from;
             this.to = to;
             this.transition = transition;
@@ -276,6 +277,9 @@ var jsflap;
          */
         Edge.prototype.toString = function () {
             return '(' + this.from.toString() + ', ' + this.to.toString() + ', ' + this.transition.toString() + ')';
+        };
+        Edge.prototype.hashCode = function () {
+            return this._hashCode;
         };
         return Edge;
     })();
@@ -407,6 +411,8 @@ var jsflap;
     jsflap.EdgeList = EdgeList;
 })(jsflap || (jsflap = {}));
 
+
+
 var jsflap;
 (function (jsflap) {
     var Node = (function () {
@@ -416,6 +422,7 @@ var jsflap;
          * @param options
          */
         function Node(label, options) {
+            this._hashCode = jsflap.Utils.getUUID();
             this.label = label;
             if (options) {
                 this.initial = (options.initial) ? options.initial : false;
@@ -493,6 +500,9 @@ var jsflap;
          */
         Node.prototype.toString = function () {
             return this.label;
+        };
+        Node.prototype.hashCode = function () {
+            return this._hashCode;
         };
         return Node;
     })();
@@ -605,6 +615,117 @@ var jsflap;
         return NodeList;
     })();
     jsflap.NodeList = NodeList;
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var OrderedHashmap = (function () {
+        /**
+         * Create a new OrderedHashmap
+         * @param items
+         */
+        function OrderedHashmap(items) {
+            var _this = this;
+            this.items = [];
+            this.itemMap = {};
+            if (items) {
+                items.forEach(function (item) {
+                    _this.add(item);
+                });
+            }
+        }
+        /**
+         * Adds a new item to the list
+         * @param item
+         * @param index
+         */
+        OrderedHashmap.prototype.add = function (item, index) {
+            if (!this.has(item)) {
+                if (typeof index !== 'number') {
+                    this.items.push(item);
+                }
+                else {
+                    this.items.splice(index, 0, item);
+                }
+                this.itemMap[item.hashCode()] = item;
+                return item;
+            }
+            else {
+                return this.itemMap[item.hashCode()];
+            }
+        };
+        /**
+         * Checks if the item list has a item
+         * @returns {boolean}
+         * @param item
+         */
+        OrderedHashmap.prototype.has = function (item) {
+            if (typeof item === 'string') {
+                return this.itemMap.hasOwnProperty(item);
+            }
+            else if (item instanceof IHashable) {
+                return this.itemMap.hasOwnProperty(item.hashCode());
+            }
+            else {
+                return false;
+            }
+        };
+        /**
+         * Gets an item by a similar item object
+         * @param item
+         * @returns {*}
+         */
+        OrderedHashmap.prototype.get = function (item) {
+            if (this.has(item)) {
+                if (typeof item === 'string') {
+                    return this.itemMap[item];
+                }
+                else if (item instanceof T) {
+                    return this.itemMap[item.hashCode()];
+                }
+                else {
+                    return null;
+                }
+            }
+            else {
+                return null;
+            }
+        };
+        /**
+         * Removes a item from the list
+         * @param item
+         */
+        OrderedHashmap.prototype.remove = function (item) {
+            if (this.has(item)) {
+                if (typeof item === 'string') {
+                    var itemObject = this.itemMap[item];
+                    this.items.splice(this.items.indexOf(itemObject), 1);
+                    delete this.itemMap[item];
+                    return true;
+                }
+                else if (item instanceof T) {
+                    var itemObject = this.itemMap[item.hashCode()];
+                    this.items.splice(this.items.indexOf(itemObject), 1);
+                    delete this.itemMap[item.hashCode()];
+                    return true;
+                }
+            }
+            return false;
+        };
+        Object.defineProperty(OrderedHashmap.prototype, "size", {
+            /**
+             * Gets the number of items
+             * @returns {number}
+             */
+            get: function () {
+                return this.items.length;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return OrderedHashmap;
+    })();
+    jsflap.OrderedHashmap = OrderedHashmap;
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -1536,278 +1657,6 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
-    var Machine;
-    (function (Machine) {
-        var FAMachine = (function () {
-            /**
-             * Creates a new machine based on a graph
-             * @param graph
-             */
-            function FAMachine(graph) {
-                this.setGraph(graph);
-            }
-            /**
-             * Sets the graph for the machine
-             * @param graph
-             */
-            FAMachine.prototype.setGraph = function (graph) {
-                this.graph = graph;
-            };
-            /**
-             * Runs a string on the machine to see if it passes or fails
-             * @param input
-             * @returns {boolean}
-             * @param graph
-             */
-            FAMachine.prototype.run = function (input, graph) {
-                if (graph) {
-                    this.graph = graph;
-                }
-                if (!this.graph.isValid()) {
-                    throw new Error('Invalid graph');
-                }
-                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
-                // Trivial case
-                if (!initialNode) {
-                    return false;
-                }
-                // Setup for backtracking
-                this.visitedStates = {};
-                this.visitedStates[initialState.toString()] = initialState;
-                this.queue = [initialState];
-                while (this.queue.length > 0) {
-                    // Get the state off the front of the queue
-                    this.currentState = this.queue.shift();
-                    // Check if we are in a final state
-                    if (this.currentState.isFinal()) {
-                        return true;
-                    }
-                    // Get the next possible valid states based on the input
-                    var nextStates = this.currentState.getNextStates();
-                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
-                        var nextState = nextStates[nextStateIndex];
-                        // Check if we have already visited this state before
-                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
-                            // We haven't, add it to our visited state list and queue
-                            this.visitedStates[nextState.toString()] = nextState;
-                            this.queue.push(nextState);
-                        }
-                    }
-                }
-                // If we got here the states were all invalid
-                return false;
-            };
-            return FAMachine;
-        })();
-        Machine.FAMachine = FAMachine;
-    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Machine;
-    (function (Machine) {
-        var FAMachineState = (function () {
-            /**
-             * Create a new NFA Machine state
-             * @param input
-             * @param node
-             */
-            function FAMachineState(input, node) {
-                this.input = input;
-                this.node = node;
-            }
-            /**
-             * Determines if this state is final
-             * @returns {boolean}
-             */
-            FAMachineState.prototype.isFinal = function () {
-                return this.input.length === 0 && this.node.final;
-            };
-            /**
-             * Gets the next possible states
-             * @returns {Array}
-             */
-            FAMachineState.prototype.getNextStates = function () {
-                var edgeList = this.node.toEdges.edges, nextStates = [];
-                for (var edgeName in edgeList) {
-                    if (edgeList.hasOwnProperty(edgeName)) {
-                        var edge = edgeList[edgeName];
-                        // See if we can follow this edge
-                        var transition = edge.transition;
-                        if (transition.canFollowOn(this.input)) {
-                            var inputLength = transition.character.length === 1 && transition.character !== jsflap.LAMBDA ? 1 : 0;
-                            nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
-                        }
-                    }
-                }
-                return nextStates;
-            };
-            /**
-             * Returns a string representation of the state
-             * @returns {string}
-             */
-            FAMachineState.prototype.toString = function () {
-                return '(' + this.input + ', ' + this.node.toString() + ')';
-            };
-            return FAMachineState;
-        })();
-        Machine.FAMachineState = FAMachineState;
-    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-
-
-var jsflap;
-(function (jsflap) {
-    var Point;
-    (function (Point) {
-        /**
-         * The point class
-         */
-        var MPoint = (function () {
-            /**
-             * Create a new mutable point
-             * @param x
-             * @param y
-             */
-            function MPoint(x, y) {
-                this.x = x;
-                this.y = y;
-            }
-            /**
-             * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.MPoint}
-             */
-            MPoint.prototype.getMPoint = function () {
-                return new Point.MPoint(this.x, this.y);
-            };
-            /**
-             * Gets a mutable point from this immutable one
-             * @returns {jsflap.Point.IMPoint}
-             */
-            MPoint.prototype.getIMPoint = function () {
-                return new Point.IMPoint(this.x, this.y);
-            };
-            /**
-             * Gets the distance between two points
-             * @param other
-             * @returns {number}
-             */
-            MPoint.prototype.getDistanceTo = function (other) {
-                return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
-            };
-            /**
-             * Gets the angle between two points
-             * @param other
-             * @returns {number}
-             */
-            MPoint.prototype.getAngleTo = function (other) {
-                return Math.atan2((this.y - other.y), (this.x - other.x));
-            };
-            /**
-             * Adds a point
-             * @param other
-             */
-            MPoint.prototype.add = function (other) {
-                this.x += other.x;
-                this.y += other.y;
-                return this;
-            };
-            /**
-             * Subtracts a point
-             * @param other
-             */
-            MPoint.prototype.subtract = function (other) {
-                this.x -= other.x;
-                this.y -= other.y;
-                return this;
-            };
-            /**
-             * Helper function to generate a new point that is the midpoint between two other points
-             * @param point1
-             * @param point2
-             * @returns {jsflap.Point.MPoint}
-             */
-            MPoint.getMidpoint = function (point1, point2) {
-                return new Point.MPoint(((point1.x + point2.x) / 2), ((point1.y + point2.y) / 2));
-            };
-            /**
-             * Gets the normal offset point based on two points, an offset, and an option initial theta
-             * @param point1
-             * @param point2
-             * @param distance
-             * @param theta0
-             * @returns {jsflap.Point.MPoint}
-             */
-            MPoint.getNormalOffset = function (point1, point2, distance, theta0) {
-                if (theta0 === void 0) { theta0 = Math.PI / 2; }
-                var theta1 = point1.getAngleTo(point2) + theta0;
-                return new Point.MPoint(distance * Math.cos(theta1), distance * Math.sin(theta1));
-            };
-            /**
-             * Gets the coordinates as a string separated by a comma and a space: "x, y"
-             * @returns {string}
-             */
-            MPoint.prototype.toString = function () {
-                return this.x + ', ' + this.y;
-            };
-            return MPoint;
-        })();
-        Point.MPoint = MPoint;
-    })(Point = jsflap.Point || (jsflap.Point = {}));
-})(jsflap || (jsflap = {}));
-
-var __extends = this.__extends || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
-};
-///<reference path="MPoint.ts"/>
-var jsflap;
-(function (jsflap) {
-    var Point;
-    (function (Point) {
-        /**
-         * The point class
-         */
-        var IMPoint = (function (_super) {
-            __extends(IMPoint, _super);
-            /**
-             * Create a new imutable point
-             * @param x
-             * @param y
-             */
-            function IMPoint(x, y) {
-                _super.call(this, x, y);
-            }
-            Object.defineProperty(IMPoint, "x", {
-                set: function (value) {
-                    throw new Error("Can't change coordinates of an immutable point");
-                },
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(IMPoint, "y", {
-                set: function (value) {
-                    throw new Error("Can't change coordinates of an immutable point");
-                },
-                enumerable: true,
-                configurable: true
-            });
-            return IMPoint;
-        })(Point.MPoint);
-        Point.IMPoint = IMPoint;
-    })(Point = jsflap.Point || (jsflap.Point = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-var jsflap;
-(function (jsflap) {
     var Graph;
     (function (Graph) {
         var FAGraph = (function () {
@@ -2236,6 +2085,152 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
+    var Point;
+    (function (Point) {
+        /**
+         * The point class
+         */
+        var MPoint = (function () {
+            /**
+             * Create a new mutable point
+             * @param x
+             * @param y
+             */
+            function MPoint(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.MPoint}
+             */
+            MPoint.prototype.getMPoint = function () {
+                return new Point.MPoint(this.x, this.y);
+            };
+            /**
+             * Gets a mutable point from this immutable one
+             * @returns {jsflap.Point.IMPoint}
+             */
+            MPoint.prototype.getIMPoint = function () {
+                return new Point.IMPoint(this.x, this.y);
+            };
+            /**
+             * Gets the distance between two points
+             * @param other
+             * @returns {number}
+             */
+            MPoint.prototype.getDistanceTo = function (other) {
+                return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
+            };
+            /**
+             * Gets the angle between two points
+             * @param other
+             * @returns {number}
+             */
+            MPoint.prototype.getAngleTo = function (other) {
+                return Math.atan2((this.y - other.y), (this.x - other.x));
+            };
+            /**
+             * Adds a point
+             * @param other
+             */
+            MPoint.prototype.add = function (other) {
+                this.x += other.x;
+                this.y += other.y;
+                return this;
+            };
+            /**
+             * Subtracts a point
+             * @param other
+             */
+            MPoint.prototype.subtract = function (other) {
+                this.x -= other.x;
+                this.y -= other.y;
+                return this;
+            };
+            /**
+             * Helper function to generate a new point that is the midpoint between two other points
+             * @param point1
+             * @param point2
+             * @returns {jsflap.Point.MPoint}
+             */
+            MPoint.getMidpoint = function (point1, point2) {
+                return new Point.MPoint(((point1.x + point2.x) / 2), ((point1.y + point2.y) / 2));
+            };
+            /**
+             * Gets the normal offset point based on two points, an offset, and an option initial theta
+             * @param point1
+             * @param point2
+             * @param distance
+             * @param theta0
+             * @returns {jsflap.Point.MPoint}
+             */
+            MPoint.getNormalOffset = function (point1, point2, distance, theta0) {
+                if (theta0 === void 0) { theta0 = Math.PI / 2; }
+                var theta1 = point1.getAngleTo(point2) + theta0;
+                return new Point.MPoint(distance * Math.cos(theta1), distance * Math.sin(theta1));
+            };
+            /**
+             * Gets the coordinates as a string separated by a comma and a space: "x, y"
+             * @returns {string}
+             */
+            MPoint.prototype.toString = function () {
+                return this.x + ', ' + this.y;
+            };
+            return MPoint;
+        })();
+        Point.MPoint = MPoint;
+    })(Point = jsflap.Point || (jsflap.Point = {}));
+})(jsflap || (jsflap = {}));
+
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+///<reference path="MPoint.ts"/>
+var jsflap;
+(function (jsflap) {
+    var Point;
+    (function (Point) {
+        /**
+         * The point class
+         */
+        var IMPoint = (function (_super) {
+            __extends(IMPoint, _super);
+            /**
+             * Create a new imutable point
+             * @param x
+             * @param y
+             */
+            function IMPoint(x, y) {
+                _super.call(this, x, y);
+            }
+            Object.defineProperty(IMPoint, "x", {
+                set: function (value) {
+                    throw new Error("Can't change coordinates of an immutable point");
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(IMPoint, "y", {
+                set: function (value) {
+                    throw new Error("Can't change coordinates of an immutable point");
+                },
+                enumerable: true,
+                configurable: true
+            });
+            return IMPoint;
+        })(Point.MPoint);
+        Point.IMPoint = IMPoint;
+    })(Point = jsflap.Point || (jsflap.Point = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
     var Transition;
     (function (Transition) {
         /**
@@ -2303,6 +2298,32 @@ var jsflap;
         })();
         Transition.MultiCharacterTransition = MultiCharacterTransition;
     })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Utils;
+    (function (Utils) {
+        /**
+         * ADAPTED FROM:
+         * Fast UUID generator, RFC4122 version 4 compliant.
+         * @author Jeff Ward (jcward.com).
+         * @license MIT license
+         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
+         **/
+        var lut = [];
+        for (var i = 0; i < 256; i++) {
+            lut[i] = (i < 16 ? '0' : '') + (i).toString(16);
+        }
+        function getUUID() {
+            var d0 = Math.random() * 0xffffffff | 0;
+            var d1 = Math.random() * 0xffffffff | 0;
+            var d2 = Math.random() * 0xffffffff | 0;
+            var d3 = Math.random() * 0xffffffff | 0;
+            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
+        }
+        Utils.getUUID = getUUID;
+    })(Utils = jsflap.Utils || (jsflap.Utils = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -3023,3 +3044,129 @@ var jsflap;
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
 })(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachine = (function () {
+            /**
+             * Creates a new machine based on a graph
+             * @param graph
+             */
+            function FAMachine(graph) {
+                this.setGraph(graph);
+            }
+            /**
+             * Sets the graph for the machine
+             * @param graph
+             */
+            FAMachine.prototype.setGraph = function (graph) {
+                this.graph = graph;
+            };
+            /**
+             * Runs a string on the machine to see if it passes or fails
+             * @param input
+             * @returns {boolean}
+             * @param graph
+             */
+            FAMachine.prototype.run = function (input, graph) {
+                if (graph) {
+                    this.graph = graph;
+                }
+                if (!this.graph.isValid()) {
+                    throw new Error('Invalid graph');
+                }
+                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
+                // Trivial case
+                if (!initialNode) {
+                    return false;
+                }
+                // Setup for backtracking
+                this.visitedStates = {};
+                this.visitedStates[initialState.toString()] = initialState;
+                this.queue = [initialState];
+                while (this.queue.length > 0) {
+                    // Get the state off the front of the queue
+                    this.currentState = this.queue.shift();
+                    // Check if we are in a final state
+                    if (this.currentState.isFinal()) {
+                        return true;
+                    }
+                    // Get the next possible valid states based on the input
+                    var nextStates = this.currentState.getNextStates();
+                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
+                        var nextState = nextStates[nextStateIndex];
+                        // Check if we have already visited this state before
+                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                            // We haven't, add it to our visited state list and queue
+                            this.visitedStates[nextState.toString()] = nextState;
+                            this.queue.push(nextState);
+                        }
+                    }
+                }
+                // If we got here the states were all invalid
+                return false;
+            };
+            return FAMachine;
+        })();
+        Machine.FAMachine = FAMachine;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachineState = (function () {
+            /**
+             * Create a new NFA Machine state
+             * @param input
+             * @param node
+             */
+            function FAMachineState(input, node) {
+                this.input = input;
+                this.node = node;
+            }
+            /**
+             * Determines if this state is final
+             * @returns {boolean}
+             */
+            FAMachineState.prototype.isFinal = function () {
+                return this.input.length === 0 && this.node.final;
+            };
+            /**
+             * Gets the next possible states
+             * @returns {Array}
+             */
+            FAMachineState.prototype.getNextStates = function () {
+                var edgeList = this.node.toEdges.edges, nextStates = [];
+                for (var edgeName in edgeList) {
+                    if (edgeList.hasOwnProperty(edgeName)) {
+                        var edge = edgeList[edgeName];
+                        // See if we can follow this edge
+                        var transition = edge.transition;
+                        if (transition.canFollowOn(this.input)) {
+                            var inputLength = transition.character.length === 1 && transition.character !== jsflap.LAMBDA ? 1 : 0;
+                            nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
+                        }
+                    }
+                }
+                return nextStates;
+            };
+            /**
+             * Returns a string representation of the state
+             * @returns {string}
+             */
+            FAMachineState.prototype.toString = function () {
+                return '(' + this.input + ', ' + this.node.toString() + ')';
+            };
+            return FAMachineState;
+        })();
+        Machine.FAMachineState = FAMachineState;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+

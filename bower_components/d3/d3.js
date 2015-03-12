@@ -4996,7 +4996,7 @@
     while (iCell--) {
       cell = cells[iCell];
       if (!cell || !cell.prepare()) continue;
-      halfEdges = cell.edges;
+      halfEdges = cell.items;
       nHalfEdges = halfEdges.length;
       iHalfEdge = 0;
       while (iHalfEdge < nHalfEdges) {
@@ -5165,8 +5165,8 @@
     d3_geom_voronoiEdges.push(edge);
     if (va) d3_geom_voronoiSetEdgeEnd(edge, lSite, rSite, va);
     if (vb) d3_geom_voronoiSetEdgeEnd(edge, rSite, lSite, vb);
-    d3_geom_voronoiCells[lSite.i].edges.push(new d3_geom_voronoiHalfEdge(edge, lSite, rSite));
-    d3_geom_voronoiCells[rSite.i].edges.push(new d3_geom_voronoiHalfEdge(edge, rSite, lSite));
+    d3_geom_voronoiCells[lSite.i].items.push(new d3_geom_voronoiHalfEdge(edge, lSite, rSite));
+    d3_geom_voronoiCells[rSite.i].items.push(new d3_geom_voronoiHalfEdge(edge, rSite, lSite));
     return edge;
   }
   function d3_geom_voronoiCreateBorderEdge(lSite, va, vb) {
@@ -5435,7 +5435,7 @@
     function voronoi(data) {
       var polygons = new Array(data.length), x0 = clipExtent[0][0], y0 = clipExtent[0][1], x1 = clipExtent[1][0], y1 = clipExtent[1][1];
       d3_geom_voronoi(sites(data), clipExtent).cells.forEach(function(cell, i) {
-        var edges = cell.edges, site = cell.site, polygon = polygons[i] = edges.length ? edges.map(function(e) {
+        var edges = cell.items, site = cell.site, polygon = polygons[i] = edges.length ? edges.map(function(e) {
           var s = e.start();
           return [ s.x, s.y ];
         }) : site.x >= x0 && site.x <= x1 && site.y >= y0 && site.y <= y1 ? [ [ x0, y1 ], [ x1, y1 ], [ x1, y0 ], [ x0, y0 ] ] : [];
@@ -5453,7 +5453,7 @@
       });
     }
     voronoi.links = function(data) {
-      return d3_geom_voronoi(sites(data)).edges.filter(function(edge) {
+      return d3_geom_voronoi(sites(data)).items.filter(function(edge) {
         return edge.l && edge.r;
       }).map(function(edge) {
         return {
@@ -5465,7 +5465,7 @@
     voronoi.triangles = function(data) {
       var triangles = [];
       d3_geom_voronoi(sites(data)).cells.forEach(function(cell, i) {
-        var site = cell.site, edges = cell.edges.sort(d3_geom_voronoiHalfEdgeOrder), j = -1, m = edges.length, e0, s0, e1 = edges[m - 1].edge, s1 = e1.l === site ? e1.r : e1.l;
+        var site = cell.site, edges = cell.items.sort(d3_geom_voronoiHalfEdgeOrder), j = -1, m = edges.length, e0, s0, e1 = edges[m - 1].edge, s1 = e1.l === site ? e1.r : e1.l;
         while (++j < m) {
           e0 = e1;
           s0 = s1;

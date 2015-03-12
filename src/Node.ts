@@ -7,7 +7,9 @@ module jsflap {
         toEdges?: EdgeList;
     }
 
-    export class Node {
+    export class Node implements IHashable {
+
+        private _hashCode: string = Utils.getUUID();
 
         /**
          * The label of this node/state
@@ -125,6 +127,10 @@ module jsflap {
          */
         toString() {
             return this.label;
+        }
+
+        public hashCode(): string {
+            return this._hashCode;
         }
     }
 }

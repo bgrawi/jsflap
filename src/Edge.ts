@@ -1,5 +1,5 @@
 module jsflap {
-    export class Edge {
+    export class Edge implements IHashable {
 
         /**
          * The node that the transition originates from
@@ -26,6 +26,8 @@ module jsflap {
          */
         public visualizationNumber: number;
 
+        private _hashCode: string = Utils.getUUID();
+
         /**
          * Creates a new directed edge with a transition
          * @param from
@@ -36,6 +38,7 @@ module jsflap {
             this.from = from;
             this.to = to;
             this.transition = transition;
+
             this.addNodes();
         }
 
@@ -80,6 +83,10 @@ module jsflap {
          */
         toString() {
             return '(' + this.from.toString() + ', ' + this.to.toString() + ', ' + this.transition.toString() + ')';
+        }
+
+        hashCode(): string {
+            return this._hashCode;
         }
     }
 }

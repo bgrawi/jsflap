@@ -5,5 +5,6 @@ module jsflap {
      */
     export interface IHashable {
         hashCode(): string;
+        toString(): string;
     }
 }

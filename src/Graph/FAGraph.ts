@@ -217,7 +217,7 @@ module jsflap.Graph {
             this.alphabet = {};
 
             // Update the alphabet
-            this.edges.edges.forEach((edge) => {
+            this.edges.items.forEach((edge) => {
                 var transitionChar = edge.transition.toString();
                 if(!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== LAMBDA && transitionChar !== BLANK) {
                     this.alphabet[transitionChar] = true;
@@ -348,12 +348,12 @@ module jsflap.Graph {
 
             // Nodes
             str += '{';
-            str += Object.keys(this.nodes.nodes).join(', ');
+            str += this.nodes.items.map((node) => { return node.toString(); }).join(', ');
             str += '}, ';
 
             //Transitions
             str += '{';
-            str += this.edges.edges.map((edge) => { return edge.toString(); }).join(', ');
+            str += this.edges.items.map((edge) => { return edge.toString(); }).join(', ');
             str += '}, ';
 
             // Start symbol
@@ -362,7 +362,7 @@ module jsflap.Graph {
 
             // Final Nodes
             str += '{';
-            str += Object.keys(this.finalNodes.nodes).join(', ');
+            str += this.finalNodes.items.map((node) => { return node.toString(); }).join(', ');
             str += '}';
 
             // End definition
@@ -475,14 +475,14 @@ module jsflap.Graph {
                 }
 
                 // Loop through each node
-                for (var nodeString in this.nodes.nodes) {
-                    if(this.nodes.nodes.hasOwnProperty(nodeString)) {
+                for (var nodeString in this.nodes.items) {
+                    if(this.nodes.items.hasOwnProperty(nodeString)) {
 
-                        var node: Node = this.nodes.nodes[nodeString];
+                        var node: Node = this.nodes.items[nodeString];
                         var alphabet = angular.copy(this.alphabet);
 
                         // Loop through each of the node's outward edges
-                        node.toEdges.edges.forEach((edge) => {
+                        node.toEdges.items.forEach((edge) => {
                             var transitionChar = edge.transition.toString();
 
                             // There MUST be one transition for every node

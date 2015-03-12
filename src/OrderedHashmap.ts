@@ -1,3 +1,4 @@
+///<reference path='IHashable.ts' />
 module jsflap {
 
     export interface IOrderedHashmap<T extends IHashable> {
@@ -5,9 +6,15 @@ module jsflap {
         has(item: string): boolean;
         get(item: T): T;
         get(item: string): T;
+        getByHash(hashCode: string): T;
+        hasByHash(hashCode: string): boolean;
+        getByString(str: string): T;
+        hasByString(str: string): boolean;
+        remove(item: T): boolean;
+        remove(item: string): boolean;
     }
 
-    export class OrderedHashmap<T extends IHashable> implements IOrderedHashmap {
+    export class OrderedHashmap<T extends IHashable> implements IOrderedHashmap<T> {
 
         /**
          * The actual array of items
@@ -48,7 +55,7 @@ module jsflap {
                 this.itemMap[item.hashCode()] = item;
                 return item;
             } else {
-                return this.itemMap[item.hashCode()];
+                return this.get(item);
             }
         }
 
@@ -59,9 +66,9 @@ module jsflap {
          */
         public has(item: any) {
             if(typeof item === 'string') {
-                return this.itemMap.hasOwnProperty(item);
-            } else if(item instanceof IHashable) {
-                return this.itemMap.hasOwnProperty(item.hashCode())
+                return this.hasByHash(item) || this.hasByString(item);
+            } else if(typeof item === 'object') {
+                return this.hasByHash((<T> item).hashCode()) || this.hasByString((<T> item).toString());
             } else {
                 return false;
             }
@@ -73,14 +80,10 @@ module jsflap {
          * @returns {*}
          */
         public get(item: any): T {
-            if(this.has(item)) {
-                if(typeof item === 'string') {
-                    return this.itemMap[item];
-                } else if(item instanceof T) {
-                    return this.itemMap[item.hashCode()];
-                } else {
-                    return null;
-                }
+            if(typeof item === 'string') {
+                return this.getByHash(item) || this.getByString(item);
+            } else if(typeof item === 'object') {
+                return this.getByHash((<T> item).hashCode()) || this.getByString((<T> item).toString())
             } else {
                 return null;
             }
@@ -91,20 +94,59 @@ module jsflap {
          * @param item
          */
         public remove(item: any): boolean {
-            if(this.has(item)) {
-                if(typeof item === 'string') {
-                    var itemObject = this.itemMap[item];
-                    this.items.splice(this.items.indexOf(itemObject), 1);
-                    delete this.itemMap[item];
-                    return true;
-                } else if(item instanceof T) {
-                    var itemObject = this.itemMap[item.hashCode()];
-                    this.items.splice(this.items.indexOf(itemObject), 1);
-                    delete this.itemMap[item.hashCode()];
-                    return true;
+            var itemObject = this.get(item);
+            if(!itemObject) {
+                return false;
+            }
+            var itemHash = itemObject.hashCode();
+            this.items.splice(this.items.indexOf(itemObject), 1);
+            delete this.itemMap[itemHash];
+            return true;
+        }
+
+        /**
+         * Gets an item by hash code
+         * @param hashCode
+         * @returns {any}
+         */
+        public getByHash(hashCode: string): T {
+            if(this.hasByHash(hashCode)) {
+                return this.itemMap[hashCode];
+            } else {
+                return null;
+            }
+        }
+
+        /**
+         * Determines if the collection has by the hash code
+         * @param hashCode
+         * @returns {boolean}
+         */
+        public hasByHash(hashCode: string): boolean {
+            return this.itemMap.hasOwnProperty(hashCode);
+        }
+
+        /**
+         * Gets an item by name
+         * @param str
+         * @returns {any}
+         */
+        public getByString(str: string): T {
+            for (var hashCode in this.itemMap) {
+                if(this.itemMap.hasOwnProperty(hashCode) && this.itemMap[hashCode].toString() === str) {
+                    return this.itemMap[hashCode];
                 }
             }
-            return false;
+            return null;
+        }
+
+        /**
+         * Determines if the collection has by the name
+         * @param str
+         * @returns {boolean}
+         */
+        public hasByString(str: string): boolean {
+            return this.getByString(str) !== null;
         }
 
         /**

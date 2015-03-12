@@ -286,132 +286,168 @@ var jsflap;
     jsflap.Edge = Edge;
 })(jsflap || (jsflap = {}));
 
+
+
+///<reference path='IHashable.ts' />
 var jsflap;
 (function (jsflap) {
-    var EdgeList = (function () {
+    var OrderedHashmap = (function () {
         /**
-         * Create a new edge list
-         * @param edges
+         * Create a new OrderedHashmap
+         * @param items
          */
-        function EdgeList(edges) {
+        function OrderedHashmap(items) {
             var _this = this;
-            this.edges = [];
-            this.edgeMap = {};
-            if (edges) {
-                edges.forEach(function (edge) {
-                    _this.add(edge);
+            this.items = [];
+            this.itemMap = {};
+            if (items) {
+                items.forEach(function (item) {
+                    _this.add(item);
                 });
             }
         }
         /**
-         * Adds a new edge to the list
-         * @param edge
+         * Adds a new item to the list
+         * @param item
          * @param index
          */
-        EdgeList.prototype.add = function (edge, index) {
-            if (!this.has(edge)) {
+        OrderedHashmap.prototype.add = function (item, index) {
+            if (!this.has(item)) {
                 if (typeof index !== 'number') {
-                    this.edges.push(edge);
+                    this.items.push(item);
                 }
                 else {
-                    this.edges.splice(index, 0, edge);
+                    this.items.splice(index, 0, item);
                 }
-                this.edgeMap[edge.toString()] = edge;
-                return edge;
+                this.itemMap[item.hashCode()] = item;
+                return item;
             }
             else {
-                return this.edgeMap[edge.toString()];
+                return this.get(item);
             }
         };
         /**
-         * Checks if the edge list has a edge
+         * Checks if the item list has a item
          * @returns {boolean}
-         * @param edge
+         * @param item
          */
-        EdgeList.prototype.has = function (edge) {
-            if (typeof edge === 'string') {
-                return this.edgeMap.hasOwnProperty(edge);
+        OrderedHashmap.prototype.has = function (item) {
+            if (typeof item === 'string') {
+                return this.hasByHash(item) || this.hasByString(item);
             }
-            else if (edge instanceof jsflap.Edge) {
-                return this.edgeMap.hasOwnProperty(edge.toString());
+            else if (typeof item === 'object') {
+                return this.hasByHash(item.hashCode()) || this.hasByString(item.toString());
             }
             else {
                 return false;
             }
         };
         /**
-         * Gets an edge by a similar edge object
-         * @param edge
+         * Gets an item by a similar item object
+         * @param item
          * @returns {*}
          */
-        EdgeList.prototype.get = function (edge) {
-            if (this.has(edge)) {
-                if (typeof edge === 'string') {
-                    return this.edgeMap[edge];
-                }
-                else if (edge instanceof jsflap.Edge) {
-                    return this.edgeMap[edge.toString()];
-                }
-                else {
-                    return null;
-                }
+        OrderedHashmap.prototype.get = function (item) {
+            if (typeof item === 'string') {
+                return this.getByHash(item) || this.getByString(item);
+            }
+            else if (typeof item === 'object') {
+                return this.getByHash(item.hashCode()) || this.getByString(item.toString());
             }
             else {
                 return null;
             }
         };
         /**
-         * Removes a edge from the list
-         * @param edge
+         * Removes a item from the list
+         * @param item
          */
-        EdgeList.prototype.remove = function (edge) {
-            if (this.has(edge)) {
-                if (typeof edge === 'string') {
-                    var edgeObject = this.edgeMap[edge];
-                    this.edges.splice(this.edges.indexOf(edgeObject), 1);
-                    delete this.edgeMap[edge];
-                    return true;
-                }
-                else if (edge instanceof jsflap.Edge) {
-                    var edgeObject = this.edgeMap[edge.toString()];
-                    this.edges.splice(this.edges.indexOf(edgeObject), 1);
-                    delete this.edgeMap[edge.toString()];
-                    return true;
-                }
+        OrderedHashmap.prototype.remove = function (item) {
+            var itemObject = this.get(item);
+            if (!itemObject) {
+                return false;
             }
-            return false;
+            var itemHash = itemObject.hashCode();
+            this.items.splice(this.items.indexOf(itemObject), 1);
+            delete this.itemMap[itemHash];
+            return true;
         };
         /**
-         * Updates an edge's hash if it has changed
-         * @param oldHash
-         * @returns {*}
+         * Gets an item by hash code
+         * @param hashCode
+         * @returns {any}
          */
-        EdgeList.prototype.updateEdgeHash = function (oldHash) {
-            var edgeObj = this.get(oldHash);
-            if (edgeObj) {
-                delete this.edgeMap[oldHash];
-                this.edgeMap[edgeObj.toString()] = edgeObj;
-                return edgeObj;
+        OrderedHashmap.prototype.getByHash = function (hashCode) {
+            if (this.hasByHash(hashCode)) {
+                return this.itemMap[hashCode];
+            }
+            else {
+                return null;
+            }
+        };
+        /**
+         * Determines if the collection has by the hash code
+         * @param hashCode
+         * @returns {boolean}
+         */
+        OrderedHashmap.prototype.hasByHash = function (hashCode) {
+            return this.itemMap.hasOwnProperty(hashCode);
+        };
+        /**
+         * Gets an item by name
+         * @param str
+         * @returns {any}
+         */
+        OrderedHashmap.prototype.getByString = function (str) {
+            for (var hashCode in this.itemMap) {
+                if (this.itemMap.hasOwnProperty(hashCode) && this.itemMap[hashCode].toString() === str) {
+                    return this.itemMap[hashCode];
+                }
             }
             return null;
         };
-        Object.defineProperty(EdgeList.prototype, "size", {
+        /**
+         * Determines if the collection has by the name
+         * @param str
+         * @returns {boolean}
+         */
+        OrderedHashmap.prototype.hasByString = function (str) {
+            return this.getByString(str) !== null;
+        };
+        Object.defineProperty(OrderedHashmap.prototype, "size", {
             /**
-             * Gets the number of edges
+             * Gets the number of items
              * @returns {number}
              */
             get: function () {
-                return this.edges.length;
+                return this.items.length;
             },
             enumerable: true,
             configurable: true
         });
-        return EdgeList;
+        return OrderedHashmap;
     })();
-    jsflap.EdgeList = EdgeList;
+    jsflap.OrderedHashmap = OrderedHashmap;
 })(jsflap || (jsflap = {}));
 
-
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+///<reference path='OrderedHashmap.ts' />
+var jsflap;
+(function (jsflap) {
+    var EdgeList = (function (_super) {
+        __extends(EdgeList, _super);
+        function EdgeList() {
+            _super.apply(this, arguments);
+        }
+        return EdgeList;
+    })(jsflap.OrderedHashmap);
+    jsflap.EdgeList = EdgeList;
+})(jsflap || (jsflap = {}));
 
 var jsflap;
 (function (jsflap) {
@@ -509,223 +545,23 @@ var jsflap;
     jsflap.Node = Node;
 })(jsflap || (jsflap = {}));
 
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+///<reference path='OrderedHashmap.ts' />
 var jsflap;
 (function (jsflap) {
-    var NodeList = (function () {
-        /**
-         * Create a new node list
-         * @param nodes
-         */
-        function NodeList(nodes) {
-            var _this = this;
-            /**
-             * The internal size
-             * @type {number}
-             * @private
-             */
-            this._size = 0;
-            this.nodes = {};
-            if (nodes) {
-                nodes.forEach(function (node) {
-                    _this.add(node);
-                });
-            }
+    var NodeList = (function (_super) {
+        __extends(NodeList, _super);
+        function NodeList() {
+            _super.apply(this, arguments);
         }
-        Object.defineProperty(NodeList.prototype, "size", {
-            /**
-             * Gets the size of the list
-             * @returns {number}
-             */
-            get: function () {
-                return this._size;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        /**
-         * Adds a new node to the list
-         * @param node
-         */
-        NodeList.prototype.add = function (node) {
-            if (!this.has(node)) {
-                this.nodes[node.toString()] = node;
-                this._size++;
-                return node;
-            }
-            else {
-                return this.nodes[node.toString()];
-            }
-        };
-        /**
-         * Checks if the node exists already
-         * @param node
-         * @returns {boolean}
-         */
-        NodeList.prototype.has = function (node) {
-            if (typeof node === 'string') {
-                return this.nodes.hasOwnProperty(node);
-            }
-            else if (node instanceof jsflap.Node) {
-                return this.nodes.hasOwnProperty(node.toString());
-            }
-            else {
-                return false;
-            }
-        };
-        /**
-         * Gets an node by a similar node object
-         * @param node
-         * @returns {*}
-         */
-        NodeList.prototype.get = function (node) {
-            if (this.has(node)) {
-                if (typeof node === 'string') {
-                    return this.nodes[node];
-                }
-                else if (node instanceof jsflap.Node) {
-                    return this.nodes[node.toString()];
-                }
-                else {
-                    return null;
-                }
-            }
-            else {
-                return null;
-            }
-        };
-        /**
-         * Removes a node from the list
-         * @param node
-         */
-        NodeList.prototype.remove = function (node) {
-            if (this.has(node)) {
-                if (typeof node === 'string') {
-                    delete this.nodes[node];
-                    this._size--;
-                    return true;
-                }
-                else if (node instanceof jsflap.Node) {
-                    delete this.nodes[node.toString()];
-                    this._size--;
-                    return true;
-                }
-            }
-            return false;
-        };
         return NodeList;
-    })();
+    })(jsflap.OrderedHashmap);
     jsflap.NodeList = NodeList;
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var OrderedHashmap = (function () {
-        /**
-         * Create a new OrderedHashmap
-         * @param items
-         */
-        function OrderedHashmap(items) {
-            var _this = this;
-            this.items = [];
-            this.itemMap = {};
-            if (items) {
-                items.forEach(function (item) {
-                    _this.add(item);
-                });
-            }
-        }
-        /**
-         * Adds a new item to the list
-         * @param item
-         * @param index
-         */
-        OrderedHashmap.prototype.add = function (item, index) {
-            if (!this.has(item)) {
-                if (typeof index !== 'number') {
-                    this.items.push(item);
-                }
-                else {
-                    this.items.splice(index, 0, item);
-                }
-                this.itemMap[item.hashCode()] = item;
-                return item;
-            }
-            else {
-                return this.itemMap[item.hashCode()];
-            }
-        };
-        /**
-         * Checks if the item list has a item
-         * @returns {boolean}
-         * @param item
-         */
-        OrderedHashmap.prototype.has = function (item) {
-            if (typeof item === 'string') {
-                return this.itemMap.hasOwnProperty(item);
-            }
-            else if (item instanceof IHashable) {
-                return this.itemMap.hasOwnProperty(item.hashCode());
-            }
-            else {
-                return false;
-            }
-        };
-        /**
-         * Gets an item by a similar item object
-         * @param item
-         * @returns {*}
-         */
-        OrderedHashmap.prototype.get = function (item) {
-            if (this.has(item)) {
-                if (typeof item === 'string') {
-                    return this.itemMap[item];
-                }
-                else if (item instanceof T) {
-                    return this.itemMap[item.hashCode()];
-                }
-                else {
-                    return null;
-                }
-            }
-            else {
-                return null;
-            }
-        };
-        /**
-         * Removes a item from the list
-         * @param item
-         */
-        OrderedHashmap.prototype.remove = function (item) {
-            if (this.has(item)) {
-                if (typeof item === 'string') {
-                    var itemObject = this.itemMap[item];
-                    this.items.splice(this.items.indexOf(itemObject), 1);
-                    delete this.itemMap[item];
-                    return true;
-                }
-                else if (item instanceof T) {
-                    var itemObject = this.itemMap[item.hashCode()];
-                    this.items.splice(this.items.indexOf(itemObject), 1);
-                    delete this.itemMap[item.hashCode()];
-                    return true;
-                }
-            }
-            return false;
-        };
-        Object.defineProperty(OrderedHashmap.prototype, "size", {
-            /**
-             * Gets the number of items
-             * @returns {number}
-             */
-            get: function () {
-                return this.items.length;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        return OrderedHashmap;
-    })();
-    jsflap.OrderedHashmap = OrderedHashmap;
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -950,7 +786,7 @@ var jsflap;
                             neededToCreateNode = true;
                         }
                         this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
-                        var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode), newEdgeModelIndex = newEdge.models.edges.length - 1, newEdgeModel = newEdge.models.edges[newEdgeModelIndex];
+                        var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode), newEdgeModelIndex = newEdge.models.items.length - 1, newEdgeModel = newEdge.models.items[newEdgeModelIndex];
                         setTimeout(function () {
                             var elm = _this.svg.selectAll('g.edgeTransitions text.transition').filter(function (possibleEdge) { return possibleEdge === newEdgeModel; });
                             //console.log(elm);
@@ -964,7 +800,7 @@ var jsflap;
                             undo: function () {
                                 var foundStartingNodeModel = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label).model, foundEndingNodeModel = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label).model;
                                 edgeV = _this.visualizations.getEdgeVisualizationByNodes(foundStartingNodeModel, foundEndingNodeModel);
-                                var foundEdge = edgeV.models.edges[newEdgeModelIndex];
+                                var foundEdge = edgeV.models.items[newEdgeModelIndex];
                                 //debugger;
                                 if (foundEdge) {
                                     newEdgeModel = foundEdge;
@@ -987,7 +823,7 @@ var jsflap;
                                         endingNodeV = _this.restoreNode(endingNodeV);
                                     }
                                     edgeV = _this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition, newEdgeModelIndex);
-                                    newEdgeModel = edgeV.models.edges[edgeV.models.edges.length - 1];
+                                    newEdgeModel = edgeV.models.items[edgeV.models.items.length - 1];
                                 }
                             }
                         });
@@ -1077,12 +913,12 @@ var jsflap;
              * @param transition
              */
             Board.prototype.updateEdgeTransition = function (edge, transition) {
-                var oldHash = edge.toString();
+                //var oldHash = edge.toString();
                 edge.transition = transition;
-                this.graph.getEdges().updateEdgeHash(oldHash);
-                edge.visualization.models.updateEdgeHash(oldHash);
-                edge.from.toEdges.updateEdgeHash(oldHash);
-                edge.to.fromEdges.updateEdgeHash(oldHash);
+                //this.graph.getEdges().updateEdgeHash(oldHash);
+                //edge.visualization.models.updateEdgeHash(oldHash);
+                //edge.from.toEdges.updateEdgeHash(oldHash);
+                //edge.to.fromEdges.updateEdgeHash(oldHash);
             };
             /**
              * Sets the initial node for the graph
@@ -1397,11 +1233,11 @@ var jsflap;
             Board.prototype.handleErasing = function (point) {
                 var _this = this;
                 // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
-                if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.edges[0])) {
+                if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.items[0])) {
                     this.removeEdge(this.state.hoveringEdge);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                    var edge = this.state.hoveringTransition, edgeV = edge.visualization, edgeT = edge.transition, fromNodeV = edgeV.fromModel.visualization, toNodeV = edgeV.toModel.visualization, edgeIndex = edgeV.models.edges.indexOf(edge);
+                    var edge = this.state.hoveringTransition, edgeV = edge.visualization, edgeT = edge.transition, fromNodeV = edgeV.fromModel.visualization, toNodeV = edgeV.toModel.visualization, edgeIndex = edgeV.models.items.indexOf(edge);
                     this.removeEdgeTransistion(edgeV, edge);
                     this.undoManager.add({
                         undo: function () {
@@ -1467,7 +1303,7 @@ var jsflap;
                 var _this = this;
                 // Delete each edge from this visualization
                 if (edgeV.models.size > 0) {
-                    edgeV.models.edges.forEach(function (edge) { return _this.graph.removeEdge(edge); });
+                    edgeV.models.items.forEach(function (edge) { return _this.graph.removeEdge(edge); });
                 }
                 this._handleOpposingEdgeCollapsing(edgeV);
                 this.visualizations.removeEdge(edgeV);
@@ -1479,7 +1315,7 @@ var jsflap;
             Board.prototype.removeNode = function (nodeV) {
                 // Need to copy the edges because when the edges are deleted, the indexing gets messed up
                 var _this = this;
-                var toEdges = nodeV.model.toEdges.edges.slice(0), fromEdges = nodeV.model.fromEdges.edges.slice(0), deleteFn = function (edgeModel) {
+                var toEdges = nodeV.model.toEdges.items.slice(0), fromEdges = nodeV.model.fromEdges.items.slice(0), deleteFn = function (edgeModel) {
                     _this.graph.removeEdge(edgeModel);
                     _this.visualizations.removeEdge(edgeModel.visualization);
                 };
@@ -1824,7 +1660,7 @@ var jsflap;
                 // Clear the alphabet
                 this.alphabet = {};
                 // Update the alphabet
-                this.edges.edges.forEach(function (edge) {
+                this.edges.items.forEach(function (edge) {
                     var transitionChar = edge.transition.toString();
                     if (!_this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== jsflap.LAMBDA && transitionChar !== jsflap.BLANK) {
                         _this.alphabet[transitionChar] = true;
@@ -1941,11 +1777,13 @@ var jsflap;
                 str += '}, ';
                 // Nodes
                 str += '{';
-                str += Object.keys(this.nodes.nodes).join(', ');
+                str += this.nodes.items.map(function (node) {
+                    return node.toString();
+                }).join(', ');
                 str += '}, ';
                 //Transitions
                 str += '{';
-                str += this.edges.edges.map(function (edge) {
+                str += this.edges.items.map(function (edge) {
                     return edge.toString();
                 }).join(', ');
                 str += '}, ';
@@ -1954,7 +1792,9 @@ var jsflap;
                 str += ', ';
                 // Final Nodes
                 str += '{';
-                str += Object.keys(this.finalNodes.nodes).join(', ');
+                str += this.finalNodes.items.map(function (node) {
+                    return node.toString();
+                }).join(', ');
                 str += '}';
                 // End definition
                 str += ')';
@@ -2045,12 +1885,12 @@ var jsflap;
                     if (!isValid) {
                         return false;
                     }
-                    for (var nodeString in this.nodes.nodes) {
-                        if (this.nodes.nodes.hasOwnProperty(nodeString)) {
-                            var node = this.nodes.nodes[nodeString];
+                    for (var nodeString in this.nodes.items) {
+                        if (this.nodes.items.hasOwnProperty(nodeString)) {
+                            var node = this.nodes.items[nodeString];
                             var alphabet = angular.copy(this.alphabet);
                             // Loop through each of the node's outward edges
-                            node.toEdges.edges.forEach(function (edge) {
+                            node.toEdges.items.forEach(function (edge) {
                                 var transitionChar = edge.transition.toString();
                                 // There MUST be one transition for every node
                                 if (transitionChar !== jsflap.BLANK && transitionChar !== jsflap.LAMBDA && alphabet.hasOwnProperty(transitionChar)) {
@@ -2080,6 +1920,132 @@ var jsflap;
         Graph.FAGraph = FAGraph;
     })(Graph = jsflap.Graph || (jsflap.Graph = {}));
 })(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachine = (function () {
+            /**
+             * Creates a new machine based on a graph
+             * @param graph
+             */
+            function FAMachine(graph) {
+                this.setGraph(graph);
+            }
+            /**
+             * Sets the graph for the machine
+             * @param graph
+             */
+            FAMachine.prototype.setGraph = function (graph) {
+                this.graph = graph;
+            };
+            /**
+             * Runs a string on the machine to see if it passes or fails
+             * @param input
+             * @returns {boolean}
+             * @param graph
+             */
+            FAMachine.prototype.run = function (input, graph) {
+                if (graph) {
+                    this.graph = graph;
+                }
+                if (!this.graph.isValid()) {
+                    throw new Error('Invalid graph');
+                }
+                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
+                // Trivial case
+                if (!initialNode) {
+                    return false;
+                }
+                // Setup for backtracking
+                this.visitedStates = {};
+                this.visitedStates[initialState.toString()] = initialState;
+                this.queue = [initialState];
+                while (this.queue.length > 0) {
+                    // Get the state off the front of the queue
+                    this.currentState = this.queue.shift();
+                    // Check if we are in a final state
+                    if (this.currentState.isFinal()) {
+                        return true;
+                    }
+                    // Get the next possible valid states based on the input
+                    var nextStates = this.currentState.getNextStates();
+                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
+                        var nextState = nextStates[nextStateIndex];
+                        // Check if we have already visited this state before
+                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                            // We haven't, add it to our visited state list and queue
+                            this.visitedStates[nextState.toString()] = nextState;
+                            this.queue.push(nextState);
+                        }
+                    }
+                }
+                // If we got here the states were all invalid
+                return false;
+            };
+            return FAMachine;
+        })();
+        Machine.FAMachine = FAMachine;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var FAMachineState = (function () {
+            /**
+             * Create a new NFA Machine state
+             * @param input
+             * @param node
+             */
+            function FAMachineState(input, node) {
+                this.input = input;
+                this.node = node;
+            }
+            /**
+             * Determines if this state is final
+             * @returns {boolean}
+             */
+            FAMachineState.prototype.isFinal = function () {
+                return this.input.length === 0 && this.node.final;
+            };
+            /**
+             * Gets the next possible states
+             * @returns {Array}
+             */
+            FAMachineState.prototype.getNextStates = function () {
+                var edgeList = this.node.toEdges.items, nextStates = [];
+                for (var edgeName in edgeList) {
+                    if (edgeList.hasOwnProperty(edgeName)) {
+                        var edge = edgeList[edgeName];
+                        // See if we can follow this edge
+                        var transition = edge.transition;
+                        if (transition.canFollowOn(this.input)) {
+                            var inputLength = transition.character.length === 1 && transition.character !== jsflap.LAMBDA ? 1 : 0;
+                            nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
+                        }
+                    }
+                }
+                return nextStates;
+            };
+            /**
+             * Returns a string representation of the state
+             * @returns {string}
+             */
+            FAMachineState.prototype.toString = function () {
+                return '(' + this.input + ', ' + this.node.toString() + ')';
+            };
+            return FAMachineState;
+        })();
+        Machine.FAMachineState = FAMachineState;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+
 
 
 
@@ -2376,11 +2342,11 @@ var jsflap;
                 if (!this.fromModel || !this.toModel) {
                     this.fromModel = edge.from;
                     this.toModel = edge.to;
-                    edge.setVisualization(this, typeof index === 'number' ? index : this.models.edges.length);
+                    edge.setVisualization(this, typeof index === 'number' ? index : this.models.items.length);
                     return this.models.add(edge, index);
                 }
                 else if (edge.from === this.fromModel && edge.to === this.toModel) {
-                    edge.setVisualization(this, typeof index === 'number' ? index : this.models.edges.length);
+                    edge.setVisualization(this, typeof index === 'number' ? index : this.models.items.length);
                     return this.models.add(edge);
                 }
                 else {
@@ -2391,7 +2357,7 @@ var jsflap;
              * Reindexs the visualization numbers of the edges
              */
             EdgeVisualization.prototype.reindexEdgeModels = function () {
-                this.models.edges.forEach(function (edge, index) {
+                this.models.items.forEach(function (edge, index) {
                     edge.visualizationNumber = index;
                 });
             };
@@ -2615,8 +2581,8 @@ var jsflap;
              * @param callBackFn
              */
             NodeVisualization.prototype.forEachEdge = function (callBackFn) {
-                this.model.toEdges.edges.forEach(callBackFn);
-                this.model.fromEdges.edges.forEach(callBackFn);
+                this.model.toEdges.items.forEach(callBackFn);
+                this.model.fromEdges.items.forEach(callBackFn);
             };
             /**
              * Gets an anchor point on the edge of the circle from any other given point
@@ -2720,14 +2686,14 @@ var jsflap;
                 var nodes = nodesGroup.selectAll("circle.node").data(this.nodes, function (node) { return node.model.toString(); });
                 nodes.attr("r", function (d) { return d.radius; });
                 var newNodes = nodes.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0);
-                newNodes.on('contextmenu', this.nodeContextMenu.bind(this));
+                newNodes.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
                 newNodes.transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
                 var nodesMovement = shouldAnimateMovement ? nodes.transition().ease('cubic-out').duration(50) : nodes;
                 nodesMovement.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
                 nodes.exit().transition().attr('opacity', 0).attr("r", function (d) { return d.radius - 10; }).remove();
                 var nodeLabels = nodesGroup.selectAll("text.nodeLabel").data(this.nodes, function (node) { return node.model; });
                 var newNodeLabels = nodeLabels.enter().append('text').classed('nodeLabel', true).text(function (d) { return d.model.label; }).attr('opacity', 0);
-                newNodeLabels.on('contextmenu', this.nodeContextMenu.bind(this));
+                newNodeLabels.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
                 newNodeLabels.transition().delay(100).duration(300).attr('opacity', 1);
                 nodeLabels.text(function (d) { return d.model.label; });
                 var nodeLabelsMovement = shouldAnimateMovement ? nodeLabels.transition().ease('cubic-out').duration(50) : nodeLabels;
@@ -2754,10 +2720,10 @@ var jsflap;
                 var finalNodesMovement = shouldAnimateMovement ? finalNodes.transition().ease('cubic-out').duration(50) : finalNodes;
                 finalNodesMovement.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
                 var newFinalNodes = finalNodes.enter().append('circle').classed('finalCircle', true).attr("r", function (d) { return d.radius - 10; }).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('opacity', 0);
-                newFinalNodes.on('contextmenu', this.nodeContextMenu.bind(this));
+                newFinalNodes.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
                 newFinalNodes.transition().attr('opacity', 1).attr("r", function (d) { return d.radius - 3; });
                 finalNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).attr("r", function (d) { return d.radius + 10; }).remove();
-                var edgeKeyFn = function (edge) { return edge.models.edges.map(function (edge) { return edge.toString(); }).join(','); };
+                var edgeKeyFn = function (edge) { return edge.models.items.map(function (edge) { return edge.toString(); }).join(','); };
                 var edgePaths = edgesGroup.selectAll("path.edge").data(this.edges, edgeKeyFn);
                 if (shouldAnimateMovement) {
                     edgePaths.transition().ease('cubic-out').duration(50).attr('d', function (d) { return d.getPath(); });
@@ -2814,7 +2780,7 @@ var jsflap;
                 var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions').data(this.edges, edgeKeyFn);
                 edgeTransitionGroup.enter().append('g').classed('edgeTransitions', true);
                 edgeTransitionGroup.exit().transition().attr('opacity', 0).remove();
-                var edgeTransitions = edgeTransitionGroup.selectAll('text.transition').data(function (edge) { return edge.models.edges; }, function (edge) { return edge.toString(); });
+                var edgeTransitions = edgeTransitionGroup.selectAll('text.transition').data(function (edge) { return edge.models.items; }, function (edge) { return edge.toString(); });
                 var newEdgeTransitions = edgeTransitions.enter().append('text').classed('transition', true).attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; }).attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
                 edgeTransitions.text(function (d) { return d.transition.toString(); });
                 var edgeTransitionsMovement;
@@ -2989,19 +2955,19 @@ var jsflap;
                         return;
                     }
                     var transition = new jsflap.Transition.CharacterTransition(inp.node().value || jsflap.LAMBDA);
-                    var similarTransitions = edge.visualization.models.edges.length > 1 ? edge.visualization.models.edges.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
+                    var similarTransitions = edge.visualization.models.items.length > 1 ? edge.visualization.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
                     if (similarTransitions.length == 0) {
                         applyTransition(edge, transition);
                         if (trackHistory) {
                             _this.board.undoManager.add({
                                 undo: function () {
-                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.edges.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); });
+                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); });
                                     if (foundEdges.length === 1) {
                                         applyTransition(foundEdges[0], previousTransition);
                                     }
                                 },
                                 redo: function () {
-                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.edges.filter(function (otherEdge) { return otherEdge.transition.toString() === previousTransition.toString(); });
+                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === previousTransition.toString(); });
                                     if (foundEdges.length === 1) {
                                         applyTransition(foundEdges[0], transition);
                                     }
@@ -3044,129 +3010,3 @@ var jsflap;
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
 })(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Machine;
-    (function (Machine) {
-        var FAMachine = (function () {
-            /**
-             * Creates a new machine based on a graph
-             * @param graph
-             */
-            function FAMachine(graph) {
-                this.setGraph(graph);
-            }
-            /**
-             * Sets the graph for the machine
-             * @param graph
-             */
-            FAMachine.prototype.setGraph = function (graph) {
-                this.graph = graph;
-            };
-            /**
-             * Runs a string on the machine to see if it passes or fails
-             * @param input
-             * @returns {boolean}
-             * @param graph
-             */
-            FAMachine.prototype.run = function (input, graph) {
-                if (graph) {
-                    this.graph = graph;
-                }
-                if (!this.graph.isValid()) {
-                    throw new Error('Invalid graph');
-                }
-                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
-                // Trivial case
-                if (!initialNode) {
-                    return false;
-                }
-                // Setup for backtracking
-                this.visitedStates = {};
-                this.visitedStates[initialState.toString()] = initialState;
-                this.queue = [initialState];
-                while (this.queue.length > 0) {
-                    // Get the state off the front of the queue
-                    this.currentState = this.queue.shift();
-                    // Check if we are in a final state
-                    if (this.currentState.isFinal()) {
-                        return true;
-                    }
-                    // Get the next possible valid states based on the input
-                    var nextStates = this.currentState.getNextStates();
-                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
-                        var nextState = nextStates[nextStateIndex];
-                        // Check if we have already visited this state before
-                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
-                            // We haven't, add it to our visited state list and queue
-                            this.visitedStates[nextState.toString()] = nextState;
-                            this.queue.push(nextState);
-                        }
-                    }
-                }
-                // If we got here the states were all invalid
-                return false;
-            };
-            return FAMachine;
-        })();
-        Machine.FAMachine = FAMachine;
-    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Machine;
-    (function (Machine) {
-        var FAMachineState = (function () {
-            /**
-             * Create a new NFA Machine state
-             * @param input
-             * @param node
-             */
-            function FAMachineState(input, node) {
-                this.input = input;
-                this.node = node;
-            }
-            /**
-             * Determines if this state is final
-             * @returns {boolean}
-             */
-            FAMachineState.prototype.isFinal = function () {
-                return this.input.length === 0 && this.node.final;
-            };
-            /**
-             * Gets the next possible states
-             * @returns {Array}
-             */
-            FAMachineState.prototype.getNextStates = function () {
-                var edgeList = this.node.toEdges.edges, nextStates = [];
-                for (var edgeName in edgeList) {
-                    if (edgeList.hasOwnProperty(edgeName)) {
-                        var edge = edgeList[edgeName];
-                        // See if we can follow this edge
-                        var transition = edge.transition;
-                        if (transition.canFollowOn(this.input)) {
-                            var inputLength = transition.character.length === 1 && transition.character !== jsflap.LAMBDA ? 1 : 0;
-                            nextStates.push(new FAMachineState(this.input.substr(inputLength), edge.to));
-                        }
-                    }
-                }
-                return nextStates;
-            };
-            /**
-             * Returns a string representation of the state
-             * @returns {string}
-             */
-            FAMachineState.prototype.toString = function () {
-                return '(' + this.input + ', ' + this.node.toString() + ')';
-            };
-            return FAMachineState;
-        })();
-        Machine.FAMachineState = FAMachineState;
-    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-

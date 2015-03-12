@@ -134,7 +134,7 @@ module jsflap.Visualization {
                 .attr("r", (d: NodeVisualization) => d.radius - 10)
                 .attr('opacity', 0);
 
-            newNodes.on('contextmenu', this.nodeContextMenu.bind(this));
+            newNodes.on('contextmenu', (node: NodeVisualization) => this.nodeContextMenu(node));
 
             newNodes.transition()
                 .ease("elastic")
@@ -163,7 +163,7 @@ module jsflap.Visualization {
                 .text((d: NodeVisualization) => d.model.label)
                 .attr('opacity', 0);
 
-            newNodeLabels.on('contextmenu', this.nodeContextMenu.bind(this));
+            newNodeLabels.on('contextmenu', (node: NodeVisualization) => this.nodeContextMenu(node));
 
             newNodeLabels.transition()
                 .delay(100)
@@ -246,7 +246,7 @@ module jsflap.Visualization {
                 .attr("cy", (d: NodeVisualization) => d.position.y)
                 .attr('opacity', 0);
 
-            newFinalNodes.on('contextmenu', this.nodeContextMenu.bind(this));
+            newFinalNodes.on('contextmenu', (node: NodeVisualization) => this.nodeContextMenu(node));
 
             newFinalNodes
                 .transition()
@@ -260,7 +260,7 @@ module jsflap.Visualization {
                 .attr("r", (d: NodeVisualization) => d.radius + 10)
                 .remove();
 
-            var edgeKeyFn = (edge: EdgeVisualization) => edge.models.edges.map((edge) => edge.toString()).join(',');
+            var edgeKeyFn = (edge: EdgeVisualization) => edge.models.items.map((edge) => edge.toString()).join(',');
             var edgePaths = edgesGroup.selectAll("path.edge")
 
                 // TODO: Make the key function less expensive
@@ -417,7 +417,7 @@ module jsflap.Visualization {
                 .remove();
 
             var edgeTransitions = edgeTransitionGroup.selectAll('text.transition')
-                .data((edge: EdgeVisualization) => edge.models.edges, (edge: Edge) => edge.toString());
+                .data((edge: EdgeVisualization) => edge.models.items, (edge: Edge) => edge.toString());
 
 
             var newEdgeTransitions = edgeTransitions
@@ -637,8 +637,8 @@ module jsflap.Visualization {
                     return;
                 }
                 var transition = new Transition.CharacterTransition((<HTMLInputElement> inp.node()).value || LAMBDA);
-                var similarTransitions = edge.visualization.models.edges.length > 1?
-                    edge.visualization.models.edges
+                var similarTransitions = edge.visualization.models.items.length > 1?
+                    edge.visualization.models.items
                         .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString())
                         :[];
 
@@ -650,7 +650,7 @@ module jsflap.Visualization {
                                 var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model,
                                     toModel = _this.getNodeVisualizationByLabel(edge.to.label).model,
                                     edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel),
-                                    foundEdges = edgeV.models.edges
+                                    foundEdges = edgeV.models.items
                                     .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString());
                                 if(foundEdges.length === 1) {
                                     applyTransition(foundEdges[0], previousTransition);
@@ -660,7 +660,7 @@ module jsflap.Visualization {
                                 var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model,
                                     toModel = _this.getNodeVisualizationByLabel(edge.to.label).model,
                                     edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel),
-                                    foundEdges = edgeV.models.edges
+                                    foundEdges = edgeV.models.items
                                     .filter((otherEdge: Edge) => otherEdge.transition.toString() === previousTransition.toString());
                                 if(foundEdges.length === 1) {
                                     applyTransition(foundEdges[0], transition);

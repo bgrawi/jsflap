@@ -44,8 +44,8 @@ module jsflap.Visualization {
          * @param callBackFn
          */
         public forEachEdge(callBackFn: (value: Edge, index: number, array: Edge[]) => void) {
-            this.model.toEdges.edges.forEach(callBackFn);
-            this.model.fromEdges.edges.forEach(callBackFn);
+            this.model.toEdges.items.forEach(callBackFn);
+            this.model.fromEdges.items.forEach(callBackFn);
         }
 
 

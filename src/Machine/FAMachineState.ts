@@ -36,7 +36,7 @@ module jsflap.Machine {
          * @returns {Array}
          */
         getNextStates(): FAMachineState[] {
-            var edgeList = this.node.toEdges.edges,
+            var edgeList = this.node.toEdges.items,
                 nextStates = [];
             for (var edgeName in edgeList) {
                 if(edgeList.hasOwnProperty(edgeName)) {

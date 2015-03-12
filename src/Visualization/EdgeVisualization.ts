@@ -84,10 +84,10 @@ module jsflap.Visualization {
             if(!this.fromModel || !this.toModel) {
                 this.fromModel = edge.from;
                 this.toModel = edge.to;
-                edge.setVisualization(this, typeof index === 'number'? index: this.models.edges.length);
+                edge.setVisualization(this, typeof index === 'number'? index: this.models.items.length);
                 return this.models.add(edge, index);
             } else if(edge.from === this.fromModel && edge.to === this.toModel) {
-                edge.setVisualization(this, typeof index === 'number'? index: this.models.edges.length);
+                edge.setVisualization(this, typeof index === 'number'? index: this.models.items.length);
                 return this.models.add(edge);
             } else {
                 return null;
@@ -98,7 +98,7 @@ module jsflap.Visualization {
          * Reindexs the visualization numbers of the edges
          */
         public reindexEdgeModels() {
-            this.models.edges.forEach((edge: Edge, index: number) => {
+            this.models.items.forEach((edge: Edge, index: number) => {
                 edge.visualizationNumber = index;
             });
         }

@@ -14,7 +14,7 @@ module jsflap.Board {
         /**
          * The graph containing the edges and nodes
          */
-        private graph: Graph.IGraph;
+        public graph: Graph.IGraph;
 
         /**
          * The current state of the board
@@ -24,7 +24,7 @@ module jsflap.Board {
         /**
          * The visualizations
          */
-        private visualizations: Visualization.VisualizationCollection;
+        public visualizations: Visualization.VisualizationCollection;
 
         /**
          * The function to call after the board has been updated
@@ -457,8 +457,11 @@ module jsflap.Board {
                     this.state.futureEdgeFrom = nearestNode.node;
                 } else if (this.state.modifyEdgeTransition === null) {
 
+                    var cmd = new Command.AddNodeAtPointCommand(this, event.point);
+
                     // Only add a node if the user is not currently click out of editing a transition OR is near a node
-                    this.invocationStack.trackExecution(new Command.AddNodeAtPointCommand(this, event.point));
+                    this.invocationStack.trackExecution(cmd);
+                    this.state.futureEdgeFrom = cmd.getNodeV();
                 }
             } else if(this.state.mode === BoardMode.MOVE && !this.state.modifyEdgeControl) {
                 if (nearestNode.node && nearestNode.hover) {
@@ -825,7 +828,7 @@ module jsflap.Board {
 
                 case 89: // Y (For CTRL-Y)
                     if(this.state.ctrlKeyPressed) {
-                        this.undoManager.redo();
+                        this.invocationStack.redo();
                         event.preventDefault();
                     }
                     return false;
@@ -834,9 +837,9 @@ module jsflap.Board {
                 case 90: // Z (For CTRL-Z)
                     if(this.state.ctrlKeyPressed) {
                         if(this.state.shiftKeyPressed) {
-                            this.undoManager.redo();
+                            this.invocationStack.redo();
                         } else {
-                            this.undoManager.undo();
+                            this.invocationStack.undo();
                         }
                         event.preventDefault();
                     }

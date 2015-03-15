@@ -2,6 +2,7 @@ module jsflap.Board.Command {
 
     import IPoint = Point.IPoint;
     import NodeV = Visualization.NodeVisualization;
+    import IGraph = Graph.IGraph;
 
     export class AddNodeAtPointCommand implements ICommand{
 
@@ -9,6 +10,11 @@ module jsflap.Board.Command {
          * The current board
          */
         private board: Board;
+
+        /**
+         * The current graph
+         */
+        private graph: IGraph;
 
         /**
          * The point that the node will be created at
@@ -20,17 +26,40 @@ module jsflap.Board.Command {
          */
         private nodeV: NodeV;
 
+        /**
+         * The actual node model
+         */
+        private node: Node;
+
         constructor(board: Board, point: IPoint) {
             this.board = board;
+            this.graph = board.graph;
             this.point = point;
+            this.node = new Node('q' + board.nodeCount);
+            if(board.nodeCount === 0) {
+                this.node.initial = true;
+            }
+            this.nodeV = new NodeV(this.node, this.point.getMPoint());
         }
 
         execute(): void {
-            this.nodeV = this.board.addNode(this.point);
+            this.graph.addNode(this.node);
+            this.board.visualizations.addNode(this.nodeV);
+            this.board.nodeCount++;
         }
 
         undo(): void {
-            this.board.removeNodeAndSaveSettings(this.nodeV);
+            this.graph.removeNode(this.node);
+            this.board.visualizations.removeNode(this.nodeV);
+            this.board.nodeCount--;
+        }
+
+        getNodeV() {
+            return this.nodeV;
+        }
+
+        getNode() {
+            return this.node;
         }
 
     }

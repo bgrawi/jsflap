@@ -126,7 +126,8 @@ module jsflap.Graph {
             }
 
             if(foundNode === this.initialNode) {
-                this.setInitialNode(null);
+                //this.setInitialNode(null);
+                this.initialNode = null;
             }
 
             if(foundNode.final && this.finalNodes.has(foundNode)) {

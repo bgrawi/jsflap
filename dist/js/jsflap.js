@@ -1071,8 +1071,10 @@ var jsflap;
                         this.state.futureEdgeFrom = nearestNode.node;
                     }
                     else if (this.state.modifyEdgeTransition === null) {
+                        var cmd = new _Board.Command.AddNodeAtPointCommand(this, event.point);
                         // Only add a node if the user is not currently click out of editing a transition OR is near a node
-                        this.invocationStack.trackExecution(new _Board.Command.AddNodeAtPointCommand(this, event.point));
+                        this.invocationStack.trackExecution(cmd);
+                        this.state.futureEdgeFrom = cmd.getNodeV();
                     }
                 }
                 else if (this.state.mode === 1 /* MOVE */ && !this.state.modifyEdgeControl) {
@@ -1371,7 +1373,7 @@ var jsflap;
                         break;
                     case 89:
                         if (this.state.ctrlKeyPressed) {
-                            this.undoManager.redo();
+                            this.invocationStack.redo();
                             event.preventDefault();
                         }
                         return false;
@@ -1379,10 +1381,10 @@ var jsflap;
                     case 90:
                         if (this.state.ctrlKeyPressed) {
                             if (this.state.shiftKeyPressed) {
-                                this.undoManager.redo();
+                                this.invocationStack.redo();
                             }
                             else {
-                                this.undoManager.undo();
+                                this.invocationStack.undo();
                             }
                             event.preventDefault();
                         }
@@ -1638,7 +1640,8 @@ var jsflap;
                     return false;
                 }
                 if (foundNode === this.initialNode) {
-                    this.setInitialNode(null);
+                    //this.setInitialNode(null);
+                    this.initialNode = null;
                 }
                 if (foundNode.final && this.finalNodes.has(foundNode)) {
                     this.finalNodes.remove(foundNode);
@@ -3097,16 +3100,33 @@ var jsflap;
     (function (Board) {
         var Command;
         (function (Command) {
+            var NodeV = jsflap.Visualization.NodeVisualization;
             var AddNodeAtPointCommand = (function () {
                 function AddNodeAtPointCommand(board, point) {
                     this.board = board;
+                    this.graph = board.graph;
                     this.point = point;
+                    this.node = new jsflap.Node('q' + board.nodeCount);
+                    if (board.nodeCount === 0) {
+                        this.node.initial = true;
+                    }
+                    this.nodeV = new NodeV(this.node, this.point.getMPoint());
                 }
                 AddNodeAtPointCommand.prototype.execute = function () {
-                    this.nodeV = this.board.addNode(this.point);
+                    this.graph.addNode(this.node);
+                    this.board.visualizations.addNode(this.nodeV);
+                    this.board.nodeCount++;
                 };
                 AddNodeAtPointCommand.prototype.undo = function () {
-                    this.board.removeNodeAndSaveSettings(this.nodeV);
+                    this.graph.removeNode(this.node);
+                    this.board.visualizations.removeNode(this.nodeV);
+                    this.board.nodeCount--;
+                };
+                AddNodeAtPointCommand.prototype.getNodeV = function () {
+                    return this.nodeV;
+                };
+                AddNodeAtPointCommand.prototype.getNode = function () {
+                    return this.node;
                 };
                 return AddNodeAtPointCommand;
             })();

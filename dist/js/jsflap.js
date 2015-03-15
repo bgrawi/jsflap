@@ -692,9 +692,14 @@ var jsflap;
                 this.nodeCount = 0;
                 /**
                  * The undo manager
-                 * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), redo: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
+                 * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), execute: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
                  */
                 this.undoManager = jsflap.getUndoManager();
+                /**
+                 * The Invocation stack
+                 * @type {jsflap.Board.BoardInvocationStack}
+                 */
+                this.invocationStack = new _Board.BoardInvocationStack();
                 this.svg = d3.select(svg);
                 this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
                 this.graph = graph;
@@ -810,7 +815,7 @@ var jsflap;
                                     _this.removeNodeAndSaveSettings(endingNodeV);
                                 }
                             },
-                            redo: function () {
+                            execute: function () {
                                 var foundStartingNode = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label), foundEndingNode = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
                                 if (foundStartingNode) {
                                     if (foundStartingNode !== startingNodeV) {
@@ -948,7 +953,7 @@ var jsflap;
                                 }
                                 _this.visualizations.update();
                             },
-                            redo: function () {
+                            execute: function () {
                                 var foundNode;
                                 if (prevInitialNode) {
                                     foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
@@ -989,7 +994,7 @@ var jsflap;
                                 }
                                 _this.visualizations.update();
                             },
-                            redo: function () {
+                            execute: function () {
                                 _this.graph.setInitialNode(null);
                                 _this.visualizations.update();
                             }
@@ -1014,7 +1019,7 @@ var jsflap;
                                 _this.visualizations.update();
                             }
                         },
-                        redo: function () {
+                        execute: function () {
                             var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
                             if (foundNode) {
                                 _this.graph.markFinalNode(foundNode.model);
@@ -1041,7 +1046,7 @@ var jsflap;
                                 _this.visualizations.update();
                             }
                         },
-                        redo: function () {
+                        execute: function () {
                             var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
                             if (foundNode) {
                                 _this.graph.unmarkFinalNode(foundNode.model);
@@ -1056,7 +1061,6 @@ var jsflap;
              * @param event
              */
             Board.prototype.mousedown = function (event) {
-                var _this = this;
                 event.event.preventDefault();
                 if (event.event.which > 1) {
                     return false;
@@ -1068,17 +1072,7 @@ var jsflap;
                     }
                     else if (this.state.modifyEdgeTransition === null) {
                         // Only add a node if the user is not currently click out of editing a transition OR is near a node
-                        var nodeV;
-                        this.undoManager.add({
-                            undo: function () {
-                                _this.removeNodeAndSaveSettings(nodeV);
-                            },
-                            redo: function () {
-                                nodeV = _this.restoreNode(nodeV);
-                            }
-                        });
-                        this.state.futureEdgeFrom = this.addNode(event.point);
-                        nodeV = this.state.futureEdgeFrom;
+                        this.invocationStack.trackExecution(new _Board.Command.AddNodeAtPointCommand(this, event.point));
                     }
                 }
                 else if (this.state.mode === 1 /* MOVE */ && !this.state.modifyEdgeControl) {
@@ -1245,7 +1239,7 @@ var jsflap;
                             toNodeV = _this.visualizations.getNodeVisualizationByLabel(edge.to.label);
                             _this.addEdge(fromNodeV, toNodeV, edgeT, edgeIndex);
                         },
-                        redo: function () {
+                        execute: function () {
                             var fromModel = _this.visualizations.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.visualizations.getNodeVisualizationByLabel(edge.to.label).model;
                             edgeV = _this.visualizations.getEdgeVisualizationByNodes(fromModel, toModel);
                             if (edgeV) {
@@ -1433,6 +1427,71 @@ var jsflap;
             return Board;
         })();
         _Board.Board = Board;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        /**
+         * The invocation stack for the commands
+         */
+        var BoardInvocationStack = (function () {
+            function BoardInvocationStack() {
+                /**
+                 * THe actual list of commands
+                 * @type {Array}
+                 */
+                this.commands = [];
+                /**
+                 * The current index we are at in the commands
+                 * @type {number}
+                 */
+                this.currentIndex = -1;
+            }
+            /**
+             * Stores and
+             * @param command
+             */
+            BoardInvocationStack.prototype.trackExecution = function (command) {
+                // Remove any commands ahead of this one, if at all
+                this.commands.splice(this.currentIndex + 1, this.commands.length - this.currentIndex);
+                this.commands.push(command);
+                this.currentIndex++;
+                command.execute();
+            };
+            /**
+             * Undoes the latest command
+             */
+            BoardInvocationStack.prototype.undo = function () {
+                this.commands[this.currentIndex].undo();
+                this.currentIndex -= 1;
+            };
+            /**
+             * Redoes the latest command
+             */
+            BoardInvocationStack.prototype.redo = function () {
+                this.commands[this.currentIndex + 1].execute();
+                this.currentIndex += 1;
+            };
+            /**
+             * If we have commands to undo
+             * @returns {boolean}
+             */
+            BoardInvocationStack.prototype.hasUndo = function () {
+                return this.currentIndex !== -1;
+            };
+            /**
+             * If we have commands to redo
+             * @returns {boolean}
+             */
+            BoardInvocationStack.prototype.hasRedo = function () {
+                return this.currentIndex < (this.commands.length - 1);
+            };
+            return BoardInvocationStack;
+        })();
+        Board.BoardInvocationStack = BoardInvocationStack;
     })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));
 
@@ -3010,3 +3069,50 @@ var jsflap;
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
 })(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var Command;
+        (function (Command) {
+            var AbstractCommand = (function () {
+                function AbstractCommand(board) {
+                    this.board = board;
+                }
+                /* abstract */ AbstractCommand.prototype.execute = function () {
+                };
+                /* abstract */ AbstractCommand.prototype.undo = function () {
+                };
+                return AbstractCommand;
+            })();
+            Command.AbstractCommand = AbstractCommand;
+        })(Command = Board.Command || (Board.Command = {}));
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var Command;
+        (function (Command) {
+            var AddNodeAtPointCommand = (function () {
+                function AddNodeAtPointCommand(board, point) {
+                    this.board = board;
+                    this.point = point;
+                }
+                AddNodeAtPointCommand.prototype.execute = function () {
+                    this.nodeV = this.board.addNode(this.point);
+                };
+                AddNodeAtPointCommand.prototype.undo = function () {
+                    this.board.removeNodeAndSaveSettings(this.nodeV);
+                };
+                return AddNodeAtPointCommand;
+            })();
+            Command.AddNodeAtPointCommand = AddNodeAtPointCommand;
+        })(Command = Board.Command || (Board.Command = {}));
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+

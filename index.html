@@ -57,8 +57,8 @@
 
         <!-- Right Nav Section -->
         <ul class="right">
-            <li><a ng-class="board.undoManager.hasUndo()?'':'disabled'" href="#" ng-click="board.undoManager.undo()"><i class="fa fa-undo"></i></a></li>
-            <li><a ng-class="board.undoManager.hasRedo()?'':'disabled'" href="#" ng-click="board.undoManager.redo()"><i class="fa fa-undo fa-flip-horizontal"></i></a></li>
+            <li><a ng-class="board.invocationStack.hasUndo()?'':'disabled'" href="#" ng-click="board.invocationStack.undo()"><i class="fa fa-undo"></i></a></li>
+            <li><a ng-class="board.invocationStack.hasRedo()?'':'disabled'" href="#" ng-click="board.invocationStack.redo()"><i class="fa fa-undo fa-flip-horizontal"></i></a></li>
             <li><a href="#" ng-click="openHelpModal()"><i class="fa fa-question-circle"></i></a></li>
             <li has-dropdown>
                 <a href="#"><i class="fa fa-cog"></i></a>

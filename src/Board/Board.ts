@@ -39,9 +39,15 @@ module jsflap.Board {
 
         /**
          * The undo manager
-         * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), redo: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
+         * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), execute: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
          */
         public undoManager = jsflap.getUndoManager();
+
+        /**
+         * The Invocation stack
+         * @type {jsflap.Board.BoardInvocationStack}
+         */
+        public invocationStack: BoardInvocationStack = new BoardInvocationStack();
 
         /**
          * Represents both the visualization and the graph underneath
@@ -187,7 +193,7 @@ module jsflap.Board {
                                 this.removeNodeAndSaveSettings(endingNodeV);
                             }
                         },
-                        redo: () => {
+                        execute: () => {
                             var foundStartingNode = this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label),
                                 foundEndingNode = this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
                             if(foundStartingNode) {
@@ -334,7 +340,7 @@ module jsflap.Board {
                             }
                             this.visualizations.update();
                         },
-                        redo: () => {
+                        execute: () => {
                             var foundNode;
                             if(prevInitialNode) {
                                 foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
@@ -370,7 +376,7 @@ module jsflap.Board {
                             }
                             this.visualizations.update();
                         },
-                        redo: () => {
+                        execute: () => {
                             this.graph.setInitialNode(null);
                             this.visualizations.update();
                         }
@@ -395,7 +401,7 @@ module jsflap.Board {
                             this.visualizations.update();
                         }
                     },
-                    redo: () => {
+                    execute: () => {
                         var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
                         if(foundNode) {
                             this.graph.markFinalNode(foundNode.model);
@@ -423,7 +429,7 @@ module jsflap.Board {
                             this.visualizations.update();
                         }
                     },
-                    redo: () => {
+                    execute: () => {
                         var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
                         if(foundNode) {
                             this.graph.unmarkFinalNode(foundNode.model);
@@ -452,18 +458,7 @@ module jsflap.Board {
                 } else if (this.state.modifyEdgeTransition === null) {
 
                     // Only add a node if the user is not currently click out of editing a transition OR is near a node
-
-                    var nodeV: Visualization.NodeVisualization;
-                    this.undoManager.add({
-                        undo: () => {
-                            this.removeNodeAndSaveSettings(nodeV);
-                        },
-                        redo: () => {
-                            nodeV = this.restoreNode(nodeV);
-                        }
-                    });
-                    this.state.futureEdgeFrom = this.addNode(event.point);
-                    nodeV = this.state.futureEdgeFrom;
+                    this.invocationStack.trackExecution(new Command.AddNodeAtPointCommand(this, event.point));
                 }
             } else if(this.state.mode === BoardMode.MOVE && !this.state.modifyEdgeControl) {
                 if (nearestNode.node && nearestNode.hover) {
@@ -676,7 +671,7 @@ module jsflap.Board {
                         toNodeV = this.visualizations.getNodeVisualizationByLabel(edge.to.label);
                         this.addEdge(fromNodeV, toNodeV, edgeT, edgeIndex);
                     },
-                    redo: () => {
+                    execute: () => {
                         var fromModel = this.visualizations.getNodeVisualizationByLabel(edge.from.label).model,
                             toModel = this.visualizations.getNodeVisualizationByLabel(edge.to.label).model;
                         edgeV = this.visualizations.getEdgeVisualizationByNodes(fromModel, toModel);

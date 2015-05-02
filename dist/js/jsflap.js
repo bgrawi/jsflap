@@ -1426,6 +1426,29 @@ var jsflap;
                 }
                 return true;
             };
+            Board.prototype.toLaTeX = function () {
+                var texData = '';
+                var minX = Number.MAX_VALUE, maxX = 0, minY = Number.MAX_VALUE, maxY = 0, posX, posY, radius, curMinX, curMaxX, curMinY, curMaxY;
+                this.visualizations.nodes.forEach(function (node) {
+                    posX = node.position.x;
+                    posY = node.position.y;
+                    radius = node.radius;
+                    curMinX = posX - radius;
+                    curMaxX = posX + radius;
+                    curMinY = posY - radius;
+                    curMaxY = posY + radius;
+                    minX = (curMinX < minX) ? curMinX : minX;
+                    maxX = (curMaxX > maxX) ? curMaxX : maxX;
+                    minY = (curMinY < minY) ? curMinY : minY;
+                    maxY = (curMaxY > maxY) ? curMaxY : maxY;
+                });
+                this.visualizations.nodes.forEach(function (node) {
+                    var posX = node.position.x - minX, posY = node.position.y - minY;
+                    texData += '    \\draw [black] (' + posX + ',' + posY + ') circle (' + node.radius + '); \n';
+                    texData += '    \\draw (' + posX + ',' + posY + ') node {$' + node.model.label + '$}; \n';
+                });
+                return '\\documentclass[12pt]{article}\n' + '\\usepackage{tikz}\n' + '\n' + '\\begin{document}\n' + '\n' + '\\begin{center}\n' + '\\resizebox{\\columnwidth}{!}{\n' + '    \\begin{tikzpicture}[y=-1, x = 1]\n' + '    \\tikzstyle{every node}+=[inner sep=0pt, font=\\large]\n' + texData + '    \\end{tikzpicture}\n' + '}\n' + '\\end{center}\n' + '\n' + '\\end{document}\n';
+            };
             return Board;
         })();
         _Board.Board = Board;

@@ -5,7 +5,9 @@ var gulp = require('gulp'),
     eventStream = require('event-stream'),
     karma = require('karma').server;
 
-var tsProject = ts.createProject({});
+var tsProject = ts.createProject({
+    target: 'ES5'
+});
 
 var testFiles = [
     "bower_components/d3/d3.min.js",

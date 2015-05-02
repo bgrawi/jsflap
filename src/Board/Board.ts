@@ -547,7 +547,7 @@ module jsflap.Board {
                     /// Allow toggling off control point re-drawing. CTRL Key is not the best key but will do for now
                     if(!this.state.ctrlKeyPressed) {
 
-                        var adjustedEdges = {};
+                        var adjustedEdges: Object = {};
 
                         updateFn = (edgeModel: Edge) => {
                             var edgeV = edgeModel.visualization,
@@ -615,7 +615,7 @@ module jsflap.Board {
                     point.subtract(this.state.lastMousePoint);
 
                     // Keep track of control points so that they are only added once
-                    var controlPoints = {};
+                    var controlPoints: Object = {};
 
                     // Custom update function to ensure control points are moved correctly
                     var updateFn = (edgeModel: Edge) => {
@@ -881,6 +881,62 @@ module jsflap.Board {
                 this.visualizations.update();
             }
             return true;
+        }
+
+        public toLaTeX(): string {
+            var texData = '';
+
+            var minX = Number.MAX_VALUE,
+                maxX = 0,
+                minY = Number.MAX_VALUE,
+                maxY = 0,
+                posX: number,
+                posY: number,
+                radius: number,
+                curMinX: number,
+                curMaxX: number,
+                curMinY: number,
+                curMaxY: number;
+
+            this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
+                posX = node.position.x;
+                posY = node.position.y;
+                radius = node.radius;
+
+                curMinX = posX - radius;
+                curMaxX = posX + radius;
+
+                curMinY = posY - radius;
+                curMaxY = posY + radius;
+
+                minX = (curMinX < minX)? curMinX: minX;
+                maxX = (curMaxX > maxX)? curMaxX: maxX;
+                minY = (curMinY < minY)? curMinY: minY;
+                maxY = (curMaxY > maxY)? curMaxY: maxY;
+            });
+
+            this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
+                var posX = node.position.x - minX,
+                    posY = node.position.y - minY;
+                texData += '    \\draw [black] (' + posX + ',' + posY + ') circle (' + node.radius + '); \n';
+                texData += '    \\draw (' + posX + ',' + posY + ') node {$' + node.model.label + '$}; \n';
+            });
+
+            return '\\documentclass[12pt]{article}\n' +
+                '\\usepackage{tikz}\n' +
+                '\n' +
+                '\\begin{document}\n' +
+                '\n' +
+                '\\begin{center}\n' +
+                '\\resizebox{\\columnwidth}{!}{\n' +
+                '    \\begin{tikzpicture}[y=-1, x = 1]\n' +
+                '    \\tikzstyle{every node}+=[inner sep=0pt, font=\\large]\n' +
+                    texData +
+                '    \\end{tikzpicture}\n' +
+                '}\n' +
+                '\\end{center}\n' +
+                '\n' +
+                '\\end{document}\n';
         }
 
     }

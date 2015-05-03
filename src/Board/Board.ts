@@ -910,6 +910,10 @@ module jsflap.Board {
                 curMinY = posY - radius;
                 curMaxY = posY + radius;
 
+                if(node.model.final) {
+                   curMinX -= 20;
+                }
+
                 minX = Math.min(curMinX, minX);
                 maxX = Math.max(curMaxX, maxX);
                 minY = Math.min(curMinY, minY);
@@ -939,9 +943,17 @@ module jsflap.Board {
             var offsetPoint = new Point.IMPoint(minX, minY);
 
             this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
-                var pos = node.position.getMPoint().subtract(offsetPoint);
-                texData += '    \\draw [black] (' + pos.x + ',' + pos.y + ') circle (' + node.radius + '); \n';
+                var pos = node.position.getMPoint().subtract(offsetPoint).round();
+                texData += '    \\draw (' + pos.x + ',' + pos.y + ') circle (' + node.radius + '); \n';
                 texData += '    \\draw (' + pos.x + ',' + pos.y + ') node[nodeLabel] {$' + node.model.label + '$}; \n';
+
+                if(node.model.final) {
+                    texData += '    \\draw (' + pos.x + ',' + pos.y + ') circle (' + (node.radius - 2) + '); \n';
+                }
+
+                if(node.model.initial) {
+                    texData += '    \\draw (' + (pos.x - node.radius) + ',' + pos.y + ') -- (' + (pos.x - node.radius - 20) + ',' + (pos.y - 20) + ') -- (' + (pos.x - node.radius - 20) + ',' + (pos.y + 20) + ') --  cycle;\n';
+                }
             });
 
 
@@ -953,7 +965,16 @@ module jsflap.Board {
                 // Need to convert to cubic Bezier points instead of quadratic Bezier.
                 var cubicControlPos1 = new Point.MPoint((1/3) * startPos.x + (2/3) * controlPos.x, (1/3) * startPos.y + (2/3) * controlPos.y).round(),
                     cubicControlPos2 = new Point.MPoint((2/3) * controlPos.x + (1/3) * endPos.x, (2/3) * controlPos.y + (1/3) * endPos.y).round();
-                texData += '    \\draw [black, edge] (' + startPos.x + ',' + startPos.y + ') .. controls(' + cubicControlPos1.x + ',' + cubicControlPos1.y + ') and (' + cubicControlPos2.x + ',' + cubicControlPos2.y + ') .. (' + endPos.x + ',' + endPos.y  + '); \n';
+                texData += '    \\draw [edge] (' + startPos.x + ',' + startPos.y + ') .. controls(' + cubicControlPos1.x + ',' + cubicControlPos1.y + ') and (' + cubicControlPos2.x + ',' + cubicControlPos2.y + ') .. (' + endPos.x + ',' + endPos.y  + '); \n';
+
+                edge.models.items.forEach((edgeModel: Edge) => {
+                   var textPos = edge.getTransitionPoint(edgeModel.visualizationNumber).getMPoint().subtract(offsetPoint).round(),
+                       textContent = edgeModel.transition.toString();
+                    if(textContent === jsflap.LAMBDA) {
+                        textContent = '\\lambda';
+                    }
+                    texData += '    \\draw (' + textPos.x + ', ' + textPos.y + ') node[edgeTransition] {$' + textContent + '$}; \n';
+                });
             });
 
             return '\\documentclass[12pt]{article}\n' +
@@ -967,6 +988,7 @@ module jsflap.Board {
                 '    \\begin{tikzpicture}[y=-1, x = 1]\n' +
                 '    \\tikzstyle{nodeLabel}+=[inner sep=0pt, font=\\large]\n' +
                 '    \\tikzstyle{edge}+=[-{Latex[length=5, width=7]}]\n' +
+                '    \\tikzstyle{edgeTransition}+=[draw=white, fill=white, inner sep = 1] \n' +
                 texData +
                 '    \\end{tikzpicture}\n' +
                 '}\n' +

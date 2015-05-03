@@ -671,933 +671,6 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
-    var Board;
-    (function (_Board) {
-        var Board = (function () {
-            /**
-             * Represents both the visualization and the graph underneath
-             * @param svg
-             * @param graph
-             * @param $rootScope The scope to broadcast events on
-             */
-            function Board(svg, graph, $rootScope) {
-                /**
-                 * The function to call after the board has been updated
-                 */
-                this.onBoardUpdateFn = null;
-                /**
-                 * To keep track of the number of nodes
-                 * @type {number}
-                 */
-                this.nodeCount = 0;
-                /**
-                 * The undo manager
-                 * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), execute: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
-                 */
-                this.undoManager = jsflap.getUndoManager();
-                /**
-                 * The Invocation stack
-                 * @type {jsflap.Board.BoardInvocationStack}
-                 */
-                this.invocationStack = new _Board.BoardInvocationStack();
-                this.svg = d3.select(svg);
-                this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
-                this.graph = graph;
-                this.state = new _Board.BoardState();
-                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg, this);
-                this.registerBindings($rootScope);
-            }
-            /**
-             * Registers event bindings
-             */
-            Board.prototype.registerBindings = function ($rootScope) {
-                var _this = this;
-                // Mouse events
-                this.svg.on('mouseup', function () {
-                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
-                });
-                this.svg.on('mousedown', function () {
-                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
-                });
-                this.svg.on('mousemove', function () {
-                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
-                });
-                // Touch events
-                this.svg.on('touchstart', function () {
-                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
-                });
-                this.svg.on('touchmove', function () {
-                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
-                });
-                this.svg.on('touchend', function () {
-                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
-                });
-                // Context menu events
-                this.svg.on("contextmenu", function () {
-                    $rootScope.$broadcast('contextmenu', { options: _this.state.contextMenuOptions, event: d3.event });
-                    _this.state.contextMenuOptions = null;
-                    d3.event.preventDefault();
-                });
-                document.addEventListener('keydown', function (event) {
-                    // Always monitor modifier keys regardless of context
-                    if (event.which === 16) {
-                        _this.state.shiftKeyPressed = true;
-                    }
-                    if (event.which === 17) {
-                        _this.state.ctrlKeyPressed = true;
-                    }
-                    if (!(event.target instanceof HTMLInputElement)) {
-                        var result = _this.keydown(event);
-                        $rootScope.$digest();
-                    }
-                    return result;
-                });
-                document.addEventListener('keyup', function (event) {
-                    // Always monitor modifier keys regardless of context
-                    if (event.which === 16) {
-                        _this.state.shiftKeyPressed = false;
-                    }
-                    if (event.which === 17) {
-                        _this.state.ctrlKeyPressed = false;
-                    }
-                    if (!(event.target instanceof HTMLInputElement)) {
-                        var result = _this.keyup(event);
-                        $rootScope.$digest();
-                    }
-                    return result;
-                });
-            };
-            /**
-             * Mouseup event listener
-             * @param event
-             */
-            Board.prototype.mouseup = function (event) {
-                var _this = this;
-                if (event.event.which > 1) {
-                    return false;
-                }
-                if (this.state.shiftKeyPressed) {
-                    this.state.shiftKeyPressed = false;
-                }
-                if (this.state.mode === 0 /* DRAW */) {
-                    if (this.state.futureEdge) {
-                        var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
-                        var endingNode, neededToCreateNode = false;
-                        if (nearestNode.node && nearestNode.distance < 40) {
-                            endingNode = nearestNode.node;
-                        }
-                        else {
-                            endingNode = this.addNode(this.state.futureEdge.end);
-                            neededToCreateNode = true;
-                        }
-                        this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
-                        var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode), newEdgeModelIndex = newEdge.models.items.length - 1, newEdgeModel = newEdge.models.items[newEdgeModelIndex];
-                        setTimeout(function () {
-                            var elm = _this.svg.selectAll('g.edgeTransitions text.transition').filter(function (possibleEdge) { return possibleEdge === newEdgeModel; });
-                            //console.log(elm);
-                            if (elm.length > 0) {
-                                _this.visualizations.editTransition(newEdgeModel, elm.node());
-                            }
-                        }, 10);
-                        // Manage undoing and redoing of this action
-                        var startingNodeV = this.state.futureEdgeFrom, endingNodeV = endingNode, edgeV = newEdge;
-                        this.undoManager.add({
-                            undo: function () {
-                                var foundStartingNodeModel = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label).model, foundEndingNodeModel = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label).model;
-                                edgeV = _this.visualizations.getEdgeVisualizationByNodes(foundStartingNodeModel, foundEndingNodeModel);
-                                var foundEdge = edgeV.models.items[newEdgeModelIndex];
-                                //debugger;
-                                if (foundEdge) {
-                                    newEdgeModel = foundEdge;
-                                    _this.removeEdgeTransistion(edgeV, newEdgeModel);
-                                }
-                                if (neededToCreateNode) {
-                                    _this.removeNodeAndSaveSettings(endingNodeV);
-                                }
-                            },
-                            execute: function () {
-                                var foundStartingNode = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label), foundEndingNode = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
-                                if (foundStartingNode) {
-                                    if (foundStartingNode !== startingNodeV) {
-                                        startingNodeV = foundStartingNode;
-                                    }
-                                    if (foundEndingNode !== null && foundEndingNode !== endingNodeV) {
-                                        endingNodeV = foundEndingNode;
-                                    }
-                                    if (neededToCreateNode) {
-                                        endingNodeV = _this.restoreNode(endingNodeV);
-                                    }
-                                    edgeV = _this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition, newEdgeModelIndex);
-                                    newEdgeModel = edgeV.models.items[edgeV.models.items.length - 1];
-                                }
-                            }
-                        });
-                        // Remove the future edge
-                        this.state.futureEdge.remove();
-                        this.state.futureEdge = null;
-                        this.state.futureEdgeFrom = null;
-                    }
-                    this.state.futureEdgeFrom = null;
-                }
-                else if (this.state.mode === 1 /* MOVE */) {
-                    this.state.draggingNode = null;
-                    this.state.modifyEdgeControl = null;
-                    this.state.isDraggingBoard = false;
-                }
-                else if (this.state.mode === 2 /* ERASE */) {
-                    this.state.isErasing = false;
-                }
-            };
-            /**
-             * Adds a node to the board
-             * @param point
-             * @returns {jsflap.Visualization.NodeVisualization}
-             */
-            Board.prototype.addNode = function (point) {
-                var node = this.graph.addNode('q' + this.nodeCount++), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
-                if (this.visualizations.nodes.length === 0) {
-                    this.setInitialNode(nodeV);
-                }
-                return this.visualizations.addNode(nodeV);
-            };
-            /**
-             * Restores a node visualization to the board
-             * @param nodeV
-             * @returns {Visualization.NodeVisualization}
-             */
-            Board.prototype.restoreNode = function (nodeV) {
-                var node = this.graph.addNode(nodeV.model.label), newNodeV = new jsflap.Visualization.NodeVisualization(node, nodeV.position);
-                if (nodeV.model.final) {
-                    this.markFinalNode(newNodeV);
-                }
-                if (nodeV.model.initial) {
-                    this.setInitialNode(newNodeV);
-                }
-                return this.visualizations.addNode(newNodeV);
-            };
-            /**
-             * Adds an edge to the board given two nodes and a future edge
-             * @param from
-             * @param to
-             * @param transition
-             */
-            Board.prototype.addEdge = function (from, to, transition, index) {
-                var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
-                // If there already is a visualization between these two edges, add the edge to that model
-                if (foundEdgeV) {
-                    foundEdgeV.addEdgeModel(edge, typeof index === 'number' ? index : null);
-                    if (typeof index === 'number') {
-                        foundEdgeV.reindexEdgeModels();
-                    }
-                    // Visualizations don't auto-update here, so we need to force call it
-                    this.visualizations.update();
-                    return foundEdgeV;
-                }
-                else {
-                    var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(to.model, from.model);
-                    var edgeV = new jsflap.Visualization.EdgeVisualization(edge);
-                    if (foundOppositeEdgeV) {
-                        // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
-                        if (foundOppositeEdgeV.getDirection() === 1) {
-                            foundOppositeEdgeV.pathMode = 2 /* OPPOSING_A */;
-                            edgeV.pathMode = 3 /* OPPOSING_B */;
-                        }
-                        else {
-                            foundOppositeEdgeV.pathMode = 3 /* OPPOSING_B */;
-                            edgeV.pathMode = 2 /* OPPOSING_A */;
-                        }
-                        foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? foundOppositeEdgeV.control : null);
-                        edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? edgeV.control : null);
-                    }
-                    return this.visualizations.addEdge(edgeV);
-                }
-            };
-            /**
-             * Updates a edge's transition by also updating all known hashes as well
-             * @param edge
-             * @param transition
-             */
-            Board.prototype.updateEdgeTransition = function (edge, transition) {
-                //var oldHash = edge.toString();
-                edge.transition = transition;
-                //this.graph.getEdges().updateEdgeHash(oldHash);
-                //edge.visualization.models.updateEdgeHash(oldHash);
-                //edge.from.toEdges.updateEdgeHash(oldHash);
-                //edge.to.fromEdges.updateEdgeHash(oldHash);
-            };
-            /**
-             * Sets the initial node for the graph
-             * @param node
-             * @param trackHistory
-             */
-            Board.prototype.setInitialNode = function (node, trackHistory) {
-                var _this = this;
-                var prevInitialNode = this.graph.getInitialNode();
-                if (node) {
-                    this.graph.setInitialNode(node.model);
-                    if (trackHistory) {
-                        this.undoManager.add({
-                            undo: function () {
-                                var foundNode;
-                                if (prevInitialNode) {
-                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
-                                }
-                                else {
-                                    foundNode = null;
-                                }
-                                if (foundNode) {
-                                    _this.graph.setInitialNode(foundNode.model);
-                                }
-                                else {
-                                    _this.graph.setInitialNode(null);
-                                }
-                                _this.visualizations.update();
-                            },
-                            execute: function () {
-                                var foundNode;
-                                if (prevInitialNode) {
-                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                                }
-                                else {
-                                    foundNode = null;
-                                }
-                                if (foundNode) {
-                                    if (foundNode) {
-                                        _this.graph.setInitialNode(foundNode.model);
-                                    }
-                                    else {
-                                        _this.graph.setInitialNode(null);
-                                    }
-                                    _this.visualizations.update();
-                                }
-                            }
-                        });
-                    }
-                }
-                else {
-                    this.graph.setInitialNode(null);
-                    if (trackHistory) {
-                        this.undoManager.add({
-                            undo: function () {
-                                var foundNode;
-                                if (prevInitialNode) {
-                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
-                                }
-                                else {
-                                    foundNode = null;
-                                }
-                                if (foundNode) {
-                                    _this.graph.setInitialNode(foundNode.model);
-                                }
-                                else {
-                                    _this.graph.setInitialNode(null);
-                                }
-                                _this.visualizations.update();
-                            },
-                            execute: function () {
-                                _this.graph.setInitialNode(null);
-                                _this.visualizations.update();
-                            }
-                        });
-                    }
-                }
-            };
-            /**
-             * Marks the final node for the graph
-             * @param node
-             * @param trackHistory
-             */
-            Board.prototype.markFinalNode = function (node, trackHistory) {
-                var _this = this;
-                this.graph.markFinalNode(node.model);
-                if (trackHistory) {
-                    this.undoManager.add({
-                        undo: function () {
-                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                            if (foundNode) {
-                                _this.graph.unmarkFinalNode(foundNode.model);
-                                _this.visualizations.update();
-                            }
-                        },
-                        execute: function () {
-                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                            if (foundNode) {
-                                _this.graph.markFinalNode(foundNode.model);
-                                _this.visualizations.update();
-                            }
-                        }
-                    });
-                }
-            };
-            /**
-             * Unmarks the final node for the graph
-             * @param node
-             * @param trackHistory
-             */
-            Board.prototype.unmarkFinalNode = function (node, trackHistory) {
-                var _this = this;
-                this.graph.unmarkFinalNode(node.model);
-                if (trackHistory) {
-                    this.undoManager.add({
-                        undo: function () {
-                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                            if (foundNode) {
-                                _this.graph.markFinalNode(foundNode.model);
-                                _this.visualizations.update();
-                            }
-                        },
-                        execute: function () {
-                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                            if (foundNode) {
-                                _this.graph.unmarkFinalNode(foundNode.model);
-                                _this.visualizations.update();
-                            }
-                        }
-                    });
-                }
-            };
-            /**
-             * Mousedown event listener
-             * @param event
-             */
-            Board.prototype.mousedown = function (event) {
-                event.event.preventDefault();
-                if (event.event.which > 1) {
-                    return false;
-                }
-                var nearestNode = this.visualizations.getNearestNode(event.point);
-                if (this.state.mode === 0 /* DRAW */) {
-                    if (nearestNode.node && nearestNode.distance < 70) {
-                        this.state.futureEdgeFrom = nearestNode.node;
-                    }
-                    else if (this.state.modifyEdgeTransition === null) {
-                        var cmd = new _Board.Command.AddNodeAtPointCommand(this, event.point);
-                        // Only add a node if the user is not currently click out of editing a transition OR is near a node
-                        this.invocationStack.trackExecution(cmd);
-                        this.state.futureEdgeFrom = cmd.getNodeV();
-                    }
-                }
-                else if (this.state.mode === 1 /* MOVE */ && !this.state.modifyEdgeControl) {
-                    if (nearestNode.node && nearestNode.hover) {
-                        this.state.draggingNode = nearestNode.node;
-                    }
-                    else {
-                        this.state.isDraggingBoard = true;
-                    }
-                }
-                else if (this.state.mode === 2 /* ERASE */) {
-                    this.state.isErasing = true;
-                    this.handleErasing(event.point);
-                }
-                // If the user was focused on modifying an edge transition, blur it.
-                if (this.state.modifyEdgeTransition !== null) {
-                    this.state.modifyEdgeTransition.blur();
-                }
-            };
-            /**
-             * Mousemove event listener
-             * @param event
-             */
-            Board.prototype.mousemove = function (event) {
-                var _this = this;
-                var point = event.point.getMPoint();
-                if (event.event.which > 1) {
-                    return false;
-                }
-                if (this.state.mode === 0 /* DRAW */) {
-                    if (this.state.futureEdge !== null) {
-                        if (this.state.shiftKeyPressed) {
-                            var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
-                            if (dx !== 0) {
-                                point.x = x1 + trigSide * distance * Math.cos(dTheta);
-                                point.y = y1 + trigSide * distance * Math.sin(dTheta);
-                            }
-                        }
-                        var nearestNode = this.visualizations.getNearestNode(point);
-                        if (nearestNode.node && nearestNode.distance < 40) {
-                            this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
-                        }
-                        else {
-                            this.state.futureEdge.end = point;
-                        }
-                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
-                    }
-                    else if (this.state.futureEdgeFrom !== null) {
-                        this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
-                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                        this.state.futureEdge.addTo(this.svg);
-                    }
-                }
-                else if (this.state.mode === 1 /* MOVE */ && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
-                    var snappedPoint = point.getMPoint();
-                    if (this.state.shiftKeyPressed) {
-                        snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
-                        snappedPoint.y = (Math.round(snappedPoint.y / 20) * 20);
-                    }
-                    if (this.state.draggingNode) {
-                        var oldDraggingNodePoint = this.state.draggingNode.position.getMPoint();
-                        this.state.draggingNode.position = snappedPoint;
-                        var newDraggingNodePoint = this.state.draggingNode.position;
-                        var updateFn = null;
-                        /// Allow toggling off control point re-drawing. CTRL Key is not the best key but will do for now
-                        if (!this.state.ctrlKeyPressed) {
-                            var adjustedEdges = {};
-                            updateFn = function (edgeModel) {
-                                var edgeV = edgeModel.visualization, edgeVHash = edgeV.fromModel.toString() + ', ' + edgeV.toModel.toString();
-                                // Only do this function ONCE per edge visualization
-                                if (!adjustedEdges.hasOwnProperty(edgeVHash)) {
-                                    adjustedEdges[edgeVHash] = true;
-                                }
-                                else {
-                                    return;
-                                }
-                                var controlPoint;
-                                if (edgeV.hasMovedControlPoint() && edgeV.pathMode !== 1 /* SELF */) {
-                                    var otherNode = edgeModel.from === _this.state.draggingNode.model ? edgeModel.to.visualization : edgeModel.from.visualization;
-                                    // Complicated algorithm to determine new control point location:
-                                    // Setup common points
-                                    var oldControlPoint = edgeV.control.getMPoint(), axisNodePosition = otherNode.position, 
-                                    // Calculate the initial and final midpoints
-                                    oldMidpoint = jsflap.Point.MPoint.getMidpoint(oldDraggingNodePoint, axisNodePosition), newMidpoint = jsflap.Point.MPoint.getMidpoint(newDraggingNodePoint, axisNodePosition), 
-                                    // Calculate the angles between the old midpoint and the old control point
-                                    theta1 = oldMidpoint.getAngleTo(oldControlPoint), 
-                                    // With respect to closest x-axis, calculate the angle of the slope of the line
-                                    theta2 = Math.PI - oldMidpoint.getAngleTo(axisNodePosition), 
-                                    // Get the total angle between the x-axis and the point that is off the old midpoint
-                                    theta3 = (theta1 + theta2), 
-                                    // Find the original offset distance from the old midpoint
-                                    oldDistance = oldMidpoint.getDistanceTo(oldControlPoint), oldLength = oldMidpoint.getDistanceTo(axisNodePosition), newLength = newMidpoint.getDistanceTo(axisNodePosition), 
-                                    // Calculate the change in length to get a new distance from the control point
-                                    lengthRatio = newLength / oldLength, newDistance = lengthRatio * oldDistance, 
-                                    // Now, from the new dragging point and the new midpoint, calculate the new midpoint offset
-                                    offset = jsflap.Point.MPoint.getNormalOffset(newDraggingNodePoint, newMidpoint, newDistance, theta3);
-                                    // We now know we need to adjust our new midpoint by the offset to get our point!
-                                    controlPoint = newMidpoint.add(offset);
-                                }
-                                else if (edgeV.hasMovedControlPoint() && edgeV.pathMode === 1 /* SELF */) {
-                                    controlPoint = edgeV.control.getMPoint().add(newDraggingNodePoint.getMPoint().subtract(oldDraggingNodePoint));
-                                }
-                                edgeV.recalculatePath(controlPoint ? controlPoint : null);
-                            };
-                        }
-                        this.state.draggingNode.updateEdgeVisualizationPaths(updateFn);
-                    }
-                    else if (this.state.modifyEdgeControl) {
-                        // Update the control point
-                        this.state.modifyEdgeControl.control = snappedPoint;
-                        this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.control);
-                    }
-                    else if (this.state.isDraggingBoard) {
-                        // Move all the elements of the board
-                        // Gets the delta between the points
-                        point.subtract(this.state.lastMousePoint);
-                        // Keep track of control points so that they are only added once
-                        var controlPoints = {};
-                        // Custom update function to ensure control points are moved correctly
-                        var updateFn = function (edgeModel) {
-                            var controlPoint = null;
-                            // Only bother keeping the relative location of the control point if it has been moved
-                            if (edgeModel.visualization.hasMovedControlPoint()) {
-                                var edgeHash = edgeModel.toString();
-                                // Only do the addition once per edge
-                                if (!controlPoints.hasOwnProperty(edgeHash)) {
-                                    controlPoints[edgeHash] = edgeModel.visualization.control.add(point);
-                                    controlPoint = controlPoints[edgeHash];
-                                }
-                                else {
-                                    controlPoint = controlPoints[edgeHash];
-                                }
-                            }
-                            edgeModel.visualization.recalculatePath(controlPoint ? controlPoint : null);
-                        };
-                        this.visualizations.nodes.forEach(function (node) {
-                            node.position.add(point);
-                            node.updateEdgeVisualizationPaths(updateFn);
-                        });
-                    }
-                    this.visualizations.update();
-                }
-                else if (this.state.mode === 2 /* ERASE */ && this.state.isErasing) {
-                    this.handleErasing(point);
-                }
-                this.state.lastMousePoint = event.point.getMPoint();
-            };
-            /**
-             * Handles erasing at a point
-             * @param point
-             */
-            Board.prototype.handleErasing = function (point) {
-                var _this = this;
-                // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
-                if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.items[0])) {
-                    this.removeEdge(this.state.hoveringEdge);
-                }
-                else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                    var edge = this.state.hoveringTransition, edgeV = edge.visualization, edgeT = edge.transition, fromNodeV = edgeV.fromModel.visualization, toNodeV = edgeV.toModel.visualization, edgeIndex = edgeV.models.items.indexOf(edge);
-                    this.removeEdgeTransistion(edgeV, edge);
-                    this.undoManager.add({
-                        undo: function () {
-                            fromNodeV = _this.visualizations.getNodeVisualizationByLabel(edge.from.label);
-                            toNodeV = _this.visualizations.getNodeVisualizationByLabel(edge.to.label);
-                            _this.addEdge(fromNodeV, toNodeV, edgeT, edgeIndex);
-                        },
-                        execute: function () {
-                            var fromModel = _this.visualizations.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.visualizations.getNodeVisualizationByLabel(edge.to.label).model;
-                            edgeV = _this.visualizations.getEdgeVisualizationByNodes(fromModel, toModel);
-                            if (edgeV) {
-                                fromNodeV = edgeV.fromModel.visualization;
-                                toNodeV = edgeV.toModel.visualization;
-                                _this.removeEdgeTransistion(edgeV, edge);
-                            }
-                        }
-                    });
-                }
-                else {
-                    var nearestNode = this.visualizations.getNearestNode(point);
-                    if (nearestNode.node && nearestNode.hover) {
-                        this.removeNode(nearestNode.node);
-                    }
-                }
-            };
-            /**
-             * Handles collapsing other edges when removing their opposing edge
-             * @param edgeV
-             * @private
-             */
-            Board.prototype._handleOpposingEdgeCollapsing = function (edgeV) {
-                if (edgeV.pathMode === 2 /* OPPOSING_A */ || edgeV.pathMode === 3 /* OPPOSING_B */) {
-                    var otherEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
-                    if (otherEdgeV) {
-                        otherEdgeV.pathMode = 0 /* DEFAULT */;
-                        otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint() ? otherEdgeV.control : null);
-                    }
-                }
-            };
-            /**
-             * Removes a transition from an edge, and the edge itself if its the last transition
-             * @param edgeV
-             * @param edgeModel
-             */
-            Board.prototype.removeEdgeTransistion = function (edgeV, edgeModel) {
-                // If this is the last transition on the edge, just remove the whole edge
-                if (edgeV.models.size === 1) {
-                    return this.removeEdge(edgeV);
-                }
-                // Delete this edge from the visualization
-                edgeV.models.remove(edgeModel);
-                this.graph.removeEdge(edgeModel);
-                // Now we need to re-index the visualizations
-                edgeV.reindexEdgeModels();
-                // And force a update
-                this.visualizations.update();
-            };
-            /**
-             * Removes an edge from the graph
-             * @param edgeV
-             */
-            Board.prototype.removeEdge = function (edgeV) {
-                var _this = this;
-                // Delete each edge from this visualization
-                if (edgeV.models.size > 0) {
-                    edgeV.models.items.forEach(function (edge) { return _this.graph.removeEdge(edge); });
-                }
-                this._handleOpposingEdgeCollapsing(edgeV);
-                this.visualizations.removeEdge(edgeV);
-            };
-            /**
-             * Removes a node from the graph
-             * @param nodeV
-             */
-            Board.prototype.removeNode = function (nodeV) {
-                // Need to copy the edges because when the edges are deleted, the indexing gets messed up
-                var _this = this;
-                var toEdges = nodeV.model.toEdges.items.slice(0), fromEdges = nodeV.model.fromEdges.items.slice(0), deleteFn = function (edgeModel) {
-                    _this.graph.removeEdge(edgeModel);
-                    _this.visualizations.removeEdge(edgeModel.visualization);
-                };
-                toEdges.forEach(deleteFn);
-                fromEdges.forEach(deleteFn);
-                this.graph.removeNode(nodeV.model);
-                this.visualizations.removeNode(nodeV);
-            };
-            /**
-             * Removes a node, but saves the node's settings before it is removed
-             * @param nodeV
-             */
-            Board.prototype.removeNodeAndSaveSettings = function (nodeV) {
-                var saveInitial = nodeV.model.initial, saveFinal = nodeV.model.final;
-                this.removeNode(nodeV);
-                nodeV.model.initial = saveInitial;
-                nodeV.model.final = saveFinal;
-            };
-            /**
-             * The keydown event listener
-             * @param event
-             */
-            Board.prototype.keydown = function (event) {
-                switch (event.which) {
-                    case 32:
-                        if (this.state.mode !== 1 /* MOVE */) {
-                            this.state.quickMoveFrom = this.state.mode;
-                            this.state.mode = 1 /* MOVE */;
-                            this.visualizations.update();
-                        }
-                        break;
-                    case 68:
-                        this.setMode(0 /* DRAW */);
-                        break;
-                    case 69:
-                        this.setMode(2 /* ERASE */);
-                        break;
-                    case 77:
-                        this.setMode(1 /* MOVE */);
-                        break;
-                    case 70:
-                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
-                        if (nearestNode.node && nearestNode.hover) {
-                            nearestNode.node.model.final ? this.unmarkFinalNode(nearestNode.node, true) : this.markFinalNode(nearestNode.node, true);
-                            this.visualizations.update();
-                        }
-                        break;
-                    case 73:
-                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
-                        if (nearestNode.node && nearestNode.hover) {
-                            if (!nearestNode.node.model.initial) {
-                                this.setInitialNode(nearestNode.node, true);
-                            }
-                            else {
-                                this.setInitialNode(null, true);
-                            }
-                            this.visualizations.update();
-                        }
-                        break;
-                    case 89:
-                        if (this.state.ctrlKeyPressed) {
-                            this.invocationStack.redo();
-                            event.preventDefault();
-                        }
-                        return false;
-                        break;
-                    case 90:
-                        if (this.state.ctrlKeyPressed) {
-                            if (this.state.shiftKeyPressed) {
-                                this.invocationStack.redo();
-                            }
-                            else {
-                                this.invocationStack.undo();
-                            }
-                            event.preventDefault();
-                        }
-                        return false;
-                        break;
-                }
-                return true;
-            };
-            /**
-             * Sets the board mode and updates accordingly
-             * @param mode
-             */
-            Board.prototype.setMode = function (mode) {
-                mode = +mode;
-                if (mode !== this.state.mode) {
-                    this.state.mode = mode;
-                    this.visualizations.update();
-                    return true;
-                }
-                else {
-                    return false;
-                }
-            };
-            /**
-             * The keyup event listener
-             * @param event
-             */
-            Board.prototype.keyup = function (event) {
-                if (event.which === 32 && this.state.mode === 1 /* MOVE */ && this.state.quickMoveFrom !== null) {
-                    this.state.draggingNode = null;
-                    this.state.modifyEdgeControl = null;
-                    this.state.isDraggingBoard = false;
-                    this.state.mode = this.state.quickMoveFrom;
-                    this.state.quickMoveFrom = null;
-                    if (this.state.modifyEdgeControl) {
-                        this.state.modifyEdgeControl = null;
-                    }
-                    this.visualizations.update();
-                }
-                return true;
-            };
-            Board.prototype.toLaTeX = function () {
-                var texData = '';
-                var minX = Number.MAX_VALUE, maxX = 0, minY = Number.MAX_VALUE, maxY = 0, posX, posY, radius, curMinX, curMaxX, curMinY, curMaxY;
-                this.visualizations.nodes.forEach(function (node) {
-                    posX = node.position.x;
-                    posY = node.position.y;
-                    radius = node.radius;
-                    curMinX = posX - radius;
-                    curMaxX = posX + radius;
-                    curMinY = posY - radius;
-                    curMaxY = posY + radius;
-                    minX = Math.min(curMinX, minX);
-                    maxX = Math.max(curMaxX, maxX);
-                    minY = Math.min(curMinY, minY);
-                    maxY = Math.max(curMaxY, maxY);
-                });
-                var startPos, endPos, controlPos;
-                this.visualizations.edges.forEach(function (edge) {
-                    startPos = edge.start;
-                    controlPos = edge.control;
-                    endPos = edge.end;
-                    curMinX = Math.min(startPos.x, controlPos.x, endPos.x);
-                    curMaxX = Math.max(startPos.x, controlPos.x, endPos.x);
-                    curMinY = Math.min(startPos.y, controlPos.y, endPos.y);
-                    curMaxY = Math.max(startPos.y, controlPos.y, endPos.y);
-                    minX = Math.min(curMinX, minX);
-                    maxX = Math.max(curMaxX, maxX);
-                    minY = Math.min(curMinY, minY);
-                    maxY = Math.max(curMaxY, maxY);
-                });
-                var offsetPoint = new jsflap.Point.IMPoint(minX, minY);
-                this.visualizations.nodes.forEach(function (node) {
-                    var pos = node.position.getMPoint().subtract(offsetPoint);
-                    texData += '    \\draw [black] (' + pos.x + ',' + pos.y + ') circle (' + node.radius + '); \n';
-                    texData += '    \\draw (' + pos.x + ',' + pos.y + ') node[nodeLabel] {$' + node.model.label + '$}; \n';
-                });
-                this.visualizations.edges.forEach(function (edge) {
-                    var startPos = edge.start.getMPoint().subtract(offsetPoint).round(), endPos = edge.end.getMPoint().subtract(offsetPoint).round(), controlPos = edge.control.getMPoint().subtract(offsetPoint).round();
-                    // Need to convert to cubic Bezier points instead of quadratic Bezier.
-                    var cubicControlPos1 = new jsflap.Point.MPoint((1 / 3) * startPos.x + (2 / 3) * controlPos.x, (1 / 3) * startPos.y + (2 / 3) * controlPos.y).round(), cubicControlPos2 = new jsflap.Point.MPoint((2 / 3) * controlPos.x + (1 / 3) * endPos.x, (2 / 3) * controlPos.y + (1 / 3) * endPos.y).round();
-                    texData += '    \\draw [black, edge] (' + startPos.x + ',' + startPos.y + ') .. controls(' + cubicControlPos1.x + ',' + cubicControlPos1.y + ') and (' + cubicControlPos2.x + ',' + cubicControlPos2.y + ') .. (' + endPos.x + ',' + endPos.y + '); \n';
-                });
-                return '\\documentclass[12pt]{article}\n' + '\\usepackage{tikz}\n' + '\\usetikzlibrary{arrows.meta}\n' + '\n' + '\\begin{document}\n' + '\n' + '\\begin{center}\n' + '\\resizebox{\\columnwidth}{!}{\n' + '    \\begin{tikzpicture}[y=-1, x = 1]\n' + '    \\tikzstyle{nodeLabel}+=[inner sep=0pt, font=\\large]\n' + '    \\tikzstyle{edge}+=[-{Latex[length=5, width=7]}]\n' + texData + '    \\end{tikzpicture}\n' + '}\n' + '\\end{center}\n' + '\n' + '\\end{document}\n';
-            };
-            return Board;
-        })();
-        _Board.Board = Board;
-    })(Board = jsflap.Board || (jsflap.Board = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Board;
-    (function (Board) {
-        /**
-         * The invocation stack for the commands
-         */
-        var BoardInvocationStack = (function () {
-            function BoardInvocationStack() {
-                /**
-                 * THe actual list of commands
-                 * @type {Array}
-                 */
-                this.commands = [];
-                /**
-                 * The current index we are at in the commands
-                 * @type {number}
-                 */
-                this.currentIndex = -1;
-            }
-            /**
-             * Stores and
-             * @param command
-             */
-            BoardInvocationStack.prototype.trackExecution = function (command) {
-                // Remove any commands ahead of this one, if at all
-                this.commands.splice(this.currentIndex + 1, this.commands.length - this.currentIndex);
-                this.commands.push(command);
-                this.currentIndex++;
-                command.execute();
-            };
-            /**
-             * Undoes the latest command
-             */
-            BoardInvocationStack.prototype.undo = function () {
-                this.commands[this.currentIndex].undo();
-                this.currentIndex -= 1;
-            };
-            /**
-             * Redoes the latest command
-             */
-            BoardInvocationStack.prototype.redo = function () {
-                this.commands[this.currentIndex + 1].execute();
-                this.currentIndex += 1;
-            };
-            /**
-             * If we have commands to undo
-             * @returns {boolean}
-             */
-            BoardInvocationStack.prototype.hasUndo = function () {
-                return this.currentIndex !== -1;
-            };
-            /**
-             * If we have commands to redo
-             * @returns {boolean}
-             */
-            BoardInvocationStack.prototype.hasRedo = function () {
-                return this.currentIndex < (this.commands.length - 1);
-            };
-            return BoardInvocationStack;
-        })();
-        Board.BoardInvocationStack = BoardInvocationStack;
-    })(Board = jsflap.Board || (jsflap.Board = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Board;
-    (function (Board) {
-        (function (BoardMode) {
-            BoardMode[BoardMode["DRAW"] = 0] = "DRAW";
-            BoardMode[BoardMode["MOVE"] = 1] = "MOVE";
-            BoardMode[BoardMode["ERASE"] = 2] = "ERASE";
-        })(Board.BoardMode || (Board.BoardMode = {}));
-        var BoardMode = Board.BoardMode;
-        var BoardState = (function () {
-            function BoardState() {
-                this.mode = 0 /* DRAW */;
-                this.futureEdge = null;
-                this.futureEdgeFrom = null;
-                this.shiftKeyPressed = false;
-                this.ctrlKeyPressed = false;
-                this.draggingNode = null;
-                this.isErasing = false;
-                this.hoveringEdge = null;
-                this.hoveringTransition = null;
-                this.isDraggingBoard = false;
-                this.quickMoveFrom = null;
-                this.modifyEdgeTransition = null;
-                this.modifyEdgeControl = null;
-                this.contextMenuOptions = null;
-                this.lastMousePoint = null;
-            }
-            return BoardState;
-        })();
-        Board.BoardState = BoardState;
-    })(Board = jsflap.Board || (jsflap.Board = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Board;
-    (function (Board) {
-        var MouseEvent = (function () {
-            /**
-             * Creates a new MouseEvent in a given context
-             * @param event
-             * @param context
-             */
-            function MouseEvent(event, context) {
-                this.event = event;
-                var rawPoint = d3.mouse(context);
-                this.point = new jsflap.Point.IMPoint(rawPoint[0], rawPoint[1]);
-            }
-            return MouseEvent;
-        })();
-        Board.MouseEvent = MouseEvent;
-    })(Board = jsflap.Board || (jsflap.Board = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
     var Graph;
     (function (Graph) {
         var FAGraph = (function () {
@@ -2405,6 +1478,949 @@ var jsflap;
         }
         Utils.getUUID = getUUID;
     })(Utils = jsflap.Utils || (jsflap.Utils = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (_Board) {
+        var Board = (function () {
+            /**
+             * Represents both the visualization and the graph underneath
+             * @param svg
+             * @param graph
+             * @param $rootScope The scope to broadcast events on
+             */
+            function Board(svg, graph, $rootScope) {
+                /**
+                 * The function to call after the board has been updated
+                 */
+                this.onBoardUpdateFn = null;
+                /**
+                 * To keep track of the number of nodes
+                 * @type {number}
+                 */
+                this.nodeCount = 0;
+                /**
+                 * The undo manager
+                 * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), execute: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
+                 */
+                this.undoManager = jsflap.getUndoManager();
+                /**
+                 * The Invocation stack
+                 * @type {jsflap.Board.BoardInvocationStack}
+                 */
+                this.invocationStack = new _Board.BoardInvocationStack();
+                this.svg = d3.select(svg);
+                this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
+                this.graph = graph;
+                this.state = new _Board.BoardState();
+                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg, this);
+                this.registerBindings($rootScope);
+            }
+            /**
+             * Registers event bindings
+             */
+            Board.prototype.registerBindings = function ($rootScope) {
+                var _this = this;
+                // Mouse events
+                this.svg.on('mouseup', function () {
+                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
+                });
+                this.svg.on('mousedown', function () {
+                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
+                });
+                this.svg.on('mousemove', function () {
+                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
+                });
+                // Touch events
+                this.svg.on('touchstart', function () {
+                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
+                });
+                this.svg.on('touchmove', function () {
+                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
+                });
+                this.svg.on('touchend', function () {
+                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
+                });
+                // Context menu events
+                this.svg.on("contextmenu", function () {
+                    $rootScope.$broadcast('contextmenu', { options: _this.state.contextMenuOptions, event: d3.event });
+                    _this.state.contextMenuOptions = null;
+                    d3.event.preventDefault();
+                });
+                document.addEventListener('keydown', function (event) {
+                    // Always monitor modifier keys regardless of context
+                    if (event.which === 16) {
+                        _this.state.shiftKeyPressed = true;
+                    }
+                    if (event.which === 17) {
+                        _this.state.ctrlKeyPressed = true;
+                    }
+                    if (!(event.target instanceof HTMLInputElement)) {
+                        var result = _this.keydown(event);
+                        $rootScope.$digest();
+                    }
+                    return result;
+                });
+                document.addEventListener('keyup', function (event) {
+                    // Always monitor modifier keys regardless of context
+                    if (event.which === 16) {
+                        _this.state.shiftKeyPressed = false;
+                    }
+                    if (event.which === 17) {
+                        _this.state.ctrlKeyPressed = false;
+                    }
+                    if (!(event.target instanceof HTMLInputElement)) {
+                        var result = _this.keyup(event);
+                        $rootScope.$digest();
+                    }
+                    return result;
+                });
+            };
+            /**
+             * Mouseup event listener
+             * @param event
+             */
+            Board.prototype.mouseup = function (event) {
+                var _this = this;
+                if (event.event.which > 1) {
+                    return false;
+                }
+                if (this.state.shiftKeyPressed) {
+                    this.state.shiftKeyPressed = false;
+                }
+                if (this.state.mode === 0 /* DRAW */) {
+                    if (this.state.futureEdge) {
+                        var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
+                        var endingNode, neededToCreateNode = false;
+                        if (nearestNode.node && nearestNode.distance < 40) {
+                            endingNode = nearestNode.node;
+                        }
+                        else {
+                            endingNode = this.addNode(this.state.futureEdge.end);
+                            neededToCreateNode = true;
+                        }
+                        this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
+                        var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode), newEdgeModelIndex = newEdge.models.items.length - 1, newEdgeModel = newEdge.models.items[newEdgeModelIndex];
+                        setTimeout(function () {
+                            var elm = _this.svg.selectAll('g.edgeTransitions text.transition').filter(function (possibleEdge) { return possibleEdge === newEdgeModel; });
+                            //console.log(elm);
+                            if (elm.length > 0) {
+                                _this.visualizations.editTransition(newEdgeModel, elm.node());
+                            }
+                        }, 10);
+                        // Manage undoing and redoing of this action
+                        var startingNodeV = this.state.futureEdgeFrom, endingNodeV = endingNode, edgeV = newEdge;
+                        this.undoManager.add({
+                            undo: function () {
+                                var foundStartingNodeModel = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label).model, foundEndingNodeModel = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label).model;
+                                edgeV = _this.visualizations.getEdgeVisualizationByNodes(foundStartingNodeModel, foundEndingNodeModel);
+                                var foundEdge = edgeV.models.items[newEdgeModelIndex];
+                                //debugger;
+                                if (foundEdge) {
+                                    newEdgeModel = foundEdge;
+                                    _this.removeEdgeTransistion(edgeV, newEdgeModel);
+                                }
+                                if (neededToCreateNode) {
+                                    _this.removeNodeAndSaveSettings(endingNodeV);
+                                }
+                            },
+                            execute: function () {
+                                var foundStartingNode = _this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label), foundEndingNode = _this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
+                                if (foundStartingNode) {
+                                    if (foundStartingNode !== startingNodeV) {
+                                        startingNodeV = foundStartingNode;
+                                    }
+                                    if (foundEndingNode !== null && foundEndingNode !== endingNodeV) {
+                                        endingNodeV = foundEndingNode;
+                                    }
+                                    if (neededToCreateNode) {
+                                        endingNodeV = _this.restoreNode(endingNodeV);
+                                    }
+                                    edgeV = _this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition, newEdgeModelIndex);
+                                    newEdgeModel = edgeV.models.items[edgeV.models.items.length - 1];
+                                }
+                            }
+                        });
+                        // Remove the future edge
+                        this.state.futureEdge.remove();
+                        this.state.futureEdge = null;
+                        this.state.futureEdgeFrom = null;
+                    }
+                    this.state.futureEdgeFrom = null;
+                }
+                else if (this.state.mode === 1 /* MOVE */) {
+                    this.state.draggingNode = null;
+                    this.state.modifyEdgeControl = null;
+                    this.state.isDraggingBoard = false;
+                }
+                else if (this.state.mode === 2 /* ERASE */) {
+                    this.state.isErasing = false;
+                }
+            };
+            /**
+             * Adds a node to the board
+             * @param point
+             * @returns {jsflap.Visualization.NodeVisualization}
+             */
+            Board.prototype.addNode = function (point) {
+                var node = this.graph.addNode('q' + this.nodeCount++), nodeV = new jsflap.Visualization.NodeVisualization(node, point.getMPoint());
+                if (this.visualizations.nodes.length === 0) {
+                    this.setInitialNode(nodeV);
+                }
+                return this.visualizations.addNode(nodeV);
+            };
+            /**
+             * Restores a node visualization to the board
+             * @param nodeV
+             * @returns {Visualization.NodeVisualization}
+             */
+            Board.prototype.restoreNode = function (nodeV) {
+                var node = this.graph.addNode(nodeV.model.label), newNodeV = new jsflap.Visualization.NodeVisualization(node, nodeV.position);
+                if (nodeV.model.final) {
+                    this.markFinalNode(newNodeV);
+                }
+                if (nodeV.model.initial) {
+                    this.setInitialNode(newNodeV);
+                }
+                return this.visualizations.addNode(newNodeV);
+            };
+            /**
+             * Adds an edge to the board given two nodes and a future edge
+             * @param from
+             * @param to
+             * @param transition
+             */
+            Board.prototype.addEdge = function (from, to, transition, index) {
+                var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
+                // If there already is a visualization between these two edges, add the edge to that model
+                if (foundEdgeV) {
+                    foundEdgeV.addEdgeModel(edge, typeof index === 'number' ? index : null);
+                    if (typeof index === 'number') {
+                        foundEdgeV.reindexEdgeModels();
+                    }
+                    // Visualizations don't auto-update here, so we need to force call it
+                    this.visualizations.update();
+                    return foundEdgeV;
+                }
+                else {
+                    var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(to.model, from.model);
+                    var edgeV = new jsflap.Visualization.EdgeVisualization(edge);
+                    if (foundOppositeEdgeV) {
+                        // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
+                        if (foundOppositeEdgeV.getDirection() === 1) {
+                            foundOppositeEdgeV.pathMode = 2 /* OPPOSING_A */;
+                            edgeV.pathMode = 3 /* OPPOSING_B */;
+                        }
+                        else {
+                            foundOppositeEdgeV.pathMode = 3 /* OPPOSING_B */;
+                            edgeV.pathMode = 2 /* OPPOSING_A */;
+                        }
+                        foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? foundOppositeEdgeV.control : null);
+                        edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? edgeV.control : null);
+                    }
+                    return this.visualizations.addEdge(edgeV);
+                }
+            };
+            /**
+             * Updates a edge's transition by also updating all known hashes as well
+             * @param edge
+             * @param transition
+             */
+            Board.prototype.updateEdgeTransition = function (edge, transition) {
+                //var oldHash = edge.toString();
+                edge.transition = transition;
+                //this.graph.getEdges().updateEdgeHash(oldHash);
+                //edge.visualization.models.updateEdgeHash(oldHash);
+                //edge.from.toEdges.updateEdgeHash(oldHash);
+                //edge.to.fromEdges.updateEdgeHash(oldHash);
+            };
+            /**
+             * Sets the initial node for the graph
+             * @param node
+             * @param trackHistory
+             */
+            Board.prototype.setInitialNode = function (node, trackHistory) {
+                var _this = this;
+                var prevInitialNode = this.graph.getInitialNode();
+                if (node) {
+                    this.graph.setInitialNode(node.model);
+                    if (trackHistory) {
+                        this.undoManager.add({
+                            undo: function () {
+                                var foundNode;
+                                if (prevInitialNode) {
+                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
+                                }
+                                else {
+                                    foundNode = null;
+                                }
+                                if (foundNode) {
+                                    _this.graph.setInitialNode(foundNode.model);
+                                }
+                                else {
+                                    _this.graph.setInitialNode(null);
+                                }
+                                _this.visualizations.update();
+                            },
+                            execute: function () {
+                                var foundNode;
+                                if (prevInitialNode) {
+                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                                }
+                                else {
+                                    foundNode = null;
+                                }
+                                if (foundNode) {
+                                    if (foundNode) {
+                                        _this.graph.setInitialNode(foundNode.model);
+                                    }
+                                    else {
+                                        _this.graph.setInitialNode(null);
+                                    }
+                                    _this.visualizations.update();
+                                }
+                            }
+                        });
+                    }
+                }
+                else {
+                    this.graph.setInitialNode(null);
+                    if (trackHistory) {
+                        this.undoManager.add({
+                            undo: function () {
+                                var foundNode;
+                                if (prevInitialNode) {
+                                    foundNode = _this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
+                                }
+                                else {
+                                    foundNode = null;
+                                }
+                                if (foundNode) {
+                                    _this.graph.setInitialNode(foundNode.model);
+                                }
+                                else {
+                                    _this.graph.setInitialNode(null);
+                                }
+                                _this.visualizations.update();
+                            },
+                            execute: function () {
+                                _this.graph.setInitialNode(null);
+                                _this.visualizations.update();
+                            }
+                        });
+                    }
+                }
+            };
+            /**
+             * Marks the final node for the graph
+             * @param node
+             * @param trackHistory
+             */
+            Board.prototype.markFinalNode = function (node, trackHistory) {
+                var _this = this;
+                this.graph.markFinalNode(node.model);
+                if (trackHistory) {
+                    this.undoManager.add({
+                        undo: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.unmarkFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        },
+                        execute: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.markFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        }
+                    });
+                }
+            };
+            /**
+             * Unmarks the final node for the graph
+             * @param node
+             * @param trackHistory
+             */
+            Board.prototype.unmarkFinalNode = function (node, trackHistory) {
+                var _this = this;
+                this.graph.unmarkFinalNode(node.model);
+                if (trackHistory) {
+                    this.undoManager.add({
+                        undo: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.markFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        },
+                        execute: function () {
+                            var foundNode = _this.visualizations.getNodeVisualizationByLabel(node.model.label);
+                            if (foundNode) {
+                                _this.graph.unmarkFinalNode(foundNode.model);
+                                _this.visualizations.update();
+                            }
+                        }
+                    });
+                }
+            };
+            /**
+             * Mousedown event listener
+             * @param event
+             */
+            Board.prototype.mousedown = function (event) {
+                event.event.preventDefault();
+                if (event.event.which > 1) {
+                    return false;
+                }
+                var nearestNode = this.visualizations.getNearestNode(event.point);
+                if (this.state.mode === 0 /* DRAW */) {
+                    if (nearestNode.node && nearestNode.distance < 70) {
+                        this.state.futureEdgeFrom = nearestNode.node;
+                    }
+                    else if (this.state.modifyEdgeTransition === null) {
+                        var cmd = new _Board.Command.AddNodeAtPointCommand(this, event.point);
+                        // Only add a node if the user is not currently click out of editing a transition OR is near a node
+                        this.invocationStack.trackExecution(cmd);
+                        this.state.futureEdgeFrom = cmd.getNodeV();
+                    }
+                }
+                else if (this.state.mode === 1 /* MOVE */ && !this.state.modifyEdgeControl) {
+                    if (nearestNode.node && nearestNode.hover) {
+                        this.state.draggingNode = nearestNode.node;
+                    }
+                    else {
+                        this.state.isDraggingBoard = true;
+                    }
+                }
+                else if (this.state.mode === 2 /* ERASE */) {
+                    this.state.isErasing = true;
+                    this.handleErasing(event.point);
+                }
+                // If the user was focused on modifying an edge transition, blur it.
+                if (this.state.modifyEdgeTransition !== null) {
+                    this.state.modifyEdgeTransition.blur();
+                }
+            };
+            /**
+             * Mousemove event listener
+             * @param event
+             */
+            Board.prototype.mousemove = function (event) {
+                var _this = this;
+                var point = event.point.getMPoint();
+                if (event.event.which > 1) {
+                    return false;
+                }
+                if (this.state.mode === 0 /* DRAW */) {
+                    if (this.state.futureEdge !== null) {
+                        if (this.state.shiftKeyPressed) {
+                            var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan(dy / dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)), trigSide = dx >= 0 ? 1 : -1;
+                            if (dx !== 0) {
+                                point.x = x1 + trigSide * distance * Math.cos(dTheta);
+                                point.y = y1 + trigSide * distance * Math.sin(dTheta);
+                            }
+                        }
+                        var nearestNode = this.visualizations.getNearestNode(point);
+                        if (nearestNode.node && nearestNode.distance < 40) {
+                            this.state.futureEdge.end = nearestNode.node.getAnchorPointFrom(this.state.futureEdge.start);
+                        }
+                        else {
+                            this.state.futureEdge.end = point;
+                        }
+                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
+                    }
+                    else if (this.state.futureEdgeFrom !== null) {
+                        this.state.futureEdge = new jsflap.Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
+                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                        this.state.futureEdge.addTo(this.svg);
+                    }
+                }
+                else if (this.state.mode === 1 /* MOVE */ && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
+                    var snappedPoint = point.getMPoint();
+                    if (this.state.shiftKeyPressed) {
+                        snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
+                        snappedPoint.y = (Math.round(snappedPoint.y / 20) * 20);
+                    }
+                    if (this.state.draggingNode) {
+                        var oldDraggingNodePoint = this.state.draggingNode.position.getMPoint();
+                        this.state.draggingNode.position = snappedPoint;
+                        var newDraggingNodePoint = this.state.draggingNode.position;
+                        var updateFn = null;
+                        /// Allow toggling off control point re-drawing. CTRL Key is not the best key but will do for now
+                        if (!this.state.ctrlKeyPressed) {
+                            var adjustedEdges = {};
+                            updateFn = function (edgeModel) {
+                                var edgeV = edgeModel.visualization, edgeVHash = edgeV.fromModel.toString() + ', ' + edgeV.toModel.toString();
+                                // Only do this function ONCE per edge visualization
+                                if (!adjustedEdges.hasOwnProperty(edgeVHash)) {
+                                    adjustedEdges[edgeVHash] = true;
+                                }
+                                else {
+                                    return;
+                                }
+                                var controlPoint;
+                                if (edgeV.hasMovedControlPoint() && edgeV.pathMode !== 1 /* SELF */) {
+                                    var otherNode = edgeModel.from === _this.state.draggingNode.model ? edgeModel.to.visualization : edgeModel.from.visualization;
+                                    // Complicated algorithm to determine new control point location:
+                                    // Setup common points
+                                    var oldControlPoint = edgeV.control.getMPoint(), axisNodePosition = otherNode.position, 
+                                    // Calculate the initial and final midpoints
+                                    oldMidpoint = jsflap.Point.MPoint.getMidpoint(oldDraggingNodePoint, axisNodePosition), newMidpoint = jsflap.Point.MPoint.getMidpoint(newDraggingNodePoint, axisNodePosition), 
+                                    // Calculate the angles between the old midpoint and the old control point
+                                    theta1 = oldMidpoint.getAngleTo(oldControlPoint), 
+                                    // With respect to closest x-axis, calculate the angle of the slope of the line
+                                    theta2 = Math.PI - oldMidpoint.getAngleTo(axisNodePosition), 
+                                    // Get the total angle between the x-axis and the point that is off the old midpoint
+                                    theta3 = (theta1 + theta2), 
+                                    // Find the original offset distance from the old midpoint
+                                    oldDistance = oldMidpoint.getDistanceTo(oldControlPoint), oldLength = oldMidpoint.getDistanceTo(axisNodePosition), newLength = newMidpoint.getDistanceTo(axisNodePosition), 
+                                    // Calculate the change in length to get a new distance from the control point
+                                    lengthRatio = newLength / oldLength, newDistance = lengthRatio * oldDistance, 
+                                    // Now, from the new dragging point and the new midpoint, calculate the new midpoint offset
+                                    offset = jsflap.Point.MPoint.getNormalOffset(newDraggingNodePoint, newMidpoint, newDistance, theta3);
+                                    // We now know we need to adjust our new midpoint by the offset to get our point!
+                                    controlPoint = newMidpoint.add(offset);
+                                }
+                                else if (edgeV.hasMovedControlPoint() && edgeV.pathMode === 1 /* SELF */) {
+                                    controlPoint = edgeV.control.getMPoint().add(newDraggingNodePoint.getMPoint().subtract(oldDraggingNodePoint));
+                                }
+                                edgeV.recalculatePath(controlPoint ? controlPoint : null);
+                            };
+                        }
+                        this.state.draggingNode.updateEdgeVisualizationPaths(updateFn);
+                    }
+                    else if (this.state.modifyEdgeControl) {
+                        // Update the control point
+                        this.state.modifyEdgeControl.control = snappedPoint;
+                        this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.control);
+                    }
+                    else if (this.state.isDraggingBoard) {
+                        // Move all the elements of the board
+                        // Gets the delta between the points
+                        point.subtract(this.state.lastMousePoint);
+                        // Keep track of control points so that they are only added once
+                        var controlPoints = {};
+                        // Custom update function to ensure control points are moved correctly
+                        var updateFn = function (edgeModel) {
+                            var controlPoint = null;
+                            // Only bother keeping the relative location of the control point if it has been moved
+                            if (edgeModel.visualization.hasMovedControlPoint()) {
+                                var edgeHash = edgeModel.toString();
+                                // Only do the addition once per edge
+                                if (!controlPoints.hasOwnProperty(edgeHash)) {
+                                    controlPoints[edgeHash] = edgeModel.visualization.control.add(point);
+                                    controlPoint = controlPoints[edgeHash];
+                                }
+                                else {
+                                    controlPoint = controlPoints[edgeHash];
+                                }
+                            }
+                            edgeModel.visualization.recalculatePath(controlPoint ? controlPoint : null);
+                        };
+                        this.visualizations.nodes.forEach(function (node) {
+                            node.position.add(point);
+                            node.updateEdgeVisualizationPaths(updateFn);
+                        });
+                    }
+                    this.visualizations.update();
+                }
+                else if (this.state.mode === 2 /* ERASE */ && this.state.isErasing) {
+                    this.handleErasing(point);
+                }
+                this.state.lastMousePoint = event.point.getMPoint();
+            };
+            /**
+             * Handles erasing at a point
+             * @param point
+             */
+            Board.prototype.handleErasing = function (point) {
+                var _this = this;
+                // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
+                if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.items[0])) {
+                    this.removeEdge(this.state.hoveringEdge);
+                }
+                else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
+                    var edge = this.state.hoveringTransition, edgeV = edge.visualization, edgeT = edge.transition, fromNodeV = edgeV.fromModel.visualization, toNodeV = edgeV.toModel.visualization, edgeIndex = edgeV.models.items.indexOf(edge);
+                    this.removeEdgeTransistion(edgeV, edge);
+                    this.undoManager.add({
+                        undo: function () {
+                            fromNodeV = _this.visualizations.getNodeVisualizationByLabel(edge.from.label);
+                            toNodeV = _this.visualizations.getNodeVisualizationByLabel(edge.to.label);
+                            _this.addEdge(fromNodeV, toNodeV, edgeT, edgeIndex);
+                        },
+                        execute: function () {
+                            var fromModel = _this.visualizations.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.visualizations.getNodeVisualizationByLabel(edge.to.label).model;
+                            edgeV = _this.visualizations.getEdgeVisualizationByNodes(fromModel, toModel);
+                            if (edgeV) {
+                                fromNodeV = edgeV.fromModel.visualization;
+                                toNodeV = edgeV.toModel.visualization;
+                                _this.removeEdgeTransistion(edgeV, edge);
+                            }
+                        }
+                    });
+                }
+                else {
+                    var nearestNode = this.visualizations.getNearestNode(point);
+                    if (nearestNode.node && nearestNode.hover) {
+                        this.removeNode(nearestNode.node);
+                    }
+                }
+            };
+            /**
+             * Handles collapsing other edges when removing their opposing edge
+             * @param edgeV
+             * @private
+             */
+            Board.prototype._handleOpposingEdgeCollapsing = function (edgeV) {
+                if (edgeV.pathMode === 2 /* OPPOSING_A */ || edgeV.pathMode === 3 /* OPPOSING_B */) {
+                    var otherEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
+                    if (otherEdgeV) {
+                        otherEdgeV.pathMode = 0 /* DEFAULT */;
+                        otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint() ? otherEdgeV.control : null);
+                    }
+                }
+            };
+            /**
+             * Removes a transition from an edge, and the edge itself if its the last transition
+             * @param edgeV
+             * @param edgeModel
+             */
+            Board.prototype.removeEdgeTransistion = function (edgeV, edgeModel) {
+                // If this is the last transition on the edge, just remove the whole edge
+                if (edgeV.models.size === 1) {
+                    return this.removeEdge(edgeV);
+                }
+                // Delete this edge from the visualization
+                edgeV.models.remove(edgeModel);
+                this.graph.removeEdge(edgeModel);
+                // Now we need to re-index the visualizations
+                edgeV.reindexEdgeModels();
+                // And force a update
+                this.visualizations.update();
+            };
+            /**
+             * Removes an edge from the graph
+             * @param edgeV
+             */
+            Board.prototype.removeEdge = function (edgeV) {
+                var _this = this;
+                // Delete each edge from this visualization
+                if (edgeV.models.size > 0) {
+                    edgeV.models.items.forEach(function (edge) { return _this.graph.removeEdge(edge); });
+                }
+                this._handleOpposingEdgeCollapsing(edgeV);
+                this.visualizations.removeEdge(edgeV);
+            };
+            /**
+             * Removes a node from the graph
+             * @param nodeV
+             */
+            Board.prototype.removeNode = function (nodeV) {
+                // Need to copy the edges because when the edges are deleted, the indexing gets messed up
+                var _this = this;
+                var toEdges = nodeV.model.toEdges.items.slice(0), fromEdges = nodeV.model.fromEdges.items.slice(0), deleteFn = function (edgeModel) {
+                    _this.graph.removeEdge(edgeModel);
+                    _this.visualizations.removeEdge(edgeModel.visualization);
+                };
+                toEdges.forEach(deleteFn);
+                fromEdges.forEach(deleteFn);
+                this.graph.removeNode(nodeV.model);
+                this.visualizations.removeNode(nodeV);
+            };
+            /**
+             * Removes a node, but saves the node's settings before it is removed
+             * @param nodeV
+             */
+            Board.prototype.removeNodeAndSaveSettings = function (nodeV) {
+                var saveInitial = nodeV.model.initial, saveFinal = nodeV.model.final;
+                this.removeNode(nodeV);
+                nodeV.model.initial = saveInitial;
+                nodeV.model.final = saveFinal;
+            };
+            /**
+             * The keydown event listener
+             * @param event
+             */
+            Board.prototype.keydown = function (event) {
+                switch (event.which) {
+                    case 32:
+                        if (this.state.mode !== 1 /* MOVE */) {
+                            this.state.quickMoveFrom = this.state.mode;
+                            this.state.mode = 1 /* MOVE */;
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 68:
+                        this.setMode(0 /* DRAW */);
+                        break;
+                    case 69:
+                        this.setMode(2 /* ERASE */);
+                        break;
+                    case 77:
+                        this.setMode(1 /* MOVE */);
+                        break;
+                    case 70:
+                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                        if (nearestNode.node && nearestNode.hover) {
+                            nearestNode.node.model.final ? this.unmarkFinalNode(nearestNode.node, true) : this.markFinalNode(nearestNode.node, true);
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 73:
+                        var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
+                        if (nearestNode.node && nearestNode.hover) {
+                            if (!nearestNode.node.model.initial) {
+                                this.setInitialNode(nearestNode.node, true);
+                            }
+                            else {
+                                this.setInitialNode(null, true);
+                            }
+                            this.visualizations.update();
+                        }
+                        break;
+                    case 89:
+                        if (this.state.ctrlKeyPressed) {
+                            this.invocationStack.redo();
+                            event.preventDefault();
+                        }
+                        return false;
+                        break;
+                    case 90:
+                        if (this.state.ctrlKeyPressed) {
+                            if (this.state.shiftKeyPressed) {
+                                this.invocationStack.redo();
+                            }
+                            else {
+                                this.invocationStack.undo();
+                            }
+                            event.preventDefault();
+                        }
+                        return false;
+                        break;
+                }
+                return true;
+            };
+            /**
+             * Sets the board mode and updates accordingly
+             * @param mode
+             */
+            Board.prototype.setMode = function (mode) {
+                mode = +mode;
+                if (mode !== this.state.mode) {
+                    this.state.mode = mode;
+                    this.visualizations.update();
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            };
+            /**
+             * The keyup event listener
+             * @param event
+             */
+            Board.prototype.keyup = function (event) {
+                if (event.which === 32 && this.state.mode === 1 /* MOVE */ && this.state.quickMoveFrom !== null) {
+                    this.state.draggingNode = null;
+                    this.state.modifyEdgeControl = null;
+                    this.state.isDraggingBoard = false;
+                    this.state.mode = this.state.quickMoveFrom;
+                    this.state.quickMoveFrom = null;
+                    if (this.state.modifyEdgeControl) {
+                        this.state.modifyEdgeControl = null;
+                    }
+                    this.visualizations.update();
+                }
+                return true;
+            };
+            Board.prototype.toLaTeX = function () {
+                var texData = '';
+                var minX = Number.MAX_VALUE, maxX = 0, minY = Number.MAX_VALUE, maxY = 0, posX, posY, radius, curMinX, curMaxX, curMinY, curMaxY;
+                this.visualizations.nodes.forEach(function (node) {
+                    posX = node.position.x;
+                    posY = node.position.y;
+                    radius = node.radius;
+                    curMinX = posX - radius;
+                    curMaxX = posX + radius;
+                    curMinY = posY - radius;
+                    curMaxY = posY + radius;
+                    if (node.model.final) {
+                        curMinX -= 20;
+                    }
+                    minX = Math.min(curMinX, minX);
+                    maxX = Math.max(curMaxX, maxX);
+                    minY = Math.min(curMinY, minY);
+                    maxY = Math.max(curMaxY, maxY);
+                });
+                var startPos, endPos, controlPos;
+                this.visualizations.edges.forEach(function (edge) {
+                    startPos = edge.start;
+                    controlPos = edge.control;
+                    endPos = edge.end;
+                    curMinX = Math.min(startPos.x, controlPos.x, endPos.x);
+                    curMaxX = Math.max(startPos.x, controlPos.x, endPos.x);
+                    curMinY = Math.min(startPos.y, controlPos.y, endPos.y);
+                    curMaxY = Math.max(startPos.y, controlPos.y, endPos.y);
+                    minX = Math.min(curMinX, minX);
+                    maxX = Math.max(curMaxX, maxX);
+                    minY = Math.min(curMinY, minY);
+                    maxY = Math.max(curMaxY, maxY);
+                });
+                var offsetPoint = new jsflap.Point.IMPoint(minX, minY);
+                this.visualizations.nodes.forEach(function (node) {
+                    var pos = node.position.getMPoint().subtract(offsetPoint).round();
+                    texData += '    \\draw (' + pos.x + ',' + pos.y + ') circle (' + node.radius + '); \n';
+                    texData += '    \\draw (' + pos.x + ',' + pos.y + ') node[nodeLabel] {$' + node.model.label + '$}; \n';
+                    if (node.model.final) {
+                        texData += '    \\draw (' + pos.x + ',' + pos.y + ') circle (' + (node.radius - 2) + '); \n';
+                    }
+                    if (node.model.initial) {
+                        texData += '    \\draw (' + (pos.x - node.radius) + ',' + pos.y + ') -- (' + (pos.x - node.radius - 20) + ',' + (pos.y - 20) + ') -- (' + (pos.x - node.radius - 20) + ',' + (pos.y + 20) + ') --  cycle;\n';
+                    }
+                });
+                this.visualizations.edges.forEach(function (edge) {
+                    var startPos = edge.start.getMPoint().subtract(offsetPoint).round(), endPos = edge.end.getMPoint().subtract(offsetPoint).round(), controlPos = edge.control.getMPoint().subtract(offsetPoint).round();
+                    // Need to convert to cubic Bezier points instead of quadratic Bezier.
+                    var cubicControlPos1 = new jsflap.Point.MPoint((1 / 3) * startPos.x + (2 / 3) * controlPos.x, (1 / 3) * startPos.y + (2 / 3) * controlPos.y).round(), cubicControlPos2 = new jsflap.Point.MPoint((2 / 3) * controlPos.x + (1 / 3) * endPos.x, (2 / 3) * controlPos.y + (1 / 3) * endPos.y).round();
+                    texData += '    \\draw [edge] (' + startPos.x + ',' + startPos.y + ') .. controls(' + cubicControlPos1.x + ',' + cubicControlPos1.y + ') and (' + cubicControlPos2.x + ',' + cubicControlPos2.y + ') .. (' + endPos.x + ',' + endPos.y + '); \n';
+                    edge.models.items.forEach(function (edgeModel) {
+                        var textPos = edge.getTransitionPoint(edgeModel.visualizationNumber).getMPoint().subtract(offsetPoint).round(), textContent = edgeModel.transition.toString();
+                        if (textContent === jsflap.LAMBDA) {
+                            textContent = '\\lambda';
+                        }
+                        texData += '    \\draw (' + textPos.x + ', ' + textPos.y + ') node[edgeTransition] {$' + textContent + '$}; \n';
+                    });
+                });
+                return '\\documentclass[12pt]{article}\n' + '\\usepackage{tikz}\n' + '\\usetikzlibrary{arrows.meta}\n' + '\n' + '\\begin{document}\n' + '\n' + '\\begin{center}\n' + '\\resizebox{\\columnwidth}{!}{\n' + '    \\begin{tikzpicture}[y=-1, x = 1]\n' + '    \\tikzstyle{nodeLabel}+=[inner sep=0pt, font=\\large]\n' + '    \\tikzstyle{edge}+=[-{Latex[length=5, width=7]}]\n' + '    \\tikzstyle{edgeTransition}+=[draw=white, fill=white, inner sep = 1] \n' + texData + '    \\end{tikzpicture}\n' + '}\n' + '\\end{center}\n' + '\n' + '\\end{document}\n';
+            };
+            return Board;
+        })();
+        _Board.Board = Board;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        /**
+         * The invocation stack for the commands
+         */
+        var BoardInvocationStack = (function () {
+            function BoardInvocationStack() {
+                /**
+                 * THe actual list of commands
+                 * @type {Array}
+                 */
+                this.commands = [];
+                /**
+                 * The current index we are at in the commands
+                 * @type {number}
+                 */
+                this.currentIndex = -1;
+            }
+            /**
+             * Stores and
+             * @param command
+             */
+            BoardInvocationStack.prototype.trackExecution = function (command) {
+                // Remove any commands ahead of this one, if at all
+                this.commands.splice(this.currentIndex + 1, this.commands.length - this.currentIndex);
+                this.commands.push(command);
+                this.currentIndex++;
+                command.execute();
+            };
+            /**
+             * Undoes the latest command
+             */
+            BoardInvocationStack.prototype.undo = function () {
+                this.commands[this.currentIndex].undo();
+                this.currentIndex -= 1;
+            };
+            /**
+             * Redoes the latest command
+             */
+            BoardInvocationStack.prototype.redo = function () {
+                this.commands[this.currentIndex + 1].execute();
+                this.currentIndex += 1;
+            };
+            /**
+             * If we have commands to undo
+             * @returns {boolean}
+             */
+            BoardInvocationStack.prototype.hasUndo = function () {
+                return this.currentIndex !== -1;
+            };
+            /**
+             * If we have commands to redo
+             * @returns {boolean}
+             */
+            BoardInvocationStack.prototype.hasRedo = function () {
+                return this.currentIndex < (this.commands.length - 1);
+            };
+            return BoardInvocationStack;
+        })();
+        Board.BoardInvocationStack = BoardInvocationStack;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        (function (BoardMode) {
+            BoardMode[BoardMode["DRAW"] = 0] = "DRAW";
+            BoardMode[BoardMode["MOVE"] = 1] = "MOVE";
+            BoardMode[BoardMode["ERASE"] = 2] = "ERASE";
+        })(Board.BoardMode || (Board.BoardMode = {}));
+        var BoardMode = Board.BoardMode;
+        var BoardState = (function () {
+            function BoardState() {
+                this.mode = 0 /* DRAW */;
+                this.futureEdge = null;
+                this.futureEdgeFrom = null;
+                this.shiftKeyPressed = false;
+                this.ctrlKeyPressed = false;
+                this.draggingNode = null;
+                this.isErasing = false;
+                this.hoveringEdge = null;
+                this.hoveringTransition = null;
+                this.isDraggingBoard = false;
+                this.quickMoveFrom = null;
+                this.modifyEdgeTransition = null;
+                this.modifyEdgeControl = null;
+                this.contextMenuOptions = null;
+                this.lastMousePoint = null;
+            }
+            return BoardState;
+        })();
+        Board.BoardState = BoardState;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var MouseEvent = (function () {
+            /**
+             * Creates a new MouseEvent in a given context
+             * @param event
+             * @param context
+             */
+            function MouseEvent(event, context) {
+                this.event = event;
+                var rawPoint = d3.mouse(context);
+                this.point = new jsflap.Point.IMPoint(rawPoint[0], rawPoint[1]);
+            }
+            return MouseEvent;
+        })();
+        Board.MouseEvent = MouseEvent;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;

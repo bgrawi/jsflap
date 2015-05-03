@@ -1437,17 +1437,38 @@ var jsflap;
                     curMaxX = posX + radius;
                     curMinY = posY - radius;
                     curMaxY = posY + radius;
-                    minX = (curMinX < minX) ? curMinX : minX;
-                    maxX = (curMaxX > maxX) ? curMaxX : maxX;
-                    minY = (curMinY < minY) ? curMinY : minY;
-                    maxY = (curMaxY > maxY) ? curMaxY : maxY;
+                    minX = Math.min(curMinX, minX);
+                    maxX = Math.max(curMaxX, maxX);
+                    minY = Math.min(curMinY, minY);
+                    maxY = Math.max(curMaxY, maxY);
                 });
+                var startPos, endPos, controlPos;
+                this.visualizations.edges.forEach(function (edge) {
+                    startPos = edge.start;
+                    controlPos = edge.control;
+                    endPos = edge.end;
+                    curMinX = Math.min(startPos.x, controlPos.x, endPos.x);
+                    curMaxX = Math.max(startPos.x, controlPos.x, endPos.x);
+                    curMinY = Math.min(startPos.y, controlPos.y, endPos.y);
+                    curMaxY = Math.max(startPos.y, controlPos.y, endPos.y);
+                    minX = Math.min(curMinX, minX);
+                    maxX = Math.max(curMaxX, maxX);
+                    minY = Math.min(curMinY, minY);
+                    maxY = Math.max(curMaxY, maxY);
+                });
+                var offsetPoint = new jsflap.Point.IMPoint(minX, minY);
                 this.visualizations.nodes.forEach(function (node) {
-                    var posX = node.position.x - minX, posY = node.position.y - minY;
-                    texData += '    \\draw [black] (' + posX + ',' + posY + ') circle (' + node.radius + '); \n';
-                    texData += '    \\draw (' + posX + ',' + posY + ') node {$' + node.model.label + '$}; \n';
+                    var pos = node.position.getMPoint().subtract(offsetPoint);
+                    texData += '    \\draw [black] (' + pos.x + ',' + pos.y + ') circle (' + node.radius + '); \n';
+                    texData += '    \\draw (' + pos.x + ',' + pos.y + ') node[nodeLabel] {$' + node.model.label + '$}; \n';
                 });
-                return '\\documentclass[12pt]{article}\n' + '\\usepackage{tikz}\n' + '\n' + '\\begin{document}\n' + '\n' + '\\begin{center}\n' + '\\resizebox{\\columnwidth}{!}{\n' + '    \\begin{tikzpicture}[y=-1, x = 1]\n' + '    \\tikzstyle{every node}+=[inner sep=0pt, font=\\large]\n' + texData + '    \\end{tikzpicture}\n' + '}\n' + '\\end{center}\n' + '\n' + '\\end{document}\n';
+                this.visualizations.edges.forEach(function (edge) {
+                    var startPos = edge.start.getMPoint().subtract(offsetPoint).round(), endPos = edge.end.getMPoint().subtract(offsetPoint).round(), controlPos = edge.control.getMPoint().subtract(offsetPoint).round();
+                    // Need to convert to cubic Bezier points instead of quadratic Bezier.
+                    var cubicControlPos1 = new jsflap.Point.MPoint((1 / 3) * startPos.x + (2 / 3) * controlPos.x, (1 / 3) * startPos.y + (2 / 3) * controlPos.y).round(), cubicControlPos2 = new jsflap.Point.MPoint((2 / 3) * controlPos.x + (1 / 3) * endPos.x, (2 / 3) * controlPos.y + (1 / 3) * endPos.y).round();
+                    texData += '    \\draw [black, edge] (' + startPos.x + ',' + startPos.y + ') .. controls(' + cubicControlPos1.x + ',' + cubicControlPos1.y + ') and (' + cubicControlPos2.x + ',' + cubicControlPos2.y + ') .. (' + endPos.x + ',' + endPos.y + '); \n';
+                });
+                return '\\documentclass[12pt]{article}\n' + '\\usepackage{tikz}\n' + '\\usetikzlibrary{arrows.meta}\n' + '\n' + '\\begin{document}\n' + '\n' + '\\begin{center}\n' + '\\resizebox{\\columnwidth}{!}{\n' + '    \\begin{tikzpicture}[y=-1, x = 1]\n' + '    \\tikzstyle{nodeLabel}+=[inner sep=0pt, font=\\large]\n' + '    \\tikzstyle{edge}+=[-{Latex[length=5, width=7]}]\n' + texData + '    \\end{tikzpicture}\n' + '}\n' + '\\end{center}\n' + '\n' + '\\end{document}\n';
             };
             return Board;
         })();
@@ -2197,6 +2218,15 @@ var jsflap;
             MPoint.prototype.subtract = function (other) {
                 this.x -= other.x;
                 this.y -= other.y;
+                return this;
+            };
+            /**
+             * Rounds this point to the nearest pixel
+             */
+            MPoint.prototype.round = function () {
+                //TODO: Support rounding precision
+                this.x = Math.round(this.x);
+                this.y = Math.round(this.y);
                 return this;
             };
             /**

@@ -83,6 +83,16 @@ module jsflap.Point {
         }
 
         /**
+         * Rounds this point to the nearest pixel
+         */
+        public round(): MPoint {
+            //TODO: Support rounding precision
+            this.x = Math.round(this.x);
+            this.y = Math.round(this.y);
+            return this;
+        }
+
+        /**
          * Helper function to generate a new point that is the midpoint between two other points
          * @param point1
          * @param point2

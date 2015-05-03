@@ -898,6 +898,7 @@ module jsflap.Board {
                 curMinY: number,
                 curMaxY: number;
 
+
             this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
                 posX = node.position.x;
                 posY = node.position.y;
@@ -909,29 +910,64 @@ module jsflap.Board {
                 curMinY = posY - radius;
                 curMaxY = posY + radius;
 
-                minX = (curMinX < minX)? curMinX: minX;
-                maxX = (curMaxX > maxX)? curMaxX: maxX;
-                minY = (curMinY < minY)? curMinY: minY;
-                maxY = (curMaxY > maxY)? curMaxY: maxY;
+                minX = Math.min(curMinX, minX);
+                maxX = Math.max(curMaxX, maxX);
+                minY = Math.min(curMinY, minY);
+                maxY = Math.max(curMaxY, maxY);
             });
 
+            var startPos: Point.MPoint,
+                endPos: Point.MPoint,
+                controlPos: Point.MPoint;
+
+            this.visualizations.edges.forEach((edge: Visualization.EdgeVisualization) => {
+                startPos = edge.start;
+                controlPos = edge.control;
+                endPos = edge.end;
+                curMinX = Math.min(startPos.x, controlPos.x, endPos.x);
+                curMaxX = Math.max(startPos.x, controlPos.x, endPos.x);
+
+                curMinY = Math.min(startPos.y, controlPos.y, endPos.y);
+                curMaxY = Math.max(startPos.y, controlPos.y, endPos.y);
+
+                minX = Math.min(curMinX, minX);
+                maxX = Math.max(curMaxX, maxX);
+                minY = Math.min(curMinY, minY);
+                maxY = Math.max(curMaxY, maxY);
+            });
+
+            var offsetPoint = new Point.IMPoint(minX, minY);
+
             this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
-                var posX = node.position.x - minX,
-                    posY = node.position.y - minY;
-                texData += '    \\draw [black] (' + posX + ',' + posY + ') circle (' + node.radius + '); \n';
-                texData += '    \\draw (' + posX + ',' + posY + ') node {$' + node.model.label + '$}; \n';
+                var pos = node.position.getMPoint().subtract(offsetPoint);
+                texData += '    \\draw [black] (' + pos.x + ',' + pos.y + ') circle (' + node.radius + '); \n';
+                texData += '    \\draw (' + pos.x + ',' + pos.y + ') node[nodeLabel] {$' + node.model.label + '$}; \n';
+            });
+
+
+            this.visualizations.edges.forEach((edge: Visualization.EdgeVisualization) => {
+                var startPos = edge.start.getMPoint().subtract(offsetPoint).round(),
+                    endPos = edge.end.getMPoint().subtract(offsetPoint).round(),
+                    controlPos = edge.control.getMPoint().subtract(offsetPoint).round();
+
+                // Need to convert to cubic Bezier points instead of quadratic Bezier.
+                var cubicControlPos1 = new Point.MPoint((1/3) * startPos.x + (2/3) * controlPos.x, (1/3) * startPos.y + (2/3) * controlPos.y).round(),
+                    cubicControlPos2 = new Point.MPoint((2/3) * controlPos.x + (1/3) * endPos.x, (2/3) * controlPos.y + (1/3) * endPos.y).round();
+                texData += '    \\draw [black, edge] (' + startPos.x + ',' + startPos.y + ') .. controls(' + cubicControlPos1.x + ',' + cubicControlPos1.y + ') and (' + cubicControlPos2.x + ',' + cubicControlPos2.y + ') .. (' + endPos.x + ',' + endPos.y  + '); \n';
             });
 
             return '\\documentclass[12pt]{article}\n' +
                 '\\usepackage{tikz}\n' +
+                '\\usetikzlibrary{arrows.meta}\n' +
                 '\n' +
                 '\\begin{document}\n' +
                 '\n' +
                 '\\begin{center}\n' +
                 '\\resizebox{\\columnwidth}{!}{\n' +
                 '    \\begin{tikzpicture}[y=-1, x = 1]\n' +
-                '    \\tikzstyle{every node}+=[inner sep=0pt, font=\\large]\n' +
-                    texData +
+                '    \\tikzstyle{nodeLabel}+=[inner sep=0pt, font=\\large]\n' +
+                '    \\tikzstyle{edge}+=[-{Latex[length=5, width=7]}]\n' +
+                texData +
                 '    \\end{tikzpicture}\n' +
                 '}\n' +
                 '\\end{center}\n' +

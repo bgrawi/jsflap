@@ -4,7 +4,7 @@ module jsflap.Board.Command {
     import NodeV = Visualization.NodeVisualization;
     import IGraph = Graph.IGraph;
 
-    export class SetInitialNodeCommand implements ICommand {
+    export class UnmarkFinalNodeCommand implements ICommand {
 
         /**
          * The current board
@@ -19,29 +19,21 @@ module jsflap.Board.Command {
         /**
          * The node being set to initial
          */
-        private setInitialNode: Node;
+        private node: Node;
 
-        /**
-         * The previous initial node
-         */
-        private prevInitialNode: Node;
-
-
-        constructor(board: Board, setInitialNode: Node) {
+        constructor(board: Board, node: Node) {
             this.board = board;
             this.graph = board.graph;
-
-            this.setInitialNode = setInitialNode;
-            this.prevInitialNode = this.graph.getInitialNode();
+            this.node = node;
         }
 
         execute(): void {
-            this.graph.setInitialNode(this.setInitialNode);
+            this.graph.unmarkFinalNode(this.node);
             this.board.visualizations.update();
         }
 
         undo(): void {
-            this.graph.setInitialNode(this.prevInitialNode);
+            this.graph.markFinalNode(this.node);
             this.board.visualizations.update();
         }
 

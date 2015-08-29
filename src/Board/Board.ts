@@ -284,7 +284,7 @@ module jsflap.Board {
          * @param trackHistory
          */
         public setInitialNode(node: Visualization.NodeVisualization, trackHistory?: boolean) {
-            var cmd = new Command.SetInitialNodeCommand(this, node);
+            var cmd = new Command.SetInitialNodeCommand(this, node? node.model: null);
             if(trackHistory) {
                 this.invocationStack.trackExecution(cmd);
             } else {
@@ -298,24 +298,11 @@ module jsflap.Board {
          * @param trackHistory
          */
         public markFinalNode(node: Visualization.NodeVisualization, trackHistory?: boolean) {
-            this.graph.markFinalNode(node.model);
+            var cmd = new Command.MarkFinalNodeCommand(this, node? node.model: null);
             if(trackHistory) {
-                this.undoManager.add({
-                    undo: () => {
-                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                        if(foundNode) {
-                            this.graph.unmarkFinalNode(foundNode.model);
-                            this.visualizations.update();
-                        }
-                    },
-                    execute: () => {
-                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                        if(foundNode) {
-                            this.graph.markFinalNode(foundNode.model);
-                            this.visualizations.update();
-                        }
-                    }
-                });
+                this.invocationStack.trackExecution(cmd);
+            } else {
+                cmd.execute();
             }
         }
 
@@ -325,25 +312,11 @@ module jsflap.Board {
          * @param trackHistory
          */
         public unmarkFinalNode(node: Visualization.NodeVisualization, trackHistory?: boolean) {
-            this.graph.unmarkFinalNode(node.model);
-
+            var cmd = new Command.UnmarkFinalNodeCommand(this, node? node.model: null);
             if(trackHistory) {
-                this.undoManager.add({
-                    undo: () => {
-                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                        if(foundNode) {
-                            this.graph.markFinalNode(foundNode.model);
-                            this.visualizations.update();
-                        }
-                    },
-                    execute: () => {
-                        var foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                        if(foundNode) {
-                            this.graph.unmarkFinalNode(foundNode.model);
-                            this.visualizations.update();
-                        }
-                    }
-                });
+                this.invocationStack.trackExecution(cmd);
+            } else {
+                cmd.execute();
             }
         }
 
@@ -717,7 +690,6 @@ module jsflap.Board {
                     var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
                     if(nearestNode.node && nearestNode.hover) {
                         nearestNode.node.model.final? this.unmarkFinalNode(nearestNode.node, true): this.markFinalNode(nearestNode.node, true);
-                        this.visualizations.update();
                     }
                     break;
                 case 73: // i

@@ -572,7 +572,7 @@ module jsflap.Visualization {
          * @returns {*}
          */
         getEdgeVisualizationByNodes(from: Node, to: Node): EdgeVisualization {
-            var query = this.edges.filter((edge: EdgeVisualization) => edge.fromModel === from && edge.toModel === to);
+            var query: EdgeVisualization[] = this.edges.filter((edge: EdgeVisualization) => edge.fromModel === from && edge.toModel === to);
             if(query.length > 0) {
                 return query[0];
             } else {
@@ -586,7 +586,7 @@ module jsflap.Visualization {
          * @returns {*}
          */
         getNodeVisualizationByLabel(label: string): NodeVisualization {
-            var query = this.nodes.filter((nodeV: Visualization.NodeVisualization) => {
+            var query: NodeVisualization[] = this.nodes.filter((nodeV: Visualization.NodeVisualization) => {
                 return nodeV.model.label === label;
             });
             if(query.length > 0) {
@@ -622,7 +622,6 @@ module jsflap.Visualization {
 
             function applyTransition(edge, transition) {
                 _this.board.updateEdgeTransition(edge, transition);
-                _this.svg.select("foreignObject").remove();
                 _this.state.modifyEdgeTransition = null;
                 _this.update();
                 if (typeof _this.board.onBoardUpdateFn === 'function') {

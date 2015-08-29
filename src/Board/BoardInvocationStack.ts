@@ -35,6 +35,9 @@ module jsflap.Board {
          * Undoes the latest command
          */
         public undo() {
+            if(!this.hasUndo()) {
+                return;
+            }
             this.commands[this.currentIndex].undo();
             this.currentIndex -= 1;
         }
@@ -43,6 +46,9 @@ module jsflap.Board {
          * Redoes the latest command
          */
         public redo() {
+            if(!this.hasRedo()) {
+                return;
+            }
             this.commands[this.currentIndex + 1].execute();
             this.currentIndex += 1;
         }

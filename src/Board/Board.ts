@@ -151,67 +151,15 @@ module jsflap.Board {
             if(this.state.mode === BoardMode.DRAW) {
 
                 if (this.state.futureEdge) {
-                    var nearestNode = this.visualizations.getNearestNode(this.state.futureEdge.end);
-                    var endingNode,
-                        neededToCreateNode = false;
-                    if (nearestNode.node && nearestNode.distance < 40) {
-                        endingNode = nearestNode.node;
-                    } else {
-                        endingNode = this.addNode(this.state.futureEdge.end);
-                        neededToCreateNode = true;
-                    }
+
+                    var cmd = new Command.AddEdgeFromNode(this, this.state.futureEdgeFrom, this.state.futureEdge.end);
+
+                    var endingNode = cmd.getEndNodeV();
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
-                    var newEdge = this.addEdge(this.state.futureEdgeFrom, endingNode),
-                        newEdgeModelIndex = newEdge.models.items.length - 1,
-                        newEdgeModel = newEdge.models.items[newEdgeModelIndex];
-                    setTimeout(() => {
-                        var elm = this.svg.selectAll('g.edgeTransitions text.transition')
-                            .filter((possibleEdge: Edge) => possibleEdge === newEdgeModel);
-                        //console.log(elm);
-                        if (elm.length > 0) {
-                            this.visualizations.editTransition(newEdgeModel, <SVGTextElement> elm.node());
-                        }
-                    }, 10);
+                    this.invocationStack.trackExecution(cmd);
 
-                    // Manage undoing and redoing of this action
-                    var startingNodeV: Visualization.NodeVisualization = this.state.futureEdgeFrom,
-                        endingNodeV: Visualization.NodeVisualization = endingNode,
-                        edgeV: Visualization.EdgeVisualization = newEdge;
-                    this.undoManager.add({
-                        undo: () => {
-                            var foundStartingNodeModel = this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label).model,
-                                foundEndingNodeModel = this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label).model;
-                            edgeV = this.visualizations.getEdgeVisualizationByNodes(foundStartingNodeModel, foundEndingNodeModel);
-                            var foundEdge = edgeV.models.items[newEdgeModelIndex];
-                            //debugger;
-                            if(foundEdge) {
-                                newEdgeModel = foundEdge;
-                                this.removeEdgeTransistion(edgeV, newEdgeModel);
-                            }
-                            if(neededToCreateNode) {
-                                this.removeNodeAndSaveSettings(endingNodeV);
-                            }
-                        },
-                        execute: () => {
-                            var foundStartingNode = this.visualizations.getNodeVisualizationByLabel(startingNodeV.model.label),
-                                foundEndingNode = this.visualizations.getNodeVisualizationByLabel(endingNodeV.model.label);
-                            if(foundStartingNode) {
-                                if (foundStartingNode !== startingNodeV) {
-                                    startingNodeV = foundStartingNode;
-                                }
-                                if (foundEndingNode !== null && foundEndingNode !== endingNodeV) {
-                                    endingNodeV = foundEndingNode;
-                                }
-
-                                if(neededToCreateNode) {
-                                    endingNodeV = this.restoreNode(endingNodeV);
-                                }
-                                edgeV = this.addEdge(startingNodeV, endingNodeV, newEdgeModel.transition, newEdgeModelIndex);
-                                newEdgeModel = edgeV.models.items[edgeV.models.items.length - 1];
-                            }
-                        }
-                    });
+                    this.editEdgeTransition(cmd.getEdge());
 
                     // Remove the future edge
                     this.state.futureEdge.remove();
@@ -313,6 +261,21 @@ module jsflap.Board {
             //edge.visualization.models.updateEdgeHash(oldHash);
             //edge.from.toEdges.updateEdgeHash(oldHash);
             //edge.to.fromEdges.updateEdgeHash(oldHash);
+        }
+
+        /**
+         * Starts editing the edge transition
+         * @param edge
+         */
+        public editEdgeTransition(edge: Edge) {
+            setTimeout(() => {
+                var elm = this.svg.selectAll('g.edgeTransitions text.transition')
+                    .filter((possibleEdge: Edge) => possibleEdge === edge);
+
+                if (elm.length > 0) {
+                    this.visualizations.editTransition(edge, <SVGTextElement> elm.node());
+                }
+            }, 10);
         }
 
         /**
@@ -501,16 +464,15 @@ module jsflap.Board {
                             y2 = point.y,
                             dx = x2 - x1,
                             dy = y2 - y1,
-                            theta = Math.atan(dy / dx),
+                            theta = Math.atan2(dy, dx),
                             dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4),
                             distance = Math.sqrt(
                                 Math.pow(y2 - y1, 2) +
                                 Math.pow(x2 - x1, 2)
-                            ),
-                            trigSide = dx >= 0 ? 1 : -1;
+                            );
                         if (dx !== 0) {
-                            point.x = x1 + trigSide * distance * Math.cos(dTheta);
-                            point.y = y1 + trigSide * distance * Math.sin(dTheta);
+                            point.x = x1 + distance * Math.cos(dTheta);
+                            point.y = y1 + distance * Math.sin(dTheta);
 
                             // Also snap to a 20-pixel gid disabled for now
                             //point.x = (Math.round(point.x / 20) * 20);

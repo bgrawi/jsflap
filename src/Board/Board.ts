@@ -284,67 +284,11 @@ module jsflap.Board {
          * @param trackHistory
          */
         public setInitialNode(node: Visualization.NodeVisualization, trackHistory?: boolean) {
-            var prevInitialNode = this.graph.getInitialNode();
-            if(node) {
-                this.graph.setInitialNode(node.model);
-                if(trackHistory) {
-                    this.undoManager.add({
-                        undo: () => {
-                            var foundNode;
-                            if(prevInitialNode) {
-                                foundNode = this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
-                            } else {
-                                foundNode = null;
-                            }
-                            if(foundNode) {
-                                this.graph.setInitialNode(foundNode.model);
-                            } else {
-                                this.graph.setInitialNode(null);
-                            }
-                            this.visualizations.update();
-                        },
-                        execute: () => {
-                            var foundNode;
-                            if(prevInitialNode) {
-                                foundNode = this.visualizations.getNodeVisualizationByLabel(node.model.label);
-                            } else {
-                                foundNode = null;
-                            }
-                            if(foundNode) {
-                                if(foundNode) {
-                                    this.graph.setInitialNode(foundNode.model);
-                                } else {
-                                    this.graph.setInitialNode(null);
-                                }
-                                this.visualizations.update();
-                            }
-                        }
-                    });
-                }
+            var cmd = new Command.SetInitialNodeCommand(this, node);
+            if(trackHistory) {
+                this.invocationStack.trackExecution(cmd);
             } else {
-                this.graph.setInitialNode(null);
-                if(trackHistory) {
-                    this.undoManager.add({
-                        undo: () => {
-                            var foundNode;
-                            if(prevInitialNode) {
-                                 foundNode = this.visualizations.getNodeVisualizationByLabel(prevInitialNode.label);
-                            } else {
-                                foundNode = null;
-                            }
-                            if(foundNode) {
-                                this.graph.setInitialNode(foundNode.model);
-                            } else {
-                                this.graph.setInitialNode(null);
-                            }
-                            this.visualizations.update();
-                        },
-                        execute: () => {
-                            this.graph.setInitialNode(null);
-                            this.visualizations.update();
-                        }
-                    });
-                }
+                cmd.execute();
             }
         }
 

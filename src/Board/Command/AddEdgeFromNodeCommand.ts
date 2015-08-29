@@ -5,7 +5,7 @@ module jsflap.Board.Command {
     import EdgeV = Visualization.EdgeVisualization;
     import IGraph = Graph.IGraph;
 
-    export class AddEdgeFromNode implements ICommand{
+    export class AddEdgeFromNodeCommand implements ICommand{
 
         /**
          * The current board
@@ -79,7 +79,7 @@ module jsflap.Board.Command {
                 this.board.nodeCount++;
             }
 
-            this.edgeV = this.board.addEdge(this.startNodeV, this.endNodeV, this.edge? this.edge.transition: null);
+            this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge? this.edge.transition: null, this.edgeIndex? this.edgeIndex : null);
             if(!this.edgeIndex) {
                 this.edgeIndex = this.edgeV.models.items.length - 1;
                 this.edge = this.edgeV.models.items[this.edgeIndex];

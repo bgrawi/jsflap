@@ -152,7 +152,7 @@ module jsflap.Board {
 
                 if (this.state.futureEdge) {
 
-                    var cmd = new Command.AddEdgeFromNode(this, this.state.futureEdgeFrom, this.state.futureEdge.end);
+                    var cmd = new Command.AddEdgeFromNodeCommand(this, this.state.futureEdgeFrom, this.state.futureEdge.end);
 
                     var endingNode = cmd.getEndNodeV();
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
@@ -215,9 +215,19 @@ module jsflap.Board {
          * @param to
          * @param transition
          */
-        public addEdge(from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition, index?: number) {
+        public addEdge(existingEdgeV: Visualization.EdgeVisualization, from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition, index?: number) {
             var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
-                foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
+                foundEdgeV;
+            //if(existingEdgeV) {
+            //    if(this.visualizations.edges.indexOf(existingEdgeV) === -1) {
+            //        this.visualizations.addEdge(existingEdgeV);
+            //    }
+            //    foundEdgeV = existingEdgeV;
+            //} else {
+            //
+            //}
+
+            foundEdgeV =  this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
 
             // If there already is a visualization between these two edges, add the edge to that model
             if(foundEdgeV) {
@@ -231,7 +241,7 @@ module jsflap.Board {
                 return foundEdgeV;
             } else {
                 var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(to.model, from.model);
-                var edgeV = new Visualization.EdgeVisualization(edge);
+                var edgeV = existingEdgeV? existingEdgeV: new Visualization.EdgeVisualization(edge);
                 if(foundOppositeEdgeV) {
                     // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
                     if(foundOppositeEdgeV.getDirection() === 1) {
@@ -249,18 +259,8 @@ module jsflap.Board {
             }
         }
 
-        /**
-         * Updates a edge's transition by also updating all known hashes as well
-         * @param edge
-         * @param transition
-         */
-        public updateEdgeTransition(edge: Edge, transition: Transition.ITransition) {
-            //var oldHash = edge.toString();
-            edge.transition = transition;
-            //this.graph.getEdges().updateEdgeHash(oldHash);
-            //edge.visualization.models.updateEdgeHash(oldHash);
-            //edge.from.toEdges.updateEdgeHash(oldHash);
-            //edge.to.fromEdges.updateEdgeHash(oldHash);
+        public addEdgeVisualization(edgeV: Visualization.EdgeVisualization) {
+            return this.visualizations.addEdge(edgeV);
         }
 
         /**
@@ -539,31 +539,8 @@ module jsflap.Board {
             }
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                var edge = this.state.hoveringTransition,
-                    edgeV = edge.visualization,
-                    edgeT = edge.transition,
-                    fromNodeV = edgeV.fromModel.visualization,
-                    toNodeV = edgeV.toModel.visualization,
-                    edgeIndex = edgeV.models.items.indexOf(edge);
-                this.removeEdgeTransistion(edgeV, edge);
-                this.undoManager.add({
-                    undo: () => {
-
-                        fromNodeV = this.visualizations.getNodeVisualizationByLabel(edge.from.label);
-                        toNodeV = this.visualizations.getNodeVisualizationByLabel(edge.to.label);
-                        this.addEdge(fromNodeV, toNodeV, edgeT, edgeIndex);
-                    },
-                    execute: () => {
-                        var fromModel = this.visualizations.getNodeVisualizationByLabel(edge.from.label).model,
-                            toModel = this.visualizations.getNodeVisualizationByLabel(edge.to.label).model;
-                        edgeV = this.visualizations.getEdgeVisualizationByNodes(fromModel, toModel);
-                        if(edgeV) {
-                            fromNodeV = edgeV.fromModel.visualization;
-                            toNodeV = edgeV.toModel.visualization;
-                            this.removeEdgeTransistion(edgeV, edge);
-                        }
-                    }
-                });
+                var cmd = new Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
+                this.invocationStack.trackExecution(cmd);
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);
                 if(nearestNode.node && nearestNode.hover) {

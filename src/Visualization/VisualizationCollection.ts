@@ -621,7 +621,7 @@ module jsflap.Visualization {
             el.node();
 
             function applyTransition(edge, transition) {
-                _this.board.updateEdgeTransition(edge, transition);
+                edge.transition = transition;
                 _this.state.modifyEdgeTransition = null;
                 _this.update();
                 if (typeof _this.board.onBoardUpdateFn === 'function') {

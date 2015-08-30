@@ -836,14 +836,6 @@ var jsflap;
              */
             Board.prototype.addEdge = function (existingEdgeV, from, to, transition, index) {
                 var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), foundEdgeV;
-                //if(existingEdgeV) {
-                //    if(this.visualizations.edges.indexOf(existingEdgeV) === -1) {
-                //        this.visualizations.addEdge(existingEdgeV);
-                //    }
-                //    foundEdgeV = existingEdgeV;
-                //} else {
-                //
-                //}
                 foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
                 // If there already is a visualization between these two edges, add the edge to that model
                 if (foundEdgeV) {
@@ -856,26 +848,43 @@ var jsflap;
                     return foundEdgeV;
                 }
                 else {
-                    var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(to.model, from.model);
-                    var edgeV = existingEdgeV ? existingEdgeV : new jsflap.Visualization.EdgeVisualization(edge);
-                    if (foundOppositeEdgeV) {
-                        // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
-                        if (foundOppositeEdgeV.getDirection() === 1) {
-                            foundOppositeEdgeV.pathMode = 2 /* OPPOSING_A */;
-                            edgeV.pathMode = 3 /* OPPOSING_B */;
-                        }
-                        else {
-                            foundOppositeEdgeV.pathMode = 3 /* OPPOSING_B */;
-                            edgeV.pathMode = 2 /* OPPOSING_A */;
-                        }
-                        foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? foundOppositeEdgeV.control : null);
-                        edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? edgeV.control : null);
+                    if (existingEdgeV) {
+                        var edgeV = existingEdgeV;
+                        edgeV.addEdgeModel(edge);
                     }
+                    else {
+                        var edgeV = new jsflap.Visualization.EdgeVisualization(edge);
+                    }
+                    this.handleOppositeEdgeExpanding(edgeV);
                     return this.visualizations.addEdge(edgeV);
                 }
             };
             Board.prototype.addEdgeVisualization = function (edgeV) {
-                return this.visualizations.addEdge(edgeV);
+                var _this = this;
+                edgeV.models.items.forEach(function (edge) {
+                    _this.graph.addEdge(edge);
+                });
+                this.visualizations.addEdge(edgeV);
+            };
+            /**
+             * Handles the opposite edge expanding animations
+             * @param edgeV
+             */
+            Board.prototype.handleOppositeEdgeExpanding = function (edgeV) {
+                var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
+                if (foundOppositeEdgeV) {
+                    // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
+                    if (foundOppositeEdgeV.getDirection() === 1) {
+                        foundOppositeEdgeV.pathMode = 2 /* OPPOSING_A */;
+                        edgeV.pathMode = 3 /* OPPOSING_B */;
+                    }
+                    else {
+                        foundOppositeEdgeV.pathMode = 3 /* OPPOSING_B */;
+                        edgeV.pathMode = 2 /* OPPOSING_A */;
+                    }
+                    foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? foundOppositeEdgeV.control : null);
+                    edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? edgeV.control : null);
+                }
             };
             /**
              * Starts editing the edge transition
@@ -1105,7 +1114,8 @@ var jsflap;
             Board.prototype.handleErasing = function (point) {
                 // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
                 if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.items[0])) {
-                    this.removeEdge(this.state.hoveringEdge);
+                    var cmd = new _Board.Command.EraseEdgeCommand(this, this.state.hoveringEdge);
+                    this.invocationStack.trackExecution(cmd);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
                     var cmd = new _Board.Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
@@ -3056,7 +3066,12 @@ var jsflap;
                         this.board.visualizations.addNode(this.endNodeV);
                         this.board.nodeCount++;
                     }
-                    this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge ? this.edge.transition : null, this.edgeIndex ? this.edgeIndex : null);
+                    //if(!this.edgeV) {
+                    this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge ? this.edge.transition : null);
+                    //} else {
+                    //    this.board.addEdgeVisualization(this.edgeV);
+                    //    this.board.handleOppositeEdgeExpanding(this.edgeV);
+                    //}
                     if (!this.edgeIndex) {
                         this.edgeIndex = this.edgeV.models.items.length - 1;
                         this.edge = this.edgeV.models.items[this.edgeIndex];
@@ -3118,6 +3133,39 @@ var jsflap;
                 return AddNodeAtPointCommand;
             })();
             Command.AddNodeAtPointCommand = AddNodeAtPointCommand;
+        })(Command = Board.Command || (Board.Command = {}));
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var Command;
+        (function (Command) {
+            var EraseEdgeCommand = (function () {
+                function EraseEdgeCommand(board, edgeV) {
+                    this.board = board;
+                    this.graph = board.graph;
+                    this.edgeV = edgeV;
+                }
+                EraseEdgeCommand.prototype.execute = function () {
+                    //this.edgeModels = this.edgeV.models.items.slice(0);
+                    this.board.removeEdge(this.edgeV);
+                };
+                EraseEdgeCommand.prototype.undo = function () {
+                    var _this = this;
+                    this.edgeV.models.items.forEach(function (edge) {
+                        _this.graph.addEdge(edge);
+                        //this.edgeV.addEdgeModel(edge);
+                    });
+                    this.edgeV.reindexEdgeModels();
+                    this.board.handleOppositeEdgeExpanding(this.edgeV);
+                    this.board.visualizations.addEdge(this.edgeV);
+                };
+                return EraseEdgeCommand;
+            })();
+            Command.EraseEdgeCommand = EraseEdgeCommand;
         })(Command = Board.Command || (Board.Command = {}));
     })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));

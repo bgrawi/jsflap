@@ -218,14 +218,6 @@ module jsflap.Board {
         public addEdge(existingEdgeV: Visualization.EdgeVisualization, from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition, index?: number) {
             var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
                 foundEdgeV;
-            //if(existingEdgeV) {
-            //    if(this.visualizations.edges.indexOf(existingEdgeV) === -1) {
-            //        this.visualizations.addEdge(existingEdgeV);
-            //    }
-            //    foundEdgeV = existingEdgeV;
-            //} else {
-            //
-            //}
 
             foundEdgeV =  this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
 
@@ -240,27 +232,44 @@ module jsflap.Board {
                 this.visualizations.update();
                 return foundEdgeV;
             } else {
-                var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(to.model, from.model);
-                var edgeV = existingEdgeV? existingEdgeV: new Visualization.EdgeVisualization(edge);
-                if(foundOppositeEdgeV) {
-                    // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
-                    if(foundOppositeEdgeV.getDirection() === 1) {
-                        foundOppositeEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_A;
-                        edgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_B;
-                    } else {
-                        foundOppositeEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_B;
-                        edgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_A;
-                    }
-                    foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint()? foundOppositeEdgeV.control: null);
-                    edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint()? edgeV.control: null);
+                if(existingEdgeV) {
+                    var edgeV = existingEdgeV;
+                    edgeV.addEdgeModel(edge);
+
+                } else {
+                    var edgeV = new Visualization.EdgeVisualization(edge);
                 }
 
+                this.handleOppositeEdgeExpanding(edgeV);
                 return this.visualizations.addEdge(edgeV);
             }
         }
 
         public addEdgeVisualization(edgeV: Visualization.EdgeVisualization) {
-            return this.visualizations.addEdge(edgeV);
+            edgeV.models.items.forEach((edge: Edge) => {
+               this.graph.addEdge(edge);
+            });
+            this.visualizations.addEdge(edgeV);
+        }
+
+        /**
+         * Handles the opposite edge expanding animations
+         * @param edgeV
+         */
+        public handleOppositeEdgeExpanding(edgeV: Visualization.EdgeVisualization) {
+            var foundOppositeEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
+            if(foundOppositeEdgeV) {
+                // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
+                if(foundOppositeEdgeV.getDirection() === 1) {
+                    foundOppositeEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_A;
+                    edgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_B;
+                } else {
+                    foundOppositeEdgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_B;
+                    edgeV.pathMode = Visualization.EdgeVisualizationPathMode.OPPOSING_A;
+                }
+                foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint()? foundOppositeEdgeV.control: null);
+                edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint()? edgeV.control: null);
+            }
         }
 
         /**
@@ -535,7 +544,8 @@ module jsflap.Board {
 
             // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
             if(this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.items[0])) {
-                this.removeEdge(this.state.hoveringEdge);
+                var cmd = new Command.EraseEdgeCommand(this, this.state.hoveringEdge);
+                this.invocationStack.trackExecution(cmd);
             }
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {

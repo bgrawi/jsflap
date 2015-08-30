@@ -79,7 +79,12 @@ module jsflap.Board.Command {
                 this.board.nodeCount++;
             }
 
-            this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge? this.edge.transition: null, this.edgeIndex? this.edgeIndex : null);
+            //if(!this.edgeV) {
+                this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge ? this.edge.transition : null);
+            //} else {
+            //    this.board.addEdgeVisualization(this.edgeV);
+            //    this.board.handleOppositeEdgeExpanding(this.edgeV);
+            //}
             if(!this.edgeIndex) {
                 this.edgeIndex = this.edgeV.models.items.length - 1;
                 this.edge = this.edgeV.models.items[this.edgeIndex];

@@ -59,9 +59,9 @@ module jsflap.Board.Command {
         private applyEdgeVisualizationControlPositionStates(eps: EdgeVisualizationControlPositionState) {
             var vis = eps.visualization;
             vis.setHasMovedControlPointDirectly(eps.hasMovedControl);
-            vis.start = eps.start;
-            vis.end = eps.end;
-            vis.setControlDirectly(eps.control);
+            vis.start = eps.start.getMPoint();
+            vis.end = eps.end.getMPoint();
+            vis.setControlDirectly(eps.control.getMPoint());
         }
 
         execute(): void {

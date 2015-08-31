@@ -12,7 +12,12 @@ module jsflap.Board.Command {
         control: Point.MPoint;
     }
 
-    export class MoveNodeCommand implements ICommand {
+    interface NodeVisualizationPositionState {
+        visualization: NodeV;
+        position: Point.MPoint;
+    }
+
+    export class MoveBoardCommand implements ICommand {
 
         /**
          * The current board
@@ -24,14 +29,9 @@ module jsflap.Board.Command {
          */
         private graph: IGraph;
 
-        /**
-         * The node being set to initial
-         */
-        private nodeV: NodeV;
+        private nodeStartPositions: NodeVisualizationPositionState[];
 
-        private nodeStartPosition: Point.MPoint;
-
-        private nodeEndPosition: Point.MPoint;
+        private nodeEndPositions:  NodeVisualizationPositionState[];
 
         private firstTime: boolean = true;
 
@@ -39,23 +39,39 @@ module jsflap.Board.Command {
 
         private edgeVisualizationEndPositions: EdgeVisualizationPositionState[];
 
-        private relatedEdges: EdgeV[];
+        private nodes: NodeV[];
 
-        constructor(board: Board, nodeV: NodeV) {
+        private edges: EdgeV[];
+        
+
+        constructor(board: Board) {
             this.board = board;
             this.graph = board.graph;
-            this.nodeV = nodeV;
 
-            this.nodeStartPosition = nodeV.position.getMPoint();
-            this.relatedEdges = this.getRelatedEdges();
-            this.edgeVisualizationStartPositions = this.makeEdgeVisualizationPositionStates(this.relatedEdges);
+            this.nodes = this.board.visualizations.nodes;
+            this.edges = this.board.visualizations.edges;
+
+            this.nodeStartPositions = this.makeNodeVisualizationPositionStates(this.nodes);
+            this.edgeVisualizationStartPositions = this.makeEdgeVisualizationPositionStates(this.edges);
 
         }
 
-        private getRelatedEdges(): EdgeV[] {
-            return this.board.visualizations.edges.filter((edgeV: EdgeV) => {
-                return edgeV.fromModel.visualization === this.nodeV ||
-                    edgeV.toModel.visualization === this.nodeV;
+        private makeNodeVisualizationPositionStates(nodeVisualizations: NodeV[]): NodeVisualizationPositionState[] {
+            var nodeVisualizationPositionStates: NodeVisualizationPositionState[] = [];
+            nodeVisualizations.forEach((nodeV: NodeV) => {
+                nodeVisualizationPositionStates.push({
+                    visualization: nodeV,
+                    position: nodeV.position.getMPoint()
+                });
+            });
+
+            return nodeVisualizationPositionStates;
+        }
+
+        private applyNodeVisualizationPositionStates(nodeVisualizationPositionState: NodeVisualizationPositionState[]) {
+            nodeVisualizationPositionState.forEach((eps: NodeVisualizationPositionState) => {
+                var vis = eps.visualization;
+                vis.position = eps.position.getMPoint();
             });
         }
 
@@ -84,13 +100,13 @@ module jsflap.Board.Command {
 
         execute(): void {
             if(this.firstTime) {
-                this.nodeEndPosition = this.nodeV.position.getMPoint();
-                this.edgeVisualizationEndPositions = this.makeEdgeVisualizationPositionStates(this.relatedEdges);
+                this.nodeEndPositions = this.makeNodeVisualizationPositionStates(this.nodes);
+                this.edgeVisualizationEndPositions = this.makeEdgeVisualizationPositionStates(this.edges);
                 this.firstTime = false;
                 return;
             }
 
-            this.nodeV.position = this.nodeEndPosition.getMPoint();
+            this.applyNodeVisualizationPositionStates(this.nodeEndPositions);
             this.applyEdgeVisualizationPositionStates(this.edgeVisualizationEndPositions);
             this.board.visualizations.shouldForceUpdateAnimation = true;
             this.board.visualizations.update();
@@ -98,7 +114,7 @@ module jsflap.Board.Command {
         }
 
         undo(): void {
-            this.nodeV.position = this.nodeStartPosition.getMPoint();
+            this.applyNodeVisualizationPositionStates(this.nodeStartPositions);
             this.applyEdgeVisualizationPositionStates(this.edgeVisualizationStartPositions);
             this.board.visualizations.shouldForceUpdateAnimation = true;
             this.board.visualizations.update();

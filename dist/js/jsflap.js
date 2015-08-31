@@ -1067,6 +1067,7 @@ var jsflap;
                     }
                     else {
                         this.state.isDraggingBoard = true;
+                        this.state.draggingCommand = new _Board.Command.MoveBoardCommand(this);
                     }
                 }
                 else if (this.state.mode === 2 /* ERASE */) {
@@ -3446,6 +3447,85 @@ var jsflap;
     (function (Board) {
         var Command;
         (function (Command) {
+            var MoveBoardCommand = (function () {
+                function MoveBoardCommand(board) {
+                    this.firstTime = true;
+                    this.board = board;
+                    this.graph = board.graph;
+                    this.nodes = this.board.visualizations.nodes;
+                    this.edges = this.board.visualizations.edges;
+                    this.nodeStartPositions = this.makeNodeVisualizationPositionStates(this.nodes);
+                    this.edgeVisualizationStartPositions = this.makeEdgeVisualizationPositionStates(this.edges);
+                }
+                MoveBoardCommand.prototype.makeNodeVisualizationPositionStates = function (nodeVisualizations) {
+                    var nodeVisualizationPositionStates = [];
+                    nodeVisualizations.forEach(function (nodeV) {
+                        nodeVisualizationPositionStates.push({
+                            visualization: nodeV,
+                            position: nodeV.position.getMPoint()
+                        });
+                    });
+                    return nodeVisualizationPositionStates;
+                };
+                MoveBoardCommand.prototype.applyNodeVisualizationPositionStates = function (nodeVisualizationPositionState) {
+                    nodeVisualizationPositionState.forEach(function (eps) {
+                        var vis = eps.visualization;
+                        vis.position = eps.position.getMPoint();
+                    });
+                };
+                MoveBoardCommand.prototype.makeEdgeVisualizationPositionStates = function (edgeVisualizations) {
+                    var edgeVisualizationPositionStates = [];
+                    edgeVisualizations.forEach(function (edgeV) {
+                        edgeVisualizationPositionStates.push({
+                            visualization: edgeV,
+                            start: edgeV.start.getMPoint(),
+                            end: edgeV.end.getMPoint(),
+                            control: edgeV.control.getMPoint()
+                        });
+                    });
+                    return edgeVisualizationPositionStates;
+                };
+                MoveBoardCommand.prototype.applyEdgeVisualizationPositionStates = function (edgeVisualizationPositionState) {
+                    edgeVisualizationPositionState.forEach(function (eps) {
+                        var vis = eps.visualization;
+                        vis.start = eps.start.getMPoint();
+                        vis.end = eps.end.getMPoint();
+                        vis.setControlDirectly(eps.control.getMPoint());
+                    });
+                };
+                MoveBoardCommand.prototype.execute = function () {
+                    if (this.firstTime) {
+                        this.nodeEndPositions = this.makeNodeVisualizationPositionStates(this.nodes);
+                        this.edgeVisualizationEndPositions = this.makeEdgeVisualizationPositionStates(this.edges);
+                        this.firstTime = false;
+                        return;
+                    }
+                    this.applyNodeVisualizationPositionStates(this.nodeEndPositions);
+                    this.applyEdgeVisualizationPositionStates(this.edgeVisualizationEndPositions);
+                    this.board.visualizations.shouldForceUpdateAnimation = true;
+                    this.board.visualizations.update();
+                    this.board.visualizations.shouldForceUpdateAnimation = false;
+                };
+                MoveBoardCommand.prototype.undo = function () {
+                    this.applyNodeVisualizationPositionStates(this.nodeStartPositions);
+                    this.applyEdgeVisualizationPositionStates(this.edgeVisualizationStartPositions);
+                    this.board.visualizations.shouldForceUpdateAnimation = true;
+                    this.board.visualizations.update();
+                    this.board.visualizations.shouldForceUpdateAnimation = false;
+                };
+                return MoveBoardCommand;
+            })();
+            Command.MoveBoardCommand = MoveBoardCommand;
+        })(Command = Board.Command || (Board.Command = {}));
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var Command;
+        (function (Command) {
             var MoveEdgeControlCommand = (function () {
                 function MoveEdgeControlCommand(board, edgeV) {
                     this.firstTime = true;
@@ -3466,9 +3546,9 @@ var jsflap;
                 MoveEdgeControlCommand.prototype.applyEdgeVisualizationControlPositionStates = function (eps) {
                     var vis = eps.visualization;
                     vis.setHasMovedControlPointDirectly(eps.hasMovedControl);
-                    vis.start = eps.start;
-                    vis.end = eps.end;
-                    vis.setControlDirectly(eps.control);
+                    vis.start = eps.start.getMPoint();
+                    vis.end = eps.end.getMPoint();
+                    vis.setControlDirectly(eps.control.getMPoint());
                 };
                 MoveEdgeControlCommand.prototype.execute = function () {
                     if (this.firstTime) {
@@ -3531,9 +3611,9 @@ var jsflap;
                 MoveNodeCommand.prototype.applyEdgeVisualizationPositionStates = function (edgeVisualizationPositionState) {
                     edgeVisualizationPositionState.forEach(function (eps) {
                         var vis = eps.visualization;
-                        vis.start = eps.start;
-                        vis.end = eps.end;
-                        vis.setControlDirectly(eps.control);
+                        vis.start = eps.start.getMPoint();
+                        vis.end = eps.end.getMPoint();
+                        vis.setControlDirectly(eps.control.getMPoint());
                     });
                 };
                 MoveNodeCommand.prototype.execute = function () {
@@ -3543,14 +3623,14 @@ var jsflap;
                         this.firstTime = false;
                         return;
                     }
-                    this.nodeV.position = this.nodeEndPosition;
+                    this.nodeV.position = this.nodeEndPosition.getMPoint();
                     this.applyEdgeVisualizationPositionStates(this.edgeVisualizationEndPositions);
                     this.board.visualizations.shouldForceUpdateAnimation = true;
                     this.board.visualizations.update();
                     this.board.visualizations.shouldForceUpdateAnimation = false;
                 };
                 MoveNodeCommand.prototype.undo = function () {
-                    this.nodeV.position = this.nodeStartPosition;
+                    this.nodeV.position = this.nodeStartPosition.getMPoint();
                     this.applyEdgeVisualizationPositionStates(this.edgeVisualizationStartPositions);
                     this.board.visualizations.shouldForceUpdateAnimation = true;
                     this.board.visualizations.update();

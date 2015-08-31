@@ -211,9 +211,11 @@ module jsflap.Board {
 
         /**
          * Adds an edge to the board given two nodes and a future edge
+         * @param existingEdgeV
          * @param from
          * @param to
          * @param transition
+         * @param index
          */
         public addEdge(existingEdgeV: Visualization.EdgeVisualization, from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition, index?: number) {
             var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
@@ -552,7 +554,7 @@ module jsflap.Board {
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
                 var cmd1 = new Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
-                this.invocationStack.trackExecution(cmd2);
+                this.invocationStack.trackExecution(cmd1);
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);
                 if(nearestNode.node && nearestNode.hover) {

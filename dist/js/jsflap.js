@@ -830,9 +830,11 @@ var jsflap;
             };
             /**
              * Adds an edge to the board given two nodes and a future edge
+             * @param existingEdgeV
              * @param from
              * @param to
              * @param transition
+             * @param index
              */
             Board.prototype.addEdge = function (existingEdgeV, from, to, transition, index) {
                 var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), foundEdgeV;
@@ -1121,7 +1123,7 @@ var jsflap;
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
                     var cmd1 = new _Board.Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
-                    this.invocationStack.trackExecution(cmd2);
+                    this.invocationStack.trackExecution(cmd1);
                 }
                 else {
                     var nearestNode = this.visualizations.getNearestNode(point);
@@ -2276,6 +2278,32 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
+    var Utils;
+    (function (Utils) {
+        /**
+         * ADAPTED FROM:
+         * Fast UUID generator, RFC4122 version 4 compliant.
+         * @author Jeff Ward (jcward.com).
+         * @license MIT license
+         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
+         **/
+        var lut = [];
+        for (var i = 0; i < 256; i++) {
+            lut[i] = (i < 16 ? '0' : '') + (i).toString(16);
+        }
+        function getUUID() {
+            var d0 = Math.random() * 0xffffffff | 0;
+            var d1 = Math.random() * 0xffffffff | 0;
+            var d2 = Math.random() * 0xffffffff | 0;
+            var d3 = Math.random() * 0xffffffff | 0;
+            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
+        }
+        Utils.getUUID = getUUID;
+    })(Utils = jsflap.Utils || (jsflap.Utils = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
     var Visualization;
     (function (Visualization) {
         (function (EdgeVisualizationPathMode) {
@@ -2932,11 +2960,12 @@ var jsflap;
                 var previousTransition = edge.transition;
                 el.node();
                 function applyTransition(edge, transition) {
-                    edge.transition = transition;
-                    _this.state.modifyEdgeTransition = null;
-                    _this.update();
-                    if (typeof _this.board.onBoardUpdateFn === 'function') {
-                        _this.board.onBoardUpdateFn();
+                    var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
+                    if (trackHistory) {
+                        _this.board.invocationStack.trackExecution(cmd);
+                    }
+                    else {
+                        cmd.execute();
                     }
                 }
                 function updateTransition() {
@@ -2948,22 +2977,6 @@ var jsflap;
                     var similarTransitions = edge.visualization.models.items.length > 1 ? edge.visualization.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
                     if (similarTransitions.length == 0) {
                         applyTransition(edge, transition);
-                        if (trackHistory) {
-                            _this.board.undoManager.add({
-                                undo: function () {
-                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); });
-                                    if (foundEdges.length === 1) {
-                                        applyTransition(foundEdges[0], previousTransition);
-                                    }
-                                },
-                                redo: function () {
-                                    var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model, toModel = _this.getNodeVisualizationByLabel(edge.to.label).model, edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel), foundEdges = edgeV.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === previousTransition.toString(); });
-                                    if (foundEdges.length === 1) {
-                                        applyTransition(foundEdges[0], transition);
-                                    }
-                                }
-                            });
-                        }
                     }
                     else {
                         _this.editTransition(edge, target, !!trackHistory);
@@ -2983,6 +2996,11 @@ var jsflap;
                 inp.on("blur", function () {
                     updateTransition();
                     frm.remove();
+                }).on("keydown", function () {
+                    var e = d3.event;
+                    if (e.keyCode == 13 || e.keyCode == 27) {
+                        e.preventDefault();
+                    }
                 }).on("keyup", function () {
                     var e = d3.event;
                     if (e.keyCode == 13 || e.keyCode == 27 || this.value.length > 0) {
@@ -2999,32 +3017,6 @@ var jsflap;
         })();
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Utils;
-    (function (Utils) {
-        /**
-         * ADAPTED FROM:
-         * Fast UUID generator, RFC4122 version 4 compliant.
-         * @author Jeff Ward (jcward.com).
-         * @license MIT license
-         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
-         **/
-        var lut = [];
-        for (var i = 0; i < 256; i++) {
-            lut[i] = (i < 16 ? '0' : '') + (i).toString(16);
-        }
-        function getUUID() {
-            var d0 = Math.random() * 0xffffffff | 0;
-            var d1 = Math.random() * 0xffffffff | 0;
-            var d2 = Math.random() * 0xffffffff | 0;
-            var d3 = Math.random() * 0xffffffff | 0;
-            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
-        }
-        Utils.getUUID = getUUID;
-    })(Utils = jsflap.Utils || (jsflap.Utils = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -3145,6 +3137,47 @@ var jsflap;
                 return AddNodeAtPointCommand;
             })();
             Command.AddNodeAtPointCommand = AddNodeAtPointCommand;
+        })(Command = Board.Command || (Board.Command = {}));
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var Command;
+        (function (Command) {
+            var EditEdgeTransitionCommand = (function () {
+                function EditEdgeTransitionCommand(board, edge, transitionTo, transitionFrom) {
+                    this.board = board;
+                    this.graph = board.graph;
+                    this.edge = edge;
+                    this.transitionTo = transitionTo;
+                    this.transitionFrom = transitionFrom;
+                }
+                EditEdgeTransitionCommand.prototype.execute = function () {
+                    var _this = this;
+                    var results = this.edge.visualization.models.items.filter(function (edge) { return edge.transition === _this.transitionFrom; });
+                    results[0].transition = this.transitionTo;
+                    this.board.state.modifyEdgeTransition = null;
+                    this.board.visualizations.update();
+                    if (typeof this.board.onBoardUpdateFn === 'function') {
+                        this.board.onBoardUpdateFn();
+                    }
+                };
+                EditEdgeTransitionCommand.prototype.undo = function () {
+                    var _this = this;
+                    var results = this.edge.visualization.models.items.filter(function (edge) { return edge.transition === _this.transitionTo; });
+                    results[0].transition = this.transitionFrom;
+                    this.board.state.modifyEdgeTransition = null;
+                    this.board.visualizations.update();
+                    if (typeof this.board.onBoardUpdateFn === 'function') {
+                        this.board.onBoardUpdateFn();
+                    }
+                };
+                return EditEdgeTransitionCommand;
+            })();
+            Command.EditEdgeTransitionCommand = EditEdgeTransitionCommand;
         })(Command = Board.Command || (Board.Command = {}));
     })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));

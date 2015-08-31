@@ -632,11 +632,11 @@ module jsflap.Visualization {
             el.node();
 
             function applyTransition(edge, transition) {
-                edge.transition = transition;
-                _this.state.modifyEdgeTransition = null;
-                _this.update();
-                if (typeof _this.board.onBoardUpdateFn === 'function') {
-                    _this.board.onBoardUpdateFn();
+                var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
+                if(trackHistory) {
+                    _this.board.invocationStack.trackExecution(cmd);
+                } else {
+                    cmd.execute();
                 }
             }
 
@@ -654,30 +654,6 @@ module jsflap.Visualization {
 
                 if(similarTransitions.length == 0) {
                     applyTransition(edge, transition);
-                    if(trackHistory) {
-                        _this.board.undoManager.add({
-                            undo: () => {
-                                var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model,
-                                    toModel = _this.getNodeVisualizationByLabel(edge.to.label).model,
-                                    edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel),
-                                    foundEdges = edgeV.models.items
-                                    .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString());
-                                if(foundEdges.length === 1) {
-                                    applyTransition(foundEdges[0], previousTransition);
-                                }
-                            },
-                            redo: () => {
-                                var fromModel = _this.getNodeVisualizationByLabel(edge.from.label).model,
-                                    toModel = _this.getNodeVisualizationByLabel(edge.to.label).model,
-                                    edgeV = _this.getEdgeVisualizationByNodes(fromModel, toModel),
-                                    foundEdges = edgeV.models.items
-                                    .filter((otherEdge: Edge) => otherEdge.transition.toString() === previousTransition.toString());
-                                if(foundEdges.length === 1) {
-                                    applyTransition(foundEdges[0], transition);
-                                }
-                            }
-                        });
-                    }
                 } else {
                     _this.editTransition(edge, target, !!trackHistory);
                 }
@@ -711,6 +687,12 @@ module jsflap.Visualization {
                 .on("blur", function() {
                     updateTransition();
                     frm.remove();
+                })
+                .on("keydown", function() {
+                    var e = d3.event;
+                    if (e.keyCode == 13 || e.keyCode == 27) {
+                        e.preventDefault();
+                    }
                 })
                 .on("keyup", function() {
                     var e = d3.event;

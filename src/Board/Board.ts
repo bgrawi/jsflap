@@ -38,12 +38,6 @@ module jsflap.Board {
         public nodeCount = 0;
 
         /**
-         * The undo manager
-         * @type {{add: (function(any): (any|any)), setCallback: (function(any): undefined), undo: (function(): (any|any)), execute: (function(): (any|any)), clear: (function(): undefined), hasUndo: (function(): boolean), hasRedo: (function(): boolean), getCommands: (function(): Array)}}
-         */
-        public undoManager = jsflap.getUndoManager();
-
-        /**
          * The Invocation stack
          * @type {jsflap.Board.BoardInvocationStack}
          */
@@ -65,6 +59,11 @@ module jsflap.Board {
             this.state = new BoardState();
             this.visualizations = new Visualization.VisualizationCollection(this.svg, this);
             this.registerBindings($rootScope);
+        }
+
+        public reindexNodeNames() {
+            var cmd = new Command.ReindexNodeLabelsCommand(this);
+            this.invocationStack.trackExecution(cmd);
         }
 
         /**

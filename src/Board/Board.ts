@@ -366,6 +366,7 @@ module jsflap.Board {
                     this.state.draggingCommand = new Command.MoveNodeCommand(this, this.state.draggingNode);
                 } else {
                     this.state.isDraggingBoard = true;
+                    this.state.draggingCommand = new Command.MoveBoardCommand(this);
                 }
             } else if(this.state.mode === BoardMode.ERASE) {
                 this.state.isErasing = true;

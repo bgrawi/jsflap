@@ -35,6 +35,6 @@ module jsflap.Board {
 
         public lastMousePoint: Point.IPoint = null;
 
-        public moveNodeCommand: Command.ICommand  = null;
+        public draggingCommand: Command.ICommand  = null;
     }
 }

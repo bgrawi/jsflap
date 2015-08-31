@@ -175,6 +175,10 @@ module jsflap.Visualization {
             this._control = point;
         }
 
+        public setHasMovedControlPointDirectly(val: boolean) {
+            this._hasMovedControlPoint = val;
+        }
+
         /**
          * Gets the control point
          * @returns {Point.MPoint}

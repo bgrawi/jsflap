@@ -353,6 +353,7 @@ module jsflap.Visualization {
                 .on('mousedown', (edge: EdgeVisualization) => {
                     if(this.state.mode === Board.BoardMode.MOVE) {
                         this.state.modifyEdgeControl = edge;
+                        this.state.draggingCommand = new Board.Command.MoveEdgeControlCommand(this.board, edge);
                     }
                 })
                 .on('dblclick', (edge: EdgeVisualization) => {
@@ -467,6 +468,7 @@ module jsflap.Visualization {
                         this.state.hoveringTransition = edge;
                     } else {
                         this.state.modifyEdgeControl = edge.visualization;
+
                     }
                 })
                 .on("mouseup", (d: Edge) => {

@@ -793,9 +793,9 @@ var jsflap;
                     this.state.futureEdgeFrom = null;
                 }
                 else if (this.state.mode === 1 /* MOVE */) {
-                    if (this.state.moveNodeCommand !== null) {
-                        this.invocationStack.trackExecution(this.state.moveNodeCommand);
-                        this.state.moveNodeCommand = null;
+                    if (this.state.draggingCommand !== null) {
+                        this.invocationStack.trackExecution(this.state.draggingCommand);
+                        this.state.draggingCommand = null;
                     }
                     this.state.draggingNode = null;
                     this.state.modifyEdgeControl = null;
@@ -973,7 +973,7 @@ var jsflap;
                 else if (this.state.mode === 1 /* MOVE */ && !this.state.modifyEdgeControl) {
                     if (nearestNode.node && nearestNode.hover) {
                         this.state.draggingNode = nearestNode.node;
-                        this.state.moveNodeCommand = new _Board.Command.MoveNodeCommand(this, this.state.draggingNode);
+                        this.state.draggingCommand = new _Board.Command.MoveNodeCommand(this, this.state.draggingNode);
                     }
                     else {
                         this.state.isDraggingBoard = true;
@@ -1468,7 +1468,7 @@ var jsflap;
                 this.modifyEdgeControl = null;
                 this.contextMenuOptions = null;
                 this.lastMousePoint = null;
-                this.moveNodeCommand = null;
+                this.draggingCommand = null;
             }
             return BoardState;
         })();
@@ -2058,6 +2058,77 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * A Transition of a single character in an NFA
+         */
+        var CharacterTransition = (function () {
+            /**
+             * Creates a new single char transition
+             * @param character
+             */
+            function CharacterTransition(character) {
+                if (character.length > 1) {
+                    throw new Error("Character Transition length must be less than or equal to 1");
+                }
+                else {
+                    this.character = character;
+                }
+            }
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            CharacterTransition.prototype.toString = function () {
+                return this.character;
+            };
+            /**
+             * Determines if the input matches this transition
+             * @param input
+             * @returns {boolean}
+             */
+            CharacterTransition.prototype.canFollowOn = function (input) {
+                return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
+            };
+            return CharacterTransition;
+        })();
+        Transition.CharacterTransition = CharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * A Transition of a multi character in an DFA
+         */
+        var MultiCharacterTransition = (function () {
+            /**
+             * Creates a new multi char transition
+             * @param characters
+             */
+            function MultiCharacterTransition(characters) {
+                this.characters = characters;
+            }
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            MultiCharacterTransition.prototype.toString = function () {
+                return this.characters;
+            };
+            return MultiCharacterTransition;
+        })();
+        Transition.MultiCharacterTransition = MultiCharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
     var Point;
     (function (Point) {
         /**
@@ -2378,6 +2449,9 @@ var jsflap;
             });
             EdgeVisualization.prototype.setControlDirectly = function (point) {
                 this._control = point;
+            };
+            EdgeVisualization.prototype.setHasMovedControlPointDirectly = function (val) {
+                this._hasMovedControlPoint = val;
             };
             /**
              * Gets the path string
@@ -2702,6 +2776,7 @@ var jsflap;
                 edgePathControlPoints.enter().append('circle').classed('control', true).attr('r', 10).on('mousedown', function (edge) {
                     if (_this.state.mode === 1 /* MOVE */) {
                         _this.state.modifyEdgeControl = edge;
+                        _this.state.draggingCommand = new jsflap.Board.Command.MoveEdgeControlCommand(_this.board, edge);
                     }
                 }).on('dblclick', function (edge) {
                     if (_this.state.mode === 1 /* MOVE */) {
@@ -2956,77 +3031,6 @@ var jsflap;
         })();
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Transition;
-    (function (Transition) {
-        /**
-         * A Transition of a single character in an NFA
-         */
-        var CharacterTransition = (function () {
-            /**
-             * Creates a new single char transition
-             * @param character
-             */
-            function CharacterTransition(character) {
-                if (character.length > 1) {
-                    throw new Error("Character Transition length must be less than or equal to 1");
-                }
-                else {
-                    this.character = character;
-                }
-            }
-            /**
-             * Gets the string representation of the transition
-             * @returns {string}
-             */
-            CharacterTransition.prototype.toString = function () {
-                return this.character;
-            };
-            /**
-             * Determines if the input matches this transition
-             * @param input
-             * @returns {boolean}
-             */
-            CharacterTransition.prototype.canFollowOn = function (input) {
-                return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
-            };
-            return CharacterTransition;
-        })();
-        Transition.CharacterTransition = CharacterTransition;
-    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-var jsflap;
-(function (jsflap) {
-    var Transition;
-    (function (Transition) {
-        /**
-         * A Transition of a multi character in an DFA
-         */
-        var MultiCharacterTransition = (function () {
-            /**
-             * Creates a new multi char transition
-             * @param characters
-             */
-            function MultiCharacterTransition(characters) {
-                this.characters = characters;
-            }
-            /**
-             * Gets the string representation of the transition
-             * @returns {string}
-             */
-            MultiCharacterTransition.prototype.toString = function () {
-                return this.characters;
-            };
-            return MultiCharacterTransition;
-        })();
-        Transition.MultiCharacterTransition = MultiCharacterTransition;
-    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -3328,6 +3332,60 @@ var jsflap;
                 return MarkFinalNodeCommand;
             })();
             Command.MarkFinalNodeCommand = MarkFinalNodeCommand;
+        })(Command = Board.Command || (Board.Command = {}));
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var Command;
+        (function (Command) {
+            var MoveEdgeControlCommand = (function () {
+                function MoveEdgeControlCommand(board, edgeV) {
+                    this.firstTime = true;
+                    this.board = board;
+                    this.graph = board.graph;
+                    this.edgeV = edgeV;
+                    this.edgeVisualizationControlStartPosition = this.makeEdgeVisualizationControlPositionStates(this.edgeV);
+                }
+                MoveEdgeControlCommand.prototype.makeEdgeVisualizationControlPositionStates = function (edgeV) {
+                    return {
+                        visualization: edgeV,
+                        hasMovedControl: edgeV.hasMovedControlPoint(),
+                        control: edgeV.control.getMPoint(),
+                        start: edgeV.start.getMPoint(),
+                        end: edgeV.end.getMPoint()
+                    };
+                };
+                MoveEdgeControlCommand.prototype.applyEdgeVisualizationControlPositionStates = function (eps) {
+                    var vis = eps.visualization;
+                    vis.setHasMovedControlPointDirectly(eps.hasMovedControl);
+                    vis.start = eps.start;
+                    vis.end = eps.end;
+                    vis.setControlDirectly(eps.control);
+                };
+                MoveEdgeControlCommand.prototype.execute = function () {
+                    if (this.firstTime) {
+                        this.edgeVisualizationControlEndPosition = this.makeEdgeVisualizationControlPositionStates(this.edgeV);
+                        this.firstTime = false;
+                        return;
+                    }
+                    this.applyEdgeVisualizationControlPositionStates(this.edgeVisualizationControlEndPosition);
+                    this.board.visualizations.shouldForceUpdateAnimation = true;
+                    this.board.visualizations.update();
+                    this.board.visualizations.shouldForceUpdateAnimation = false;
+                };
+                MoveEdgeControlCommand.prototype.undo = function () {
+                    this.applyEdgeVisualizationControlPositionStates(this.edgeVisualizationControlStartPosition);
+                    this.board.visualizations.shouldForceUpdateAnimation = true;
+                    this.board.visualizations.update();
+                    this.board.visualizations.shouldForceUpdateAnimation = false;
+                };
+                return MoveEdgeControlCommand;
+            })();
+            Command.MoveEdgeControlCommand = MoveEdgeControlCommand;
         })(Command = Board.Command || (Board.Command = {}));
     })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));

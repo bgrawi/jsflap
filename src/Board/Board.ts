@@ -169,9 +169,9 @@ module jsflap.Board {
 
                 this.state.futureEdgeFrom = null;
             } else if(this.state.mode === BoardMode.MOVE) {
-                if(this.state.moveNodeCommand !== null) {
-                    this.invocationStack.trackExecution(this.state.moveNodeCommand);
-                    this.state.moveNodeCommand = null;
+                if(this.state.draggingCommand !== null) {
+                    this.invocationStack.trackExecution(this.state.draggingCommand);
+                    this.state.draggingCommand = null;
                 }
                 this.state.draggingNode = null;
                 this.state.modifyEdgeControl = null;
@@ -363,7 +363,7 @@ module jsflap.Board {
             } else if(this.state.mode === BoardMode.MOVE && !this.state.modifyEdgeControl) {
                 if (nearestNode.node && nearestNode.hover) {
                     this.state.draggingNode = nearestNode.node;
-                    this.state.moveNodeCommand = new Command.MoveNodeCommand(this, this.state.draggingNode);
+                    this.state.draggingCommand = new Command.MoveNodeCommand(this, this.state.draggingNode);
                 } else {
                     this.state.isDraggingBoard = true;
                 }

@@ -2,6 +2,7 @@ module jsflap.Board.Command {
 
     import IPoint = Point.IPoint;
     import NodeV = Visualization.NodeVisualization;
+    import EdgeV = Visualization.EdgeVisualization;
     import IGraph = Graph.IGraph;
 
     export class EraseEdgeTransitionCommand implements ICommand {

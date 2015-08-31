@@ -53,6 +53,8 @@ module jsflap.Visualization {
          */
         public board: Board.Board;
 
+        public shouldAutoUpdateOnModify: boolean = true;
+
         /**
          * Creates a new visualization collection
          * @param svg
@@ -496,7 +498,9 @@ module jsflap.Visualization {
          */
         public addNode(node: NodeVisualization) {
             this.nodes.push(node);
-            this.update();
+            if(this.shouldAutoUpdateOnModify) {
+                this.update();
+            }
             return node;
         }
 
@@ -506,7 +510,9 @@ module jsflap.Visualization {
          */
         public addEdge(edge: EdgeVisualization) {
             this.edges.push(edge);
-            this.update();
+            if(this.shouldAutoUpdateOnModify) {
+                this.update();
+            }
             return edge;
         }
 
@@ -546,7 +552,10 @@ module jsflap.Visualization {
                 return false;
             }
             this.nodes.splice(nodeIndex, 1);
-            this.update();
+
+            if(this.shouldAutoUpdateOnModify) {
+                this.update();
+            }
             return true;
         }
 
@@ -561,7 +570,9 @@ module jsflap.Visualization {
                 return false;
             }
             this.edges.splice(edgeIndex, 1);
-            this.update();
+            if(this.shouldAutoUpdateOnModify) {
+                this.update();
+            }
             return true;
         }
 

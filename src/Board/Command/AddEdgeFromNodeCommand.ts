@@ -66,7 +66,7 @@ module jsflap.Board.Command {
                 this.neededToCreateNode = false;
             } else {
                 this.endNode = new Node('q' + board.nodeCount);
-                this.endNodeV = new NodeV(this.endNode, endingPoint);
+                this.endNodeV = new NodeV(this.endNode, endingPoint.getMPoint());
 
                 this.neededToCreateNode = true;
             }

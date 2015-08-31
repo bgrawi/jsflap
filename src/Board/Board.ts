@@ -229,7 +229,9 @@ module jsflap.Board {
                 }
 
                 // Visualizations don't auto-update here, so we need to force call it
-                this.visualizations.update();
+                if(this.visualizations.shouldAutoUpdateOnModify) {
+                    this.visualizations.update();
+                }
                 return foundEdgeV;
             } else {
                 if(existingEdgeV) {
@@ -549,12 +551,13 @@ module jsflap.Board {
             }
             // If we are hovering over a specific transition and have not already erased it
             else if(this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                var cmd = new Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
-                this.invocationStack.trackExecution(cmd);
+                var cmd1 = new Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
+                this.invocationStack.trackExecution(cmd2);
             } else {
                 var nearestNode = this.visualizations.getNearestNode(point);
                 if(nearestNode.node && nearestNode.hover) {
-                    this.removeNode(nearestNode.node);
+                    var cmd2 = new Command.EraseNodeCommand(this, nearestNode.node);
+                    this.invocationStack.trackExecution(cmd2);
                 }
             }
         }

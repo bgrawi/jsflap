@@ -844,7 +844,9 @@ var jsflap;
                         foundEdgeV.reindexEdgeModels();
                     }
                     // Visualizations don't auto-update here, so we need to force call it
-                    this.visualizations.update();
+                    if (this.visualizations.shouldAutoUpdateOnModify) {
+                        this.visualizations.update();
+                    }
                     return foundEdgeV;
                 }
                 else {
@@ -1118,13 +1120,14 @@ var jsflap;
                     this.invocationStack.trackExecution(cmd);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                    var cmd = new _Board.Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
-                    this.invocationStack.trackExecution(cmd);
+                    var cmd1 = new _Board.Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
+                    this.invocationStack.trackExecution(cmd2);
                 }
                 else {
                     var nearestNode = this.visualizations.getNearestNode(point);
                     if (nearestNode.node && nearestNode.hover) {
-                        this.removeNode(nearestNode.node);
+                        var cmd2 = new _Board.Command.EraseNodeCommand(this, nearestNode.node);
+                        this.invocationStack.trackExecution(cmd2);
                     }
                 }
             };
@@ -2273,32 +2276,6 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
-    var Utils;
-    (function (Utils) {
-        /**
-         * ADAPTED FROM:
-         * Fast UUID generator, RFC4122 version 4 compliant.
-         * @author Jeff Ward (jcward.com).
-         * @license MIT license
-         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
-         **/
-        var lut = [];
-        for (var i = 0; i < 256; i++) {
-            lut[i] = (i < 16 ? '0' : '') + (i).toString(16);
-        }
-        function getUUID() {
-            var d0 = Math.random() * 0xffffffff | 0;
-            var d1 = Math.random() * 0xffffffff | 0;
-            var d2 = Math.random() * 0xffffffff | 0;
-            var d3 = Math.random() * 0xffffffff | 0;
-            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
-        }
-        Utils.getUUID = getUUID;
-    })(Utils = jsflap.Utils || (jsflap.Utils = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
     var Visualization;
     (function (Visualization) {
         (function (EdgeVisualizationPathMode) {
@@ -2632,6 +2609,7 @@ var jsflap;
              * @param board
              */
             function VisualizationCollection(svg, board) {
+                this.shouldAutoUpdateOnModify = true;
                 this.svg = svg;
                 this.state = board.state;
                 this.board = board;
@@ -2835,7 +2813,9 @@ var jsflap;
              */
             VisualizationCollection.prototype.addNode = function (node) {
                 this.nodes.push(node);
-                this.update();
+                if (this.shouldAutoUpdateOnModify) {
+                    this.update();
+                }
                 return node;
             };
             /**
@@ -2844,7 +2824,9 @@ var jsflap;
              */
             VisualizationCollection.prototype.addEdge = function (edge) {
                 this.edges.push(edge);
-                this.update();
+                if (this.shouldAutoUpdateOnModify) {
+                    this.update();
+                }
                 return edge;
             };
             /**
@@ -2879,7 +2861,9 @@ var jsflap;
                     return false;
                 }
                 this.nodes.splice(nodeIndex, 1);
-                this.update();
+                if (this.shouldAutoUpdateOnModify) {
+                    this.update();
+                }
                 return true;
             };
             /**
@@ -2893,7 +2877,9 @@ var jsflap;
                     return false;
                 }
                 this.edges.splice(edgeIndex, 1);
-                this.update();
+                if (this.shouldAutoUpdateOnModify) {
+                    this.update();
+                }
                 return true;
             };
             /**
@@ -3017,6 +3003,32 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
+    var Utils;
+    (function (Utils) {
+        /**
+         * ADAPTED FROM:
+         * Fast UUID generator, RFC4122 version 4 compliant.
+         * @author Jeff Ward (jcward.com).
+         * @license MIT license
+         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
+         **/
+        var lut = [];
+        for (var i = 0; i < 256; i++) {
+            lut[i] = (i < 16 ? '0' : '') + (i).toString(16);
+        }
+        function getUUID() {
+            var d0 = Math.random() * 0xffffffff | 0;
+            var d1 = Math.random() * 0xffffffff | 0;
+            var d2 = Math.random() * 0xffffffff | 0;
+            var d3 = Math.random() * 0xffffffff | 0;
+            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
+        }
+        Utils.getUUID = getUUID;
+    })(Utils = jsflap.Utils || (jsflap.Utils = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
     var Board;
     (function (Board) {
         var Command;
@@ -3056,7 +3068,7 @@ var jsflap;
                     }
                     else {
                         this.endNode = new jsflap.Node('q' + board.nodeCount);
-                        this.endNodeV = new NodeV(this.endNode, endingPoint);
+                        this.endNodeV = new NodeV(this.endNode, endingPoint.getMPoint());
                         this.neededToCreateNode = true;
                     }
                 }
@@ -3201,6 +3213,49 @@ var jsflap;
                 return EraseEdgeTransitionCommand;
             })();
             Command.EraseEdgeTransitionCommand = EraseEdgeTransitionCommand;
+        })(Command = Board.Command || (Board.Command = {}));
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
+        var Command;
+        (function (Command) {
+            var EraseNodeCommand = (function () {
+                function EraseNodeCommand(board, nodeV) {
+                    this.board = board;
+                    this.graph = board.graph;
+                    this.nodeV = nodeV;
+                    this.node = nodeV.model;
+                }
+                EraseNodeCommand.prototype.execute = function () {
+                    this.fromEdges = this.node.fromEdges.items.slice(0);
+                    this.toEdges = this.node.toEdges.items.slice(0);
+                    this.board.removeNode(this.nodeV);
+                };
+                EraseNodeCommand.prototype.undo = function () {
+                    var _this = this;
+                    this.board.visualizations.shouldAutoUpdateOnModify = false;
+                    this.graph.addNode(this.node);
+                    this.board.visualizations.addNode(this.nodeV);
+                    var updateFn = function (edge) {
+                        _this.board.addEdge(edge.visualization, edge.from.visualization, edge.to.visualization, edge.transition, edge.visualizationNumber);
+                        edge.visualization.reindexEdgeModels();
+                    };
+                    this.fromEdges.forEach(updateFn);
+                    this.toEdges.forEach(updateFn);
+                    this.nodeV.model = this.node;
+                    this.board.visualizations.update();
+                    this.board.visualizations.shouldAutoUpdateOnModify = true;
+                };
+                EraseNodeCommand.prototype.getNode = function () {
+                    return this.node;
+                };
+                return EraseNodeCommand;
+            })();
+            Command.EraseNodeCommand = EraseNodeCommand;
         })(Command = Board.Command || (Board.Command = {}));
     })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));

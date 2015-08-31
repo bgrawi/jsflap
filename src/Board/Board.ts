@@ -758,9 +758,7 @@ module jsflap.Board {
             return true;
         }
 
-        public toLaTeX(): string {
-            var texData = '';
-
+        public getBounds() {
             var minX = Number.MAX_VALUE,
                 maxX = 0,
                 minY = Number.MAX_VALUE,
@@ -786,7 +784,7 @@ module jsflap.Board {
                 curMaxY = posY + radius;
 
                 if(node.model.final) {
-                   curMinX -= 20;
+                    curMinX -= 20;
                 }
 
                 minX = Math.min(curMinX, minX);
@@ -814,6 +812,25 @@ module jsflap.Board {
                 minY = Math.min(curMinY, minY);
                 maxY = Math.max(curMaxY, maxY);
             });
+
+            return {
+                minX: minX,
+                maxX: maxX,
+                minY: minY,
+                maxY: maxY
+            };
+        }
+
+        public toLaTeX(): string {
+            var texData = '';
+
+            var bounds = this.getBounds();
+
+            var minX = bounds.minX,
+                maxX = bounds.maxX,
+                minY = bounds.minY,
+                maxY = bounds.maxY;
+
 
             var offsetPoint = new Point.IMPoint(minX, minY);
 

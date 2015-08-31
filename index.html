@@ -25,21 +25,17 @@
             <li has-dropdown>
                 <a href="#">File</a>
                 <ul top-bar-dropdown>
-                    <li><a href="/"><i class="fa fa-file fa-fw"></i> New</a></li>
-                    <li has-dropdown>
-                        <a href="#"><i class="fa fa-folder-open fa-fw"></i> Open...</a>
-                        <ul top-bar-dropdown>
-                            <li><a href="#">Local Storage</a></li>
-                            <li><a href="#">JFLAP file (.jff)</a></li>
-                            <li><a href="#">Automata Definition (.txt)</a></li>
-                        </ul>
-                    </li>
+                    <li><a href="/" target="_blank"><i class="fa fa-file fa-fw"></i> New</a></li>
+                    <!--<li has-dropdown>-->
+                        <!--<a href="#"><i class="fa fa-folder-open fa-fw"></i> Open...</a>-->
+                        <!--<ul top-bar-dropdown>-->
+                            <!--<li><a href="#">Coming Soon</a></li>-->
+                        <!--</ul>-->
+                    <!--</li>-->
                     <li has-dropdown>
                         <a href="#"><i class="fa fa-save fa-fw"></i> Save...</a>
                         <ul top-bar-dropdown>
-                            <li><a href="#">Local Storage</a></li>
-                            <li><a href="#">JFLAP file (.jff)</a></li>
-                            <li><a href="#">Automata Definition (.txt)</a></li>
+                            <li><a ng-click="saveToImage()" href="">PNG Image</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -80,10 +76,6 @@
             <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
                     orient="auto">
                 <path class="markerArrow" d="M2,2 L2,13 L8,7 L2,2" style="fill: #000000; shape-rendering: optimizeSpeed !important;"></path>
-            </marker>
-            <marker id="markerArrow2" markerWidth="13" markerHeight="14" refx="14" refy="5"
-                    orient="auto">
-                <path class="markerArrow" d="M0,10 L14,5 L0,0" style="stroke: #000000; fill: none; shape-rendering: optimizeSpeed !important;"></path>
             </marker>
             <g class="background"></g>
             <g class="items">

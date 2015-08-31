@@ -200,6 +200,82 @@
                 });
             };
 
+            function computedToInline(element, recursive) {
+                if (!element) {
+                    throw new Error("No element specified.");
+                }
+
+                if (!(element instanceof Element)) {
+                    throw new Error("Specified element is not an instance of Element.");
+                }
+
+                if (recursive) {
+                    Array.prototype.forEach.call(element.children, function(child) {
+                        computedToInline(child, recursive);
+                    });
+                }
+
+                var computedStyle = getComputedStyle(element, null);
+                for (var i = 0; i < computedStyle.length; i++) {
+                    var property = computedStyle.item(i);
+                    var value = computedStyle.getPropertyValue(property);
+                    element.style[property] = value;
+                }
+            }
+
+            var svgClone;
+
+            $scope.saveToImage = function () {
+
+                var bounds = self.board.getBounds();
+
+                var width = bounds.maxX + 50 - bounds.minX,
+                    height = bounds.maxY + 50 - bounds.minY;
+
+                svgClone = self.board.svg[0][0].cloneNode(true);
+
+                svgClone.innerHTML = svgClone.innerHTML.replace(/markerArrow/g, "markerArrow_save")
+
+                svgClone.style.width = width;
+                svgClone.style.height = height;
+                svgClone.setAttribute("viewBox", [bounds.minX - 25, bounds.minY - 25, bounds.maxX + 25, bounds.maxY + 25].join(" "));
+
+                document.querySelector("body").appendChild(svgClone);
+                computedToInline(svgClone, true);
+                svgClone.style.display = "none";
+                var svg_xml = (new XMLSerializer()).serializeToString(svgClone);
+                var imgsrc = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg_xml)));
+                document.querySelector("body").removeChild(svgClone);
+                var canvas = document.createElement("canvas");
+
+                canvas.width = width;
+                canvas.height = height;
+
+                var context = canvas.getContext("2d");
+
+                var image = new Image(width, height);
+                image.src = imgsrc;
+
+                image.onload = function() {
+                    context.fillStyle = "#FFFFFF";
+                    context.fillRect(0, 0, width, height);
+
+                    context.drawImage(image, 0, 0);
+
+                    var canvasdata = canvas.toDataURL("image/png");
+
+                    var a = document.createElement("a");
+                    a.download = ($scope.graphMeta.title? $scope.graphMeta.title: "graph") + ".png";
+                    a.href = canvasdata;
+                    a.click();
+                };
+
+            };
+
+            $scope.saveToLaTeX = function() {
+
+            };
+
             // For easy debugging
             window.graph = this.graph;
             $scope.graph = this.graph;

@@ -200,6 +200,82 @@
                 });
             };
 
+            function computedToInline(element, recursive) {
+                if (!element) {
+                    throw new Error("No element specified.");
+                }
+
+                if (!(element instanceof Element)) {
+                    throw new Error("Specified element is not an instance of Element.");
+                }
+
+                if (recursive) {
+                    Array.prototype.forEach.call(element.children, function(child) {
+                        computedToInline(child, recursive);
+                    });
+                }
+
+                var computedStyle = getComputedStyle(element, null);
+                for (var i = 0; i < computedStyle.length; i++) {
+                    var property = computedStyle.item(i);
+                    var value = computedStyle.getPropertyValue(property);
+                    element.style[property] = value;
+                }
+            }
+
+            var svgClone;
+
+            $scope.saveToImage = function () {
+
+                var bounds = self.board.getBounds();
+
+                var width = bounds.maxX + 50 - bounds.minX,
+                    height = bounds.maxY + 50 - bounds.minY;
+
+                svgClone = self.board.svg[0][0].cloneNode(true);
+
+                svgClone.innerHTML = svgClone.innerHTML.replace(/markerArrow/g, "markerArrow_save")
+
+                svgClone.style.width = width;
+                svgClone.style.height = height;
+                svgClone.setAttribute("viewBox", [bounds.minX - 25, bounds.minY - 25, bounds.maxX + 25, bounds.maxY + 25].join(" "));
+
+                document.querySelector("body").appendChild(svgClone);
+                computedToInline(svgClone, true);
+                svgClone.style.display = "none";
+                var svg_xml = (new XMLSerializer()).serializeToString(svgClone);
+                var imgsrc = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg_xml)));
+                document.querySelector("body").removeChild(svgClone);
+                var canvas = document.createElement("canvas");
+
+                canvas.width = width;
+                canvas.height = height;
+
+                var context = canvas.getContext("2d");
+
+                var image = new Image(width, height);
+                image.src = imgsrc;
+
+                image.onload = function() {
+                    context.fillStyle = "#FFFFFF";
+                    context.fillRect(0, 0, width, height);
+
+                    context.drawImage(image, 0, 0);
+
+                    var canvasdata = canvas.toDataURL("image/png");
+
+                    var a = document.createElement("a");
+                    a.download = ($scope.graphMeta.title? $scope.graphMeta.title: "graph") + ".png";
+                    a.href = canvasdata;
+                    a.click();
+                };
+
+            };
+
+            $scope.saveToLaTeX = function() {
+
+            };
+
             // For easy debugging
             window.graph = this.graph;
             $scope.graph = this.graph;
@@ -1304,8 +1380,7 @@ var jsflap;
                 }
                 return true;
             };
-            Board.prototype.toLaTeX = function () {
-                var texData = '';
+            Board.prototype.getBounds = function () {
                 var minX = Number.MAX_VALUE, maxX = 0, minY = Number.MAX_VALUE, maxY = 0, posX, posY, radius, curMinX, curMaxX, curMinY, curMaxY;
                 this.visualizations.nodes.forEach(function (node) {
                     posX = node.position.x;
@@ -1337,6 +1412,17 @@ var jsflap;
                     minY = Math.min(curMinY, minY);
                     maxY = Math.max(curMaxY, maxY);
                 });
+                return {
+                    minX: minX,
+                    maxX: maxX,
+                    minY: minY,
+                    maxY: maxY
+                };
+            };
+            Board.prototype.toLaTeX = function () {
+                var texData = '';
+                var bounds = this.getBounds();
+                var minX = bounds.minX, maxX = bounds.maxX, minY = bounds.minY, maxY = bounds.maxY;
                 var offsetPoint = new jsflap.Point.IMPoint(minX, minY);
                 this.visualizations.nodes.forEach(function (node) {
                     var pos = node.position.getMPoint().subtract(offsetPoint).round();
@@ -2058,77 +2144,6 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
-    var Transition;
-    (function (Transition) {
-        /**
-         * A Transition of a single character in an NFA
-         */
-        var CharacterTransition = (function () {
-            /**
-             * Creates a new single char transition
-             * @param character
-             */
-            function CharacterTransition(character) {
-                if (character.length > 1) {
-                    throw new Error("Character Transition length must be less than or equal to 1");
-                }
-                else {
-                    this.character = character;
-                }
-            }
-            /**
-             * Gets the string representation of the transition
-             * @returns {string}
-             */
-            CharacterTransition.prototype.toString = function () {
-                return this.character;
-            };
-            /**
-             * Determines if the input matches this transition
-             * @param input
-             * @returns {boolean}
-             */
-            CharacterTransition.prototype.canFollowOn = function (input) {
-                return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
-            };
-            return CharacterTransition;
-        })();
-        Transition.CharacterTransition = CharacterTransition;
-    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-var jsflap;
-(function (jsflap) {
-    var Transition;
-    (function (Transition) {
-        /**
-         * A Transition of a multi character in an DFA
-         */
-        var MultiCharacterTransition = (function () {
-            /**
-             * Creates a new multi char transition
-             * @param characters
-             */
-            function MultiCharacterTransition(characters) {
-                this.characters = characters;
-            }
-            /**
-             * Gets the string representation of the transition
-             * @returns {string}
-             */
-            MultiCharacterTransition.prototype.toString = function () {
-                return this.characters;
-            };
-            return MultiCharacterTransition;
-        })();
-        Transition.MultiCharacterTransition = MultiCharacterTransition;
-    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
     var Point;
     (function (Point) {
         /**
@@ -2281,6 +2296,77 @@ var jsflap;
 })(jsflap || (jsflap = {}));
 
 
+
+var jsflap;
+(function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * A Transition of a single character in an NFA
+         */
+        var CharacterTransition = (function () {
+            /**
+             * Creates a new single char transition
+             * @param character
+             */
+            function CharacterTransition(character) {
+                if (character.length > 1) {
+                    throw new Error("Character Transition length must be less than or equal to 1");
+                }
+                else {
+                    this.character = character;
+                }
+            }
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            CharacterTransition.prototype.toString = function () {
+                return this.character;
+            };
+            /**
+             * Determines if the input matches this transition
+             * @param input
+             * @returns {boolean}
+             */
+            CharacterTransition.prototype.canFollowOn = function (input) {
+                return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
+            };
+            return CharacterTransition;
+        })();
+        Transition.CharacterTransition = CharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+var jsflap;
+(function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * A Transition of a multi character in an DFA
+         */
+        var MultiCharacterTransition = (function () {
+            /**
+             * Creates a new multi char transition
+             * @param characters
+             */
+            function MultiCharacterTransition(characters) {
+                this.characters = characters;
+            }
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            MultiCharacterTransition.prototype.toString = function () {
+                return this.characters;
+            };
+            return MultiCharacterTransition;
+        })();
+        Transition.MultiCharacterTransition = MultiCharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
 
 var jsflap;
 (function (jsflap) {
@@ -3214,13 +3300,17 @@ var jsflap;
                 };
                 EraseEdgeCommand.prototype.undo = function () {
                     var _this = this;
+                    var from = this.edgeV.fromModel, to = this.edgeV.toModel;
                     this.edgeV.models.items.forEach(function (edge) {
                         _this.graph.addEdge(edge);
+                        edge.addNodes();
                         //this.edgeV.addEdgeModel(edge);
                     });
                     this.edgeV.reindexEdgeModels();
                     this.board.handleOppositeEdgeExpanding(this.edgeV);
                     this.board.visualizations.addEdge(this.edgeV);
+                    this.edgeV.toModel = to;
+                    this.edgeV.fromModel = from;
                 };
                 return EraseEdgeCommand;
             })();

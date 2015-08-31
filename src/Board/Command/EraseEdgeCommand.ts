@@ -33,13 +33,17 @@ module jsflap.Board.Command {
         }
 
         undo(): void {
+            var from = this.edgeV.fromModel, to = this.edgeV.toModel;
             this.edgeV.models.items.forEach((edge: Edge) => {
                 this.graph.addEdge(edge);
+                edge.addNodes();
                 //this.edgeV.addEdgeModel(edge);
             });
             this.edgeV.reindexEdgeModels();
             this.board.handleOppositeEdgeExpanding(this.edgeV);
             this.board.visualizations.addEdge(this.edgeV);
+            this.edgeV.toModel = to;
+            this.edgeV.fromModel = from;
 
         }
 

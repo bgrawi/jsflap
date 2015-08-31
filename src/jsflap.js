@@ -273,7 +273,21 @@
             };
 
             $scope.saveToLaTeX = function() {
+                var src = "data:text/plain;base64," + btoa(unescape(encodeURIComponent(self.board.toLaTeX())));
 
+                var a = document.createElement("a");
+                a.download = ($scope.graphMeta.title? $scope.graphMeta.title: "graph") + ".tex";
+                a.href = src;
+                a.click();
+            };
+
+            $scope.saveToAutomatonDefinition = function() {
+                var src = "data:text/plain;base64," + btoa(unescape(encodeURIComponent(self.graph.toString())));
+
+                var a = document.createElement("a");
+                a.download = ($scope.graphMeta.title? $scope.graphMeta.title: "graph") + ".txt";
+                a.href = src;
+                a.click();
             };
 
             // For easy debugging

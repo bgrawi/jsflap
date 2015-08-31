@@ -13,7 +13,7 @@
 <top-bar role="navigation">
     <ul class="title-area">
         <li class="name">
-            <h1><a href="#"><i class="fa fa-flag"></i> JSFLAP</a></h1>
+            <h1><a href="#"><i class="fa fa-flag"></i> JSFLAP <small>beta</small></a></h1>
         </li>
         <li toggle-top-bar class="menu-icon"><a href="#"><span>Menu</span></a></li>
     </ul>
@@ -33,9 +33,11 @@
                         <!--</ul>-->
                     <!--</li>-->
                     <li has-dropdown>
-                        <a href="#"><i class="fa fa-save fa-fw"></i> Save...</a>
+                        <a href="#"><i class="fa fa-share-square-o fa-fw"></i> Export...</a>
                         <ul top-bar-dropdown>
-                            <li><a ng-click="saveToImage()" href="">PNG Image</a></li>
+                            <li><a ng-click="saveToImage()" href=""><i class="fa fa-picture-o fa-fw"></i> PNG Image</a></li>
+                            <li><a ng-click="saveToLaTeX()" href=""><i class="fa fa-file-code-o fa-fw"></i> LaTeX</a></li>
+                            <li><a ng-click="saveToAutomatonDefinition()" href=""><i class="fa fa-file-text-o fa-fw"></i> Automaton Definition</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -56,6 +58,7 @@
             <li><a ng-class="board.invocationStack.hasUndo()?'':'disabled'" href="#" ng-click="board.invocationStack.undo()"><i class="fa fa-undo"></i></a></li>
             <li><a ng-class="board.invocationStack.hasRedo()?'':'disabled'" href="#" ng-click="board.invocationStack.redo()"><i class="fa fa-undo fa-flip-horizontal"></i></a></li>
             <li><a href="#" ng-click="openHelpModal()"><i class="fa fa-question-circle"></i></a></li>
+            <li><a target="_blank" href="https://github.com/bgrawi/jsflap/issues" title="Report a Bug"><i class="fa fa-bug"></i></a></li>
             <li has-dropdown>
                 <a href="#"><i class="fa fa-cog"></i></a>
                 <ul top-bar-dropdown>
@@ -98,21 +101,21 @@
             </div>
         </div>
         <div style="margin-bottom: -20px">
-            <ul class="button-group even-2">
-                <li>
-                    <button type="button" class="button secondary" ng-model="graph.deterministic" btn-checkbox>
+            <!--<ul class="button-group even-1">-->
+                <!--<li>-->
+                    <button style="width: 100%;" type="button" class="button secondary" ng-model="graph.deterministic" btn-checkbox>
                         <i class="fa fa-fw" ng-class="{'fa-check-square': graph.deterministic, 'fa-square-o': !graph.deterministic}"></i> Deterministic
                     </button>
-                </li>
-                <li>
-                    <button type="button" class="button secondary dropdown" dropdown-toggle="#graph-settings-type">
-                        {{graphMeta.type}}
-                    </button>
-                </li>
-            </ul>
-            <ul id="graph-settings-type" class="f-dropdown">
-                <li ng-repeat="(type, displayType) in availableTypes"><a href="#" ng-click="graphMeta.type = type">{{displayType}}</a></li>
-            </ul>
+                <!--</li>-->
+                <!--<li>-->
+                    <!--<button type="button" class="button secondary dropdown" dropdown-toggle="#graph-settings-type">-->
+                        <!--{{graphMeta.type}}-->
+                    <!--</button>-->
+                <!--</li>-->
+            <!--</ul>-->
+            <!--<ul id="graph-settings-type" class="f-dropdown">-->
+                <!--<li ng-repeat="(type, displayType) in availableTypes"><a href="#" ng-click="graphMeta.type = type">{{displayType}}</a></li>-->
+            <!--</ul>-->
         </div>
         <div class="text-heading">
             Test Machine

@@ -53,7 +53,9 @@ module jsflap.Visualization {
          */
         public board: Board.Board;
 
-        public shouldAutoUpdateOnModify: boolean = true;
+        public shouldAutoUpdateOnModify: boolean = true
+
+        public shouldForceUpdateAnimation: boolean = false;
 
         /**
          * Creates a new visualization collection
@@ -115,7 +117,7 @@ module jsflap.Visualization {
          * Updates the visualizations
          */
         public update() {
-            var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === Board.BoardMode.MOVE;
+            var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === Board.BoardMode.MOVE || this.shouldForceUpdateAnimation;
 
             var nodesGroup = this.svg.select('g.nodes'),
                 edgesGroup = this.svg.select('g.edges'),

@@ -34,5 +34,7 @@ module jsflap.Board {
         public contextMenuOptions: ContextMenuOption[] = null;
 
         public lastMousePoint: Point.IPoint = null;
+
+        public moveNodeCommand: Command.ICommand  = null;
     }
 }

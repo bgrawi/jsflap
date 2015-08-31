@@ -171,6 +171,10 @@ module jsflap.Visualization {
             this._control = point;
         }
 
+        public setControlDirectly(point: Point.MPoint) {
+            this._control = point;
+        }
+
         /**
          * Gets the control point
          * @returns {Point.MPoint}

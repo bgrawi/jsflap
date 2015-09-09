@@ -16,6 +16,8 @@ module jsflap.Board {
 
         public futureEdge: Visualization.FutureEdgeVisualization = null;
         public futureEdgeFrom: Visualization.NodeVisualization = null;
+        public futureEdgeFromValid: boolean = false;
+        public futureEdgeFromCreated: boolean = false;
         public shiftKeyPressed: boolean = false;
 
         public ctrlKeyPressed: boolean = false;
@@ -28,7 +30,7 @@ module jsflap.Board {
 
         public quickMoveFrom: BoardMode = null;
 
-        public modifyEdgeTransition: HTMLInputElement = null;
+        public editableTextInputField: HTMLInputElement = null;
         public modifyEdgeControl: Visualization.EdgeVisualization = null;
 
         public contextMenuOptions: ContextMenuOption[] = null;

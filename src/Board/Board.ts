@@ -32,12 +32,6 @@ module jsflap.Board {
         public onBoardUpdateFn: Function = null;
 
         /**
-         * To keep track of the number of nodes
-         * @type {number}
-         */
-        public nodeCount = 0;
-
-        /**
          * The Invocation stack
          * @type {jsflap.Board.BoardInvocationStack}
          */
@@ -60,10 +54,51 @@ module jsflap.Board {
             this.visualizations = new Visualization.VisualizationCollection(this.svg, this);
             this.registerBindings($rootScope);
         }
+        
+        public getSvg(): D3.Selection {
+            return this.svg;
+        }
 
         public reindexNodeNames() {
             var cmd = new Command.ReindexNodeLabelsCommand(this);
             this.invocationStack.trackExecution(cmd);
+        }
+        
+        /**
+         * Get the next valid node label
+         */
+        public getNextNodeLabel(): string {
+            
+            
+            // A sparse array for checking the next lowest value
+            var nodeIndexArray =[];
+            
+            this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
+                var curLabel = node.model.label;
+                
+                // Loop through each node and see if its label starts with a q
+                if(curLabel.charAt(0) === "q") {
+                    var value = parseInt(curLabel.substr(1));
+                    if(!isNaN(value)) {
+                        
+                        // If it does and its a valid nuber
+                        nodeIndexArray[value] = true;
+                    }
+                }
+            });
+            
+            var maxLength = nodeIndexArray.length;
+            if(maxLength == 0) {
+                return "q0";
+            }
+            
+            for(var index = 0; index < maxLength; index++) {
+                if(!nodeIndexArray[index]) {
+                    return "q" + index;
+                }
+            }
+            
+            return "q" + maxLength;
         }
 
         /**
@@ -162,11 +197,12 @@ module jsflap.Board {
 
                     // Remove the future edge
                     this.state.futureEdge.remove();
-                    this.state.futureEdge = null;
-                    this.state.futureEdgeFrom = null;
                 }
 
+                this.state.futureEdge = null;
                 this.state.futureEdgeFrom = null;
+                this.state.futureEdgeFromValid = false;
+                this.state.futureEdgeFromCreated = false;
             } else if(this.state.mode === BoardMode.MOVE) {
                 if(this.state.draggingCommand !== null) {
                     this.invocationStack.trackExecution(this.state.draggingCommand);
@@ -178,38 +214,6 @@ module jsflap.Board {
             } else if(this.state.mode === BoardMode.ERASE) {
                 this.state.isErasing = false;
             }
-        }
-
-        /**
-         * Adds a node to the board
-         * @param point
-         * @returns {jsflap.Visualization.NodeVisualization}
-         */
-        public addNode(point: Point.IPoint): Visualization.NodeVisualization {
-            var node = this.graph.addNode('q' + this.nodeCount++),
-                nodeV = new Visualization.NodeVisualization(node, point.getMPoint());
-
-            if(this.visualizations.nodes.length === 0) {
-                this.setInitialNode(nodeV);
-            }
-            return this.visualizations.addNode(nodeV);
-        }
-
-        /**
-         * Restores a node visualization to the board
-         * @param nodeV
-         * @returns {Visualization.NodeVisualization}
-         */
-        public restoreNode(nodeV: Visualization.NodeVisualization) {
-            var node = this.graph.addNode(nodeV.model.label),
-                newNodeV = new Visualization.NodeVisualization(node, nodeV.position);
-            if(nodeV.model.final) {
-                this.markFinalNode(newNodeV);
-            }
-            if(nodeV.model.initial) {
-                this.setInitialNode(newNodeV);
-            }
-            return this.visualizations.addNode(newNodeV);
         }
 
         /**
@@ -349,15 +353,19 @@ module jsflap.Board {
 
             var nearestNode = this.visualizations.getNearestNode(event.point);
             if(this.state.mode === BoardMode.DRAW) {
-                if (nearestNode.node && nearestNode.distance < 70) {
-                    this.state.futureEdgeFrom = nearestNode.node;
-                } else if (this.state.modifyEdgeTransition === null) {
-
-                    var cmd = new Command.AddNodeAtPointCommand(this, event.point);
-
-                    // Only add a node if the user is not currently click out of editing a transition OR is near a node
-                    this.invocationStack.trackExecution(cmd);
-                    this.state.futureEdgeFrom = cmd.getNodeV();
+                if(this.state.editableTextInputField === null) {
+                    if (nearestNode.node && nearestNode.distance < 70) {
+                        this.state.futureEdgeFrom = nearestNode.node;
+                    } else {
+    
+                        var cmd = new Command.AddNodeAtPointCommand(this, event.point);
+    
+                        // Only add a node if the user is not currently click out of editing a transition OR is near a node
+                        this.invocationStack.trackExecution(cmd);
+                        this.state.futureEdgeFromCreated = true;
+                        this.state.futureEdgeFrom = cmd.getNodeV();
+                        
+                    }
                 }
             } else if(this.state.mode === BoardMode.MOVE && !this.state.modifyEdgeControl) {
                 if (nearestNode.node && nearestNode.hover) {
@@ -373,8 +381,8 @@ module jsflap.Board {
             }
 
             // If the user was focused on modifying an edge transition, blur it.
-            if(this.state.modifyEdgeTransition !== null) {
-                this.state.modifyEdgeTransition.blur();
+            if(this.state.editableTextInputField !== null) {
+                this.state.editableTextInputField.blur();
             }
         }
 
@@ -423,9 +431,19 @@ module jsflap.Board {
                     }
                     this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(this.state.futureEdge.end);
                 } else if (this.state.futureEdgeFrom !== null) {
-                    this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
-                    this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
-                    this.state.futureEdge.addTo(this.svg);
+                    if(!this.state.futureEdgeFromValid) {
+                        // See if the user has dragged outside the node
+                        var distance = point.getDistanceTo(this.state.futureEdgeFrom.position);
+                        if(distance > this.state.futureEdgeFrom.radius) {
+                            this.state.futureEdgeFromValid = true;
+                        }
+                    }
+                    // Check again becuase it may have changed in the above if block
+                    if(this.state.futureEdgeFromValid) {
+                        this.state.futureEdge = new Visualization.FutureEdgeVisualization(event.point.getMPoint(), event.point.getMPoint());
+                        this.state.futureEdge.start = this.state.futureEdgeFrom.getAnchorPointFrom(event.point);
+                        this.state.futureEdge.addTo(this.svg);
+                    }
                 }
             } else if(this.state.mode === BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                 var snappedPoint = point.getMPoint();

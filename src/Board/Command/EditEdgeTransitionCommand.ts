@@ -38,7 +38,7 @@ module jsflap.Board.Command {
         execute(): void {
             var results = this.edge.visualization.models.items.filter((edge: Edge) => edge.transition === this.transitionFrom);
             results[0].transition = this.transitionTo;
-            this.board.state.modifyEdgeTransition = null;
+            this.board.state.editableTextInputField = null;
             this.board.visualizations.update();
             if (typeof this.board.onBoardUpdateFn === 'function') {
                 this.board.onBoardUpdateFn();
@@ -48,7 +48,7 @@ module jsflap.Board.Command {
         undo(): void {
             var results = this.edge.visualization.models.items.filter((edge: Edge) => edge.transition === this.transitionTo);
                 results[0].transition = this.transitionFrom;
-            this.board.state.modifyEdgeTransition = null;
+            this.board.state.editableTextInputField = null;
             this.board.visualizations.update();
             if (typeof this.board.onBoardUpdateFn === 'function') {
                 this.board.onBoardUpdateFn();

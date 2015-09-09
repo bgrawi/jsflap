@@ -164,10 +164,40 @@ module jsflap.Visualization {
                 .enter()
                 .append('text')
                 .classed('nodeLabel', true)
+                .attr('text-anchor', 'middle')
                 .text((d: NodeVisualization) => d.model.label)
                 .attr('opacity', 0);
 
             newNodeLabels.on('contextmenu', (node: NodeVisualization) => this.nodeContextMenu(node));
+            
+            newNodeLabels.on("mouseup", (node: NodeVisualization) => {
+                    if(this.state.mode === Board.BoardMode.DRAW && !this.state.futureEdgeFromValid && !this.state.futureEdgeFromCreated) {
+                        
+                        // Clicked just on the node and did not drag
+                        var etn = new EditableTextNode(this.board, <SVGTextElement> d3.event.target);
+                        etn.value = node.model.label;
+                        etn.maxLength = 3;
+                        etn.padding = 4;
+                        etn.onComplete = () => {
+                            if(node.model.label !== etn.value) {
+                                if(etn.value === "" || etn.value === " " || etn.value === "  " || etn.value === "   ") {
+                                    return false;
+                                }
+                                var matchingNodes = this.nodes.filter((node: NodeVisualization) => {
+                                    return node.model.label === etn.value;
+                                });
+                                if(matchingNodes.length === 0) {
+                                    this.board.invocationStack.trackExecution(new jsflap.Board.Command.RelabelNodeCommand(this.board, node.model, etn.value));
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            }
+                            return true;
+                        };
+                        etn.render();
+                    }
+                })
 
             newNodeLabels.transition()
                 .delay(100)
@@ -179,7 +209,7 @@ module jsflap.Visualization {
 
             var nodeLabelsMovement: any = shouldAnimateMovement? nodeLabels.transition().ease('cubic-out').duration(50): nodeLabels;
             nodeLabelsMovement
-                .attr("x", (d: NodeVisualization) => d.position.x - ((d.model.label.length <= 2) ? 11 : 15))
+                .attr("x", (d: NodeVisualization) => d.position.x)
                 .attr("y", (d: NodeVisualization) => d.position.y + 5);
 
             nodeLabels.exit()
@@ -422,7 +452,7 @@ module jsflap.Visualization {
                 .remove();
 
             var edgeTransitions = edgeTransitionGroup.selectAll('text.transition')
-                .data((edge: EdgeVisualization) => edge.models.items, (edge: Edge) => edge.toString());
+                .data((edge: EdgeVisualization) => edge.models.items, (edge: Edge) => edge.toString()); 
 
 
             var newEdgeTransitions = edgeTransitions
@@ -433,7 +463,14 @@ module jsflap.Visualization {
                 .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y);
 
             edgeTransitions
-                .text((d: Edge) => d.transition.toString());
+                .text((d: Edge) => {
+                        var value = d.transition.toString();
+                        if(value === " ") {
+                            return String.fromCharCode(0x25a0); // UTF-8 Black Square
+                        } else {
+                            return value;
+                        }
+                    });
 
             var edgeTransitionsMovement;
             if(shouldAnimateMovement) {
@@ -618,98 +655,46 @@ module jsflap.Visualization {
          * @param trackHistory
          */
         editTransition(edge: Edge, node?: SVGTextElement, trackHistory?: boolean) {
-            // Adapted from http://bl.ocks.org/GerHobbelt/2653660
 
             var _this = this;
-            // TODO: Generalize this transition editing
-            var target: SVGTextElement = node || <SVGTextElement> d3.event.target;
-
-            // Need to figure out positions better
-            var position = target.getBoundingClientRect();
-            var bbox = target.getBBox();
-
-            var el = d3.select(target);
-            var frm = this.svg.append("foreignObject");
 
             var previousTransition = <Transition.CharacterTransition> edge.transition;
 
-            el.node();
-
-            function applyTransition(edge, transition) {
-                var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
-                if(trackHistory) {
-                    _this.board.invocationStack.trackExecution(cmd);
-                } else {
-                    cmd.execute();
-                }
-            }
-
-            function updateTransition() {
-                if(_this.state.modifyEdgeTransition !== inp.node()) {
+                        // TODO: Generalize this transition editing
+            var target: SVGTextElement = node || <SVGTextElement> d3.event.target;
+            
+            var value = edge.transition.toString();
+            value = value !== LAMBDA? value: '';
+            
+            var etn = new EditableTextNode(this.board, target);
+            etn.value = value;
+            etn.maxLength = 1;
+            etn.onComplete = () => {
+                if(_this.state.editableTextInputField !== etn.inputField) {
 
                     // The user was no longer editing the transition, don't do anything
-                    return;
+                    return true;
                 }
-                var transition = new Transition.CharacterTransition((<HTMLInputElement> inp.node()).value || LAMBDA);
+                var transition = new Transition.CharacterTransition((<HTMLInputElement> etn.inputField).value || LAMBDA);
                 var similarTransitions = edge.visualization.models.items.length > 1?
                     edge.visualization.models.items
                         .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString())
                         :[];
 
                 if(similarTransitions.length == 0) {
-                    applyTransition(edge, transition);
+                    var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
+                    if(trackHistory) {
+                        _this.board.invocationStack.trackExecution(cmd);
+                    } else {
+                        cmd.execute();
+                    }
                 } else {
-                    _this.editTransition(edge, target, !!trackHistory);
+                   // _this.editTransition(edge, target, !!trackHistory);
+                   return false;
                 }
-            }
-
-            var inp = frm
-                .attr("x", position.left - 3)
-                .attr("y", bbox.y - 3)
-                .attr("width", 30)
-                .attr("height", 25)
-                .append("xhtml:form")
-                .append("input")
-                .attr("value", function() {
-                    var inputField: HTMLInputElement = this;
-                    setTimeout(function() {
-                        inputField.focus();
-                        inputField.select();
-                    }, 5);
-                    _this.state.modifyEdgeTransition = this;
-
-                    var value = edge.transition.toString();
-                    return value !== LAMBDA? value: '';
-                })
-                .attr("style", "width: 20px; border: none; padding: 3px; outline: none; background-color: #fff; border-radius: 3px")
-                .attr("maxlength", "1");
-
-            inp.transition()
-            .style('background-color', '#eee');
-
-            inp
-                .on("blur", function() {
-                    updateTransition();
-                    frm.remove();
-                })
-                .on("keydown", function() {
-                    var e = d3.event;
-                    if (e.keyCode == 13 || e.keyCode == 27) {
-                        e.preventDefault();
-                    }
-                })
-                .on("keyup", function() {
-                    var e = d3.event;
-                    if (e.keyCode == 13 || e.keyCode == 27 || this.value.length > 0) {
-                        if (e.stopPropagation)
-                            e.stopPropagation();
-                        e.preventDefault();
-
-                        updateTransition();
-                        //inp.on('blur', null);
-                        this.remove();
-                    }
-                });
+                return true;
+            };
+            etn.render();
         }
     }
 }

@@ -35,8 +35,8 @@ module jsflap.Board.Command {
             this.board = board;
             this.graph = board.graph;
             this.point = point;
-            this.node = new Node('q' + board.nodeCount);
-            if(board.nodeCount === 0) {
+            this.node = new Node(board.getNextNodeLabel());
+            if(board.visualizations.nodes.length === 0) {
                 this.node.initial = true;
             }
             this.nodeV = new NodeV(this.node, this.point.getMPoint());
@@ -45,13 +45,11 @@ module jsflap.Board.Command {
         execute(): void {
             this.graph.addNode(this.node);
             this.board.visualizations.addNode(this.nodeV);
-            this.board.nodeCount++;
         }
 
         undo(): void {
             this.graph.removeNode(this.node);
             this.board.visualizations.removeNode(this.nodeV);
-            this.board.nodeCount--;
         }
 
         getNodeV() {

@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="dist/css/jsflap.css">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 </head>
-<body ng-app="jsflap" ng-controller="AppController" jsflap-app ng-class="'mode_' + board.state.mode">
+<body ng-app="jsflap" ng-cloak="" ng-controller="AppController" jsflap-app ng-class="'mode_' + board.state.mode">
 <top-bar role="navigation">
     <ul class="title-area">
         <li class="name">
@@ -140,7 +140,7 @@
                 </div>
             </div>
             <label ng-repeat="testInput in testInputs">
-                <input type="text" name="{{$index}}" ng-model="testInput.inputString" jsflap-test-input="" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''" placeholder="Enter test string here">
+                <input type="text" name="{{$index}}" ng-model="testInput.inputString" ng-trim="false" jsflap-test-input="" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''" placeholder="Enter test string here">
             </label>
             <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
         </form>

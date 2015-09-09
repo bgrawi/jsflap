@@ -65,7 +65,7 @@ module jsflap.Board.Command {
 
                 this.neededToCreateNode = false;
             } else {
-                this.endNode = new Node('q' + board.nodeCount);
+                this.endNode = new Node(board.getNextNodeLabel());
                 this.endNodeV = new NodeV(this.endNode, endingPoint.getMPoint());
 
                 this.neededToCreateNode = true;
@@ -76,7 +76,6 @@ module jsflap.Board.Command {
             if(this.neededToCreateNode) {
                 this.graph.addNode(this.endNode);
                 this.board.visualizations.addNode(this.endNodeV);
-                this.board.nodeCount++;
             }
 
             //if(!this.edgeV) {

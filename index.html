@@ -140,7 +140,7 @@
                 </div>
             </div>
             <label ng-repeat="testInput in testInputs">
-                <input type="text" name="{{$index}}" ng-model="testInput.inputString" ng-trim="false" jsflap-test-input="" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''" placeholder="Enter test string here">
+                <input type="text" name="{{$index}}" ng-model="testInput.inputString" ng-trim="false" jsflap-test-input="" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''" placeholder="Enter test string here" autocomplete="off">
             </label>
             <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
         </form>

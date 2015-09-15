@@ -2038,6 +2038,26 @@ var jsflap;
 
 
 
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+var jsflap;
+(function (jsflap) {
+    var Graph;
+    (function (Graph) {
+        var TMGraph = (function (_super) {
+            __extends(TMGraph, _super);
+            function TMGraph() {
+                _super.apply(this, arguments);
+            }
+            return TMGraph;
+        })(Graph.FAGraph);
+    })(Graph = jsflap.Graph || (jsflap.Graph = {}));
+})(jsflap || (jsflap = {}));
+
 var jsflap;
 (function (jsflap) {
     var Machine;
@@ -2164,6 +2184,140 @@ var jsflap;
 
 
 
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var TMachine = (function () {
+            /**
+             * Creates a new machine based on a graph
+             * @param graph
+             */
+            function TMachine(graph) {
+                this.setGraph(graph);
+            }
+            /**
+             * Sets the graph for the machine
+             * @param graph
+             */
+            TMachine.prototype.setGraph = function (graph) {
+                this.graph = graph;
+            };
+            /**
+             * Runs a string on the machine to see if it passes or fails
+             * @param input
+             * @returns {boolean}
+             * @param graph
+             */
+            TMachine.prototype.run = function (input, graph) {
+                if (graph) {
+                    this.graph = graph;
+                }
+                if (!this.graph.isValid()) {
+                    throw new Error('Invalid graph');
+                }
+                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
+                // Trivial case
+                if (!initialNode) {
+                    return false;
+                }
+                // Setup for backtracking
+                this.visitedStates = {};
+                this.visitedStates[initialState.toString()] = initialState;
+                this.queue = [initialState];
+                // Start Backtracking
+                while (this.queue.length > 0) {
+                    // Get the state off the front of the queue
+                    this.currentState = this.queue.shift();
+                    // Check if we are in a final state
+                    if (this.currentState.isFinal()) {
+                        return true;
+                    }
+                    // Get the next possible valid states based on the input
+                    var nextStates = this.currentState.getNextStates();
+                    for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
+                        var nextState = nextStates[nextStateIndex];
+                        // Check if we have already visited this state before
+                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                            // We haven't, add it to our visited state list and queue
+                            this.visitedStates[nextState.toString()] = nextState;
+                            this.queue.push(nextState);
+                        }
+                    }
+                }
+                // If we got here the states were all invalid
+                return false;
+            };
+            return TMachine;
+        })();
+        Machine.TMachine = TMachine;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
+        var TMachineState = (function () {
+            /**
+             * Create a new NFA Machine state
+             * @param input
+             * @param node
+             */
+            function TMachineState(input, inputPosition, node) {
+                this.input = input;
+                this.inputPosition = inputPosition;
+                this.node = node;
+            }
+            /**
+             * Determines if this state is final
+             * @returns {boolean}
+             */
+            TMachineState.prototype.isFinal = function () {
+                return this.input.length === 0 && this.node.final;
+            };
+            /**
+             * Gets the next possible states
+             * @returns {Array}
+             */
+            TMachineState.prototype.getNextStates = function () {
+                var edgeList = this.node.toEdges.items, nextStates = [];
+                for (var edgeName in edgeList) {
+                    if (edgeList.hasOwnProperty(edgeName)) {
+                        var edge = edgeList[edgeName];
+                        // See if we can follow this edge
+                        var transition = edge.transition;
+                        if (transition.canFollowOn(this.input)) {
+                            var newInputPosition = this.inputPosition + transition.direction;
+                            var newInput = this.input.slice();
+                            if (typeof (transition.direction) !== 'undefined') {
+                                // Create space for the new character
+                                if (newInputPosition >= newInput.length) {
+                                    newInput.push(transition.write);
+                                }
+                                else {
+                                    newInput[this.inputPosition] = transition.write;
+                                }
+                                nextStates.push(new TMachineState(newInput, this.inputPosition + transition.direction, edge.to));
+                            }
+                        }
+                    }
+                }
+                return nextStates;
+            };
+            /**
+             * Returns a string representation of the state
+             * @returns {string}
+             */
+            TMachineState.prototype.toString = function () {
+                return '(' + this.input + ', ' + this.node.toString() + ')';
+            };
+            return TMachineState;
+        })();
+        Machine.TMachineState = TMachineState;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
 
 var jsflap;
 (function (jsflap) {
@@ -2389,6 +2543,64 @@ var jsflap;
             return MultiCharacterTransition;
         })();
         Transition.MultiCharacterTransition = MultiCharacterTransition;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        (function (TuringTransitionDirection) {
+            TuringTransitionDirection[TuringTransitionDirection["LEFT"] = -1] = "LEFT";
+            TuringTransitionDirection[TuringTransitionDirection["RIGHT"] = 1] = "RIGHT";
+        })(Transition.TuringTransitionDirection || (Transition.TuringTransitionDirection = {}));
+        var TuringTransitionDirection = Transition.TuringTransitionDirection;
+        /**
+         * A Transition of a single character in an NFA
+         */
+        var TuringTransition = (function () {
+            /**
+             * Creates a new single char transition
+             * @param character
+             */
+            function TuringTransition(read, write, direction) {
+                if (read.length > 1 || write.length > 1) {
+                    throw new Error("Turing Transition read and write length must be less than or equal to 1");
+                }
+                else {
+                    this.read = read;
+                    this.write = write;
+                    this.direction = direction;
+                }
+            }
+            TuringTransition.prototype.getDirectionString = function () {
+                switch (this.direction) {
+                    case TuringTransitionDirection.LEFT:
+                        return 'L';
+                    case TuringTransitionDirection.RIGHT:
+                        return 'R';
+                    default:
+                        return 'H';
+                }
+            };
+            /**
+             * Gets the string representation of the transition
+             * @returns {string}
+             */
+            TuringTransition.prototype.toString = function () {
+                return this.read + '/' + this.write + ', ' + this.getDirectionString();
+            };
+            /**
+             * Determines if the input matches this transition
+             * @param input
+             * @returns {boolean}
+             */
+            TuringTransition.prototype.canFollowOn = function (input) {
+                return this.read === jsflap.LAMBDA ? true : (input[0] === this.read);
+            };
+            return TuringTransition;
+        })();
+        Transition.TuringTransition = TuringTransition;
     })(Transition = jsflap.Transition || (jsflap.Transition = {}));
 })(jsflap || (jsflap = {}));
 

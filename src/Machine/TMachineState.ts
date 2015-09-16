@@ -33,7 +33,7 @@ module jsflap.Machine {
          * @returns {boolean}
          */
         isFinal(): boolean {
-            return this.input.length === 0 && this.node.final;
+            return this.getNextStates().length === 0 && this.node.final;
         }
 
 
@@ -50,18 +50,21 @@ module jsflap.Machine {
 
                     // See if we can follow this edge
                     var transition = <Transition.TuringTransition> edge.transition;
-                    if(transition.canFollowOn(this.input)) {
+                    if(transition.canFollowOn(this.input[this.inputPosition])) {
                         var newInputPosition = this.inputPosition + transition.direction;
                         var newInput = this.input.slice();
                         
+                        
                         if(typeof(transition.direction) !== 'undefined') {
                             // Create space for the new character
-                            if(newInputPosition >= newInput.length) {
-                                newInput.push(transition.write);
-                            } else {
-                                newInput[this.inputPosition] = transition.write;
+                            newInput[this.inputPosition] = transition.write;
+                            if(newInputPosition < 0) {
+                                newInputPosition = 0;
+                                newInput.unshift(null);
+                            } else if(newInputPosition >= newInput.length) {
+                                newInput.push(null);
                             }
-                            nextStates.push(new TMachineState(newInput, this.inputPosition + transition.direction, edge.to));
+                            nextStates.push(new TMachineState(newInput, newInputPosition, edge.to));
                         }
                     }
                 }
@@ -74,7 +77,7 @@ module jsflap.Machine {
          * @returns {string}
          */
         toString(): string {
-            return '(' + this.input + ', ' + this.node.toString() + ')';
+            return '(' + this.input + ', ' + this.inputPosition + ', ' + this.node.toString() + ')';
         }
     }
 }

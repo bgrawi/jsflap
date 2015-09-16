@@ -5,7 +5,7 @@ module jsflap.Machine {
         /**
          * The current state that the machine is in
          */
-        private currentState: FAMachineState;
+        private currentState: TMachineState;
 
         /**
          * A set of the visited nodes for this state
@@ -15,7 +15,7 @@ module jsflap.Machine {
         /**
          * A list of states to consider visiting
          */
-        private queue: FAMachineState[];
+        private queue: TMachineState[];
 
         /**
          * The graph that the machine is using
@@ -26,7 +26,7 @@ module jsflap.Machine {
          * Creates a new machine based on a graph
          * @param graph
          */
-        constructor(graph?: Graph.FAGraph) {
+        constructor(graph?: Graph.TMGraph) {
             this.setGraph(graph);
         }
 
@@ -34,7 +34,7 @@ module jsflap.Machine {
          * Sets the graph for the machine
          * @param graph
          */
-        setGraph(graph: Graph.FAGraph) {
+        setGraph(graph: Graph.TMGraph) {
             this.graph = graph;
         }
 
@@ -44,7 +44,8 @@ module jsflap.Machine {
          * @returns {boolean}
          * @param graph
          */
-        run(input: string, graph?: Graph.FAGraph) {
+        run(input: string, graph?: Graph.TMGraph) {
+            var inputTape = input.split('');
             if(graph) {
                 this.graph = graph;
             }
@@ -52,7 +53,7 @@ module jsflap.Machine {
                 throw new Error('Invalid graph');
             }
             var initialNode = this.graph.getInitialNode(),
-                initialState =  new FAMachineState(input, initialNode);
+                initialState =  new TMachineState(inputTape, 0, initialNode);
 
             // Trivial case
             if(!initialNode) {

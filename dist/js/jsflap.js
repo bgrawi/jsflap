@@ -1621,6 +1621,7 @@ var jsflap;
              */
             function FAGraph(deterministic, nodes, edges) {
                 var _this = this;
+                this.shortName = "FA";
                 this.init(deterministic);
                 if (nodes) {
                     nodes.forEach(function (node) {
@@ -1748,9 +1749,9 @@ var jsflap;
                         toObj = to;
                     }
                     if (typeof transition === 'string') {
-                        transitionObj = new jsflap.Transition.CharacterTransition(transition);
+                        transitionObj = this.createTransitionFromString(transition);
                     }
-                    else if (transition instanceof jsflap.Transition.CharacterTransition) {
+                    else if (typeof transition === 'object') {
                         transitionObj = transition;
                     }
                     edge = new jsflap.Edge(fromObj, toObj, transitionObj);
@@ -1764,11 +1765,11 @@ var jsflap;
                 if (!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
                     throw new Error('Graph does not have all nodes in in the edge');
                 }
-                var transitionChar = edge.transition.toString();
-                if (!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== jsflap.LAMBDA && transitionChar !== jsflap.BLANK) {
-                    this.alphabet[transitionChar] = true;
-                }
+                this.updateAlphabetForEgde(edge);
                 return this.edges.add(edge);
+            };
+            FAGraph.prototype.createTransitionFromString = function (str) {
+                return new jsflap.Transition.CharacterTransition(str);
             };
             /**
              * Updates the alphabet after any changes to the transitions
@@ -1778,12 +1779,13 @@ var jsflap;
                 // Clear the alphabet
                 this.alphabet = {};
                 // Update the alphabet
-                this.edges.items.forEach(function (edge) {
-                    var transitionChar = edge.transition.toString();
-                    if (!_this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== jsflap.LAMBDA && transitionChar !== jsflap.BLANK) {
-                        _this.alphabet[transitionChar] = true;
-                    }
-                });
+                this.edges.items.forEach(function (edge) { return _this.updateAlphabetForEgde(edge); });
+            };
+            FAGraph.prototype.updateAlphabetForEgde = function (edge) {
+                var transitionChar = edge.transition.toString();
+                if (!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== jsflap.LAMBDA && transitionChar !== jsflap.BLANK) {
+                    this.alphabet[transitionChar] = true;
+                }
             };
             /**
              * Gets an edge from the edge list
@@ -1885,7 +1887,7 @@ var jsflap;
                 // Determinism prefix
                 str += (this.deterministic) ? 'D' : 'N';
                 // Type of graph
-                str += 'FA';
+                str += this.shortName;
                 // Separator and start of definition
                 str += ':(';
                 // Alphabet
@@ -1914,7 +1916,7 @@ var jsflap;
             };
             FAGraph.prototype.fromString = function (input) {
                 var _this = this;
-                var configRegex = /^([D,N])FA:\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\)$/;
+                var configRegex = new RegExp("^([D,N])" + this.shortName + ":\\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\\)$");
                 // Check to see if valid config
                 if (!configRegex.test(input)) {
                     return false;
@@ -2052,9 +2054,28 @@ var jsflap;
             __extends(TMGraph, _super);
             function TMGraph() {
                 _super.apply(this, arguments);
+                this.shortName = "TM";
             }
+            TMGraph.prototype.createTransitionFromString = function (transition) {
+                var read = transition[0];
+                var write = transition[2];
+                var directionStr = transition[5];
+                var direction = (directionStr === "L" ? jsflap.Transition.TuringTransitionDirection.LEFT : (directionStr === "R" ? jsflap.Transition.TuringTransitionDirection.RIGHT : null));
+                return new jsflap.Transition.TuringTransition(read, write, direction);
+            };
+            TMGraph.prototype.updateAlphabetForEdge = function (edge) {
+                var transitionCharRead = edge.transition.read;
+                var transitionCharWrite = edge.transition.write;
+                if (transitionCharRead !== null && !this.alphabet.hasOwnProperty(transitionCharRead)) {
+                    this.alphabet[transitionCharRead] = true;
+                }
+                if (transitionCharWrite !== null && !this.alphabet.hasOwnProperty(transitionCharWrite)) {
+                    this.alphabet[transitionCharWrite] = true;
+                }
+            };
             return TMGraph;
         })(Graph.FAGraph);
+        Graph.TMGraph = TMGraph;
     })(Graph = jsflap.Graph || (jsflap.Graph = {}));
 })(jsflap || (jsflap = {}));
 
@@ -2211,13 +2232,14 @@ var jsflap;
              * @param graph
              */
             TMachine.prototype.run = function (input, graph) {
+                var inputTape = input.split('');
                 if (graph) {
                     this.graph = graph;
                 }
                 if (!this.graph.isValid()) {
                     throw new Error('Invalid graph');
                 }
-                var initialNode = this.graph.getInitialNode(), initialState = new Machine.FAMachineState(input, initialNode);
+                var initialNode = this.graph.getInitialNode(), initialState = new Machine.TMachineState(inputTape, 0, initialNode);
                 // Trivial case
                 if (!initialNode) {
                     return false;
@@ -2275,7 +2297,7 @@ var jsflap;
              * @returns {boolean}
              */
             TMachineState.prototype.isFinal = function () {
-                return this.input.length === 0 && this.node.final;
+                return this.getNextStates().length === 0 && this.node.final;
             };
             /**
              * Gets the next possible states
@@ -2288,18 +2310,20 @@ var jsflap;
                         var edge = edgeList[edgeName];
                         // See if we can follow this edge
                         var transition = edge.transition;
-                        if (transition.canFollowOn(this.input)) {
+                        if (transition.canFollowOn(this.input[this.inputPosition])) {
                             var newInputPosition = this.inputPosition + transition.direction;
                             var newInput = this.input.slice();
                             if (typeof (transition.direction) !== 'undefined') {
                                 // Create space for the new character
-                                if (newInputPosition >= newInput.length) {
-                                    newInput.push(transition.write);
+                                newInput[this.inputPosition] = transition.write;
+                                if (newInputPosition < 0) {
+                                    newInputPosition = 0;
+                                    newInput.unshift(null);
                                 }
-                                else {
-                                    newInput[this.inputPosition] = transition.write;
+                                else if (newInputPosition >= newInput.length) {
+                                    newInput.push(null);
                                 }
-                                nextStates.push(new TMachineState(newInput, this.inputPosition + transition.direction, edge.to));
+                                nextStates.push(new TMachineState(newInput, newInputPosition, edge.to));
                             }
                         }
                     }
@@ -2311,7 +2335,7 @@ var jsflap;
              * @returns {string}
              */
             TMachineState.prototype.toString = function () {
-                return '(' + this.input + ', ' + this.node.toString() + ')';
+                return '(' + this.input + ', ' + this.inputPosition + ', ' + this.node.toString() + ')';
             };
             return TMachineState;
         })();
@@ -2580,7 +2604,7 @@ var jsflap;
                     case TuringTransitionDirection.RIGHT:
                         return 'R';
                     default:
-                        return 'H';
+                        return 'S';
                 }
             };
             /**
@@ -2588,7 +2612,7 @@ var jsflap;
              * @returns {string}
              */
             TuringTransition.prototype.toString = function () {
-                return this.read + '/' + this.write + ', ' + this.getDirectionString();
+                return this.read + '/' + this.write + '; ' + this.getDirectionString();
             };
             /**
              * Determines if the input matches this transition
@@ -2596,7 +2620,7 @@ var jsflap;
              * @returns {boolean}
              */
             TuringTransition.prototype.canFollowOn = function (input) {
-                return this.read === jsflap.LAMBDA ? true : (input[0] === this.read);
+                return this.read === jsflap.LAMBDA ? true : (input === this.read);
             };
             return TuringTransition;
         })();

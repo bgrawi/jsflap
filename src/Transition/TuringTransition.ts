@@ -43,7 +43,7 @@ module jsflap.Transition {
                 case TuringTransitionDirection.RIGHT:
                     return 'R';
                 default:
-                    return 'H';
+                    return 'S';
             }
         }
 
@@ -52,7 +52,7 @@ module jsflap.Transition {
          * @returns {string}
          */
         toString(): string {
-            return this.read + '/' + this.write + ', ' + this.getDirectionString();
+            return this.read + '/' + this.write + '; ' + this.getDirectionString();
         }
 
         /**
@@ -60,8 +60,8 @@ module jsflap.Transition {
          * @param input
          * @returns {boolean}
          */
-        canFollowOn(input: string[]): boolean {
-            return this.read === LAMBDA? true: (input[0] === this.read);
+        canFollowOn(input: string): boolean {
+            return this.read === LAMBDA? true: (input === this.read);
         }
     }
 }

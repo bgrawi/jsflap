@@ -2,6 +2,7 @@
 module jsflap.Graph {
 
     export interface IGraph {
+        shortName: string;
         getNodes(): NodeList;
         getEdges(): EdgeList;
 
@@ -37,6 +38,8 @@ module jsflap.Graph {
         unmarkFinalNode(node: Node): Node;
 
         getAlphabet(): Object;
+        updateAlphabetForEgde(edge: Edge);
+        updateAlphabet();
 
         toString(): string;
         fromString(input: string): boolean;

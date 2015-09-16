@@ -2,36 +2,38 @@
 module jsflap.Graph {
 
     export class FAGraph implements IGraph {
+        
+        public shortName = "FA";
 
         /**
          * If this finite automata is deterministic or not
          */
-        private deterministic: boolean;
+        public deterministic: boolean;
 
         /**
          * The list of nodes
          */
-        private nodes: NodeList;
+        public nodes: NodeList;
 
         /**
          * The list of all the edges in the graph
          */
-        private edges: EdgeList;
+        public edges: EdgeList;
 
         /**
          * The initial node of the graph
          */
-        private initialNode: Node;
+        public initialNode: Node;
 
         /**
          * The list of final nodes
          */
-        private finalNodes: NodeList;
+        public finalNodes: NodeList;
 
         /**
          * The alphabet of all the transitions
          */
-        private alphabet: Object;
+        public alphabet: Object;
 
         /**
          * Create a new graph
@@ -186,8 +188,8 @@ module jsflap.Graph {
                 }
 
                 if(typeof transition === 'string') {
-                    transitionObj = new jsflap.Transition.CharacterTransition(transition);
-                } else if(transition instanceof jsflap.Transition.CharacterTransition) {
+                    transitionObj = this.createTransitionFromString(transition);
+                } else if(typeof transition === 'object') {
                     transitionObj = transition;
                 }
 
@@ -202,11 +204,12 @@ module jsflap.Graph {
                 throw new Error('Graph does not have all nodes in in the edge');
             }
 
-            var transitionChar = edge.transition.toString();
-            if(!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== LAMBDA && transitionChar !== BLANK) {
-                this.alphabet[transitionChar] = true;
-            }
+            this.updateAlphabetForEgde(edge);
             return this.edges.add(edge);
+        }
+        
+        createTransitionFromString(str: string): jsflap.Transition.ITransition {
+             return new jsflap.Transition.CharacterTransition(str);
         }
 
         /**
@@ -218,12 +221,14 @@ module jsflap.Graph {
             this.alphabet = {};
 
             // Update the alphabet
-            this.edges.items.forEach((edge) => {
-                var transitionChar = edge.transition.toString();
-                if(!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== LAMBDA && transitionChar !== BLANK) {
-                    this.alphabet[transitionChar] = true;
-                }
-            });
+            this.edges.items.forEach((edge: Edge) => this.updateAlphabetForEgde(edge));
+        }
+        
+        updateAlphabetForEgde(edge: Edge) {
+            var transitionChar = edge.transition.toString();
+            if(!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== LAMBDA && transitionChar !== BLANK) {
+                this.alphabet[transitionChar] = true;
+            }
         }
 
         /**
@@ -336,7 +341,7 @@ module jsflap.Graph {
             str += (this.deterministic)? 'D': 'N';
 
             // Type of graph
-            str += 'FA';
+            str += this.shortName;
 
             // Separator and start of definition
             str += ':(';
@@ -372,7 +377,7 @@ module jsflap.Graph {
         }
 
         fromString(input: string): boolean {
-            var configRegex = /^([D,N])FA:\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\)$/;
+            var configRegex = new RegExp("^([D,N])"+ this.shortName +":\\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\\)$");
 
             // Check to see if valid config
             if(!configRegex.test(input)) {

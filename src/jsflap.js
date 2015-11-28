@@ -172,6 +172,13 @@
                 $scope.board = self.board;
                 window.board = self.board;
             };
+            
+            this.setGraph = function(graph) {
+                self.graph = graph;
+                $scope.graph = self.graph;
+                window.graph = self.graph;
+               $scope.board.setNewGraph(graph);
+            };
 
             $scope.availableThemes = {
                 'modern': 'Modern Theme',
@@ -179,8 +186,7 @@
             };
 
             $scope.availableTypes = {
-                'FA': 'Finite Automation',
-                'PDA': 'Push-down Automation',
+                'FA': 'Finite Automation',  
                 'TM': 'Turning Machine'
             };
 
@@ -188,6 +194,21 @@
                 title: '',
                 type: 'FA'
             };
+            
+            $scope.$watch('graphMeta.type', function (newType, oldType) {
+                if(newType === oldType) {
+                    return;
+                }
+                
+                switch(newType) {
+                    case "FA":
+                        self.setGraph(new jsflap.Graph.FAGraph(false));
+                        break;
+                    case "TM":
+                        self.setGraph(new jsflap.Graph.TMGraph(false));
+                        break;
+                }
+            });
 
             $scope.settings = {
                 theme: 'modern'

@@ -36,8 +36,9 @@ module jsflap.Visualization {
         render() {
             
             // Setup params
-            var position = this.textNode.getBoundingClientRect();
+            var position = this.textNode.getClientRects()[0];
             var bbox = this.textNode.getBBox();
+            console.log(position, bbox);
             var el = d3.select(this.textNode);
             var frm = this.board.getSvg().append("foreignObject");
             var _this = this;
@@ -46,7 +47,7 @@ module jsflap.Visualization {
             var fontSize = this.textNode.style.fontSize;
             var fontWeight = this.textNode.style.fontWeight;
             var lineHeight = this.textNode.style.lineHeight;
-            var width = (bbox.width + (2 * this.padding));
+            var width = (position.width + (2 * this.padding));
             
             // Force a minimum width of 20
             if(width < 20) {

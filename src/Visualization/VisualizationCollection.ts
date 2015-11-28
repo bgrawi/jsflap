@@ -462,11 +462,21 @@ module jsflap.Visualization {
                 .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).x)
                 .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y);
 
-            edgeTransitions
-                .text((d: Edge) => {
-                        var value = d.transition.toString();
+            var edgeTransitionParts = edgeTransitions.selectAll('tspan.transitionPart')
+                .data((d: Edge) => d.transition.getTransitionParts());
+            
+            edgeTransitionParts
+                .enter()
+                .append('tspan')
+                .classed('transitionPart', true);
+                
+            edgeTransitionParts
+                .text((d: Transition.ITransitionPart) => {
+                        var value = d.content;
                         if(value === " ") {
                             return String.fromCharCode(0x25a0); // UTF-8 Black Square
+                        } else if(value === "") {
+                            return String.fromCharCode(0x25a1); // UTF-8 White Square
                         } else {
                             return value;
                         }
@@ -512,7 +522,10 @@ module jsflap.Visualization {
                     if(this.state.modifyEdgeControl) {
                         this.state.modifyEdgeControl = null;
                     } else if(this.state.mode === Board.BoardMode.DRAW) {
-                        this.editTransition(d, null, true);
+                        var model = d3.select(d3.event.target).data()[0];
+                        if(model instanceof Transition.EditableTransitionPart) {
+                            this.editTransition(d, null, true);
+                        }
                     }
                 })
                 .on('mouseover', (edge: Edge) => {
@@ -658,12 +671,23 @@ module jsflap.Visualization {
 
             var _this = this;
 
-            var previousTransition = <Transition.CharacterTransition> edge.transition;
+            var previousTransition = edge.transition;
 
-                        // TODO: Generalize this transition editing
-            var target: SVGTextElement = node || <SVGTextElement> d3.event.target;
+            var target: SVGTextElement;
+
+            // TODO: Generalize this transition editing
+            if(node === null) {
+                target = <SVGTextElement> d3.event.target;
+            } else {
+                target = d3.select(node).select("tspan")[0][0];
+            }
+         
+            var transitionPart: Transition.EditableTransitionPart = d3.select(target).data()[0];
             
-            var value = edge.transition.toString();
+            console.log(node, target, d3.select(target).data());
+         
+            var value = transitionPart.content;
+            
             value = value !== LAMBDA? value: '';
             
             var etn = new EditableTextNode(this.board, target);
@@ -675,7 +699,12 @@ module jsflap.Visualization {
                     // The user was no longer editing the transition, don't do anything
                     return true;
                 }
-                var transition = new Transition.CharacterTransition((<HTMLInputElement> etn.inputField).value || LAMBDA);
+                
+                var transition = previousTransition.clone();
+                
+                var newValue = (<HTMLInputElement> etn.inputField).value || LAMBDA;
+                transitionPart.onEdit(newValue, transition);
+                
                 var similarTransitions = edge.visualization.models.items.length > 1?
                     edge.visualization.models.items
                         .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString())

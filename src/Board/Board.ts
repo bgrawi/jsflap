@@ -35,7 +35,7 @@ module jsflap.Board {
          * The Invocation stack
          * @type {jsflap.Board.BoardInvocationStack}
          */
-        public invocationStack: BoardInvocationStack = new BoardInvocationStack();
+        public invocationStack: BoardInvocationStack;
 
         /**
          * Represents both the visualization and the graph underneath
@@ -49,10 +49,19 @@ module jsflap.Board {
                 .attr("fill", "#FFFFFF")
                 .attr("width", svg.getBoundingClientRect().width)
                 .attr("height", svg.getBoundingClientRect().height);
+            this.setNewGraph(graph);
+            this.registerBindings($rootScope);
+        }
+        
+        /**
+         * Sets the board's new graph, resets all states
+         */
+        public setNewGraph(graph: Graph.IGraph) {
             this.graph = graph;
             this.state = new BoardState();
             this.visualizations = new Visualization.VisualizationCollection(this.svg, this);
-            this.registerBindings($rootScope);
+            this.visualizations.update();
+            this.invocationStack = new BoardInvocationStack();
         }
         
         public getSvg(): D3.Selection {
@@ -192,8 +201,8 @@ module jsflap.Board {
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
                     this.invocationStack.trackExecution(cmd);
-
-                    this.editEdgeTransition(cmd.getEdge());
+                    //TODO: REMOVE THIS
+                    //this.editEdgeTransition(cmd.getEdge());
 
                     // Remove the future edge
                     this.state.futureEdge.remove();

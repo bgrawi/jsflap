@@ -46,6 +46,19 @@ module jsflap.Transition {
                     return 'S';
             }
         }
+        
+        setDirectionFromString(directionString: string) {
+            switch(directionString) {
+                case 'L':
+                    this.direction = TuringTransitionDirection.LEFT;
+                    break;
+                case 'R':
+                    this.direction = TuringTransitionDirection.RIGHT;
+                    break;
+                default:
+                    this.direction = null;
+            }
+        }
 
         /**
          * Gets the string representation of the transition
@@ -62,6 +75,20 @@ module jsflap.Transition {
          */
         canFollowOn(input: string): boolean {
             return this.read === LAMBDA? true: (input === this.read);
+        }
+        
+        getTransitionParts(): ITransitionPart[] {
+            return [
+                new EditableTransitionPart(this.read, (newContent: string, transition: ITransition) => (<TuringTransition> transition).read = newContent),
+                new StaticTransitionPart("/"),
+                new EditableTransitionPart(this.write, (newContent: string, transition: ITransition) => (<TuringTransition> transition).write = newContent),
+                new StaticTransitionPart(";"),
+                new EditableTransitionPart(this.getDirectionString(), (newContent: string, transition: ITransition) => (<TuringTransition> transition).setDirectionFromString(newContent))
+            ];
+        }
+        
+        clone(): ITransition {
+            return new TuringTransition(this.read, this.write, this.direction);
         }
     }
 }

@@ -68,6 +68,11 @@
                             <li ng-repeat="(themeKey, themeName) in availableThemes" ng-class="themeKey === settings.theme? 'active': ''"><a href="#" ng-click="settings.theme = themeKey">{{themeName}}</a></li>
                         </ul>
                     </li>
+                    <li>
+                        <button type="button" class="button secondary" ng-click="board.reindexNodeNames()">
+                            <i class="fa fa-fw fa-list-ol"></i> Re-index
+                        </button>
+                    </li>
                 </ul>
             </li>
         </ul>
@@ -108,18 +113,13 @@
                     </button>
                 </li>
                 <li>
-                    <button type="button" class="button secondary" ng-click="board.reindexNodeNames()">
-                        <i class="fa fa-fw fa-list-ol"></i> Re-index
+                    <button type="button" class="button secondary dropdown" dropdown-toggle="#graph-settings-type">
+                        {{graphMeta.type}}
                     </button>
+                    <ul id="graph-settings-type" class="f-dropdown">
+                        <li ng-repeat="(type, displayType) in availableTypes"><a href="#" ng-click="graphMeta.type = type">{{displayType}}</a></li>
+                    </ul>
                 </li>
-                <!--<li>-->
-                    <!--<button type="button" class="button secondary dropdown" dropdown-toggle="#graph-settings-type">-->
-                        <!--{{graphMeta.type}}-->
-                    <!--</button>-->
-                <!--</li>-->
-            <!--</ul>-->
-            <!--<ul id="graph-settings-type" class="f-dropdown">-->
-                <!--<li ng-repeat="(type, displayType) in availableTypes"><a href="#" ng-click="graphMeta.type = type">{{displayType}}</a></li>-->
             </ul>
         </div>
         <div class="text-heading">

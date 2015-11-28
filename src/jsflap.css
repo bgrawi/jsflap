@@ -267,6 +267,7 @@ svg[jsflap-board] text.transition {
     stroke-linecap: butt;
     stroke-linejoin: miter;
     dominant-baseline: middle;
+    letter-spacing: .1rem;
 }
 
 svg[jsflap-board] input.editTransition {

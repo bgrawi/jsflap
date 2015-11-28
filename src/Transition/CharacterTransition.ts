@@ -38,5 +38,15 @@ module jsflap.Transition {
         canFollowOn(input: string): boolean {
             return this.character === LAMBDA? true: (input.charAt(0) === this.character);
         }
+        
+        getTransitionParts(): ITransitionPart[] {
+            return [
+                new EditableTransitionPart(this.character, (newContent: string, transition: ITransition) => (<CharacterTransition> transition).character = newContent)
+            ];
+        }
+        
+        clone(): ITransition {
+            return new CharacterTransition(this.character);
+        }
     }
 }

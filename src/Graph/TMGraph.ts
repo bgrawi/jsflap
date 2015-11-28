@@ -3,10 +3,17 @@ module jsflap.Graph {
         public shortName = "TM";
         
         createTransitionFromString(transition: string): jsflap.Transition.ITransition {
-            var read = transition[0];
-            var write = transition[2];
-            var directionStr = transition[5];
-            var direction = (directionStr === "L"? jsflap.Transition.TuringTransitionDirection.LEFT:(directionStr === "R"? jsflap.Transition.TuringTransitionDirection.RIGHT: null));
+            var read, write, direction;
+            if(transition !== null && transition.length === 6) {
+                read = transition[0];
+                write = transition[2];
+                var directionStr = transition[5];
+                direction = (directionStr === "L"? jsflap.Transition.TuringTransitionDirection.LEFT:(directionStr === "R"? jsflap.Transition.TuringTransitionDirection.RIGHT: null));
+            } else {
+                read = BLANK;
+                write = BLANK;
+                direction = jsflap.Transition.TuringTransitionDirection.RIGHT;
+            }
             return new jsflap.Transition.TuringTransition(read, write, direction);
         }
         

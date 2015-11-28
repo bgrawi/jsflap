@@ -172,6 +172,13 @@
                 $scope.board = self.board;
                 window.board = self.board;
             };
+            
+            this.setGraph = function(graph) {
+                self.graph = graph;
+                $scope.graph = self.graph;
+                window.graph = self.graph;
+               $scope.board.setNewGraph(graph);
+            };
 
             $scope.availableThemes = {
                 'modern': 'Modern Theme',
@@ -179,8 +186,7 @@
             };
 
             $scope.availableTypes = {
-                'FA': 'Finite Automation',
-                'PDA': 'Push-down Automation',
+                'FA': 'Finite Automation',  
                 'TM': 'Turning Machine'
             };
 
@@ -188,6 +194,21 @@
                 title: '',
                 type: 'FA'
             };
+            
+            $scope.$watch('graphMeta.type', function (newType, oldType) {
+                if(newType === oldType) {
+                    return;
+                }
+                
+                switch(newType) {
+                    case "FA":
+                        self.setGraph(new jsflap.Graph.FAGraph(false));
+                        break;
+                    case "TM":
+                        self.setGraph(new jsflap.Graph.TMGraph(false));
+                        break;
+                }
+            });
 
             $scope.settings = {
                 theme: 'modern'
@@ -595,7 +616,7 @@ var jsflap;
     jsflap.OrderedHashmap = OrderedHashmap;
 })(jsflap || (jsflap = {}));
 
-var __extends = (this && this.__extends) || function (d, b) {
+var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -710,7 +731,7 @@ var jsflap;
     jsflap.Node = Node;
 })(jsflap || (jsflap = {}));
 
-var __extends = (this && this.__extends) || function (d, b) {
+var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -732,7 +753,7 @@ var jsflap;
 var jsflap;
 (function (jsflap) {
     var Board;
-    (function (Board_1) {
+    (function (_Board) {
         var Board = (function () {
             /**
              * Represents both the visualization and the graph underneath
@@ -745,26 +766,26 @@ var jsflap;
                  * The function to call after the board has been updated
                  */
                 this.onBoardUpdateFn = null;
-                /**
-                 * The Invocation stack
-                 * @type {jsflap.Board.BoardInvocationStack}
-                 */
-                this.invocationStack = new Board_1.BoardInvocationStack();
                 this.svg = d3.select(svg);
-                this.boardBase = this.svg.select('g.background').append("rect")
-                    .attr("fill", "#FFFFFF")
-                    .attr("width", svg.getBoundingClientRect().width)
-                    .attr("height", svg.getBoundingClientRect().height);
-                this.graph = graph;
-                this.state = new Board_1.BoardState();
-                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg, this);
+                this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
+                this.setNewGraph(graph);
                 this.registerBindings($rootScope);
             }
+            /**
+             * Sets the board's new graph, resets all states
+             */
+            Board.prototype.setNewGraph = function (graph) {
+                this.graph = graph;
+                this.state = new _Board.BoardState();
+                this.visualizations = new jsflap.Visualization.VisualizationCollection(this.svg, this);
+                this.visualizations.update();
+                this.invocationStack = new _Board.BoardInvocationStack();
+            };
             Board.prototype.getSvg = function () {
                 return this.svg;
             };
             Board.prototype.reindexNodeNames = function () {
-                var cmd = new Board_1.Command.ReindexNodeLabelsCommand(this);
+                var cmd = new _Board.Command.ReindexNodeLabelsCommand(this);
                 this.invocationStack.trackExecution(cmd);
             };
             /**
@@ -802,23 +823,23 @@ var jsflap;
                 var _this = this;
                 // Mouse events
                 this.svg.on('mouseup', function () {
-                    _this.mouseup(new Board_1.MouseEvent(d3.event, this));
+                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
                 });
                 this.svg.on('mousedown', function () {
-                    _this.mousedown(new Board_1.MouseEvent(d3.event, this));
+                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
                 });
                 this.svg.on('mousemove', function () {
-                    _this.mousemove(new Board_1.MouseEvent(d3.event, this));
+                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
                 });
                 // Touch events
                 this.svg.on('touchstart', function () {
-                    _this.mousedown(new Board_1.MouseEvent(d3.event, this));
+                    _this.mousedown(new _Board.MouseEvent(d3.event, this));
                 });
                 this.svg.on('touchmove', function () {
-                    _this.mousemove(new Board_1.MouseEvent(d3.event, this));
+                    _this.mousemove(new _Board.MouseEvent(d3.event, this));
                 });
                 this.svg.on('touchend', function () {
-                    _this.mouseup(new Board_1.MouseEvent(d3.event, this));
+                    _this.mouseup(new _Board.MouseEvent(d3.event, this));
                 });
                 // Context menu events
                 this.svg.on("contextmenu", function () {
@@ -866,13 +887,14 @@ var jsflap;
                 if (this.state.shiftKeyPressed) {
                     this.state.shiftKeyPressed = false;
                 }
-                if (this.state.mode === Board_1.BoardMode.DRAW) {
+                if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.futureEdge) {
-                        var cmd = new Board_1.Command.AddEdgeFromNodeCommand(this, this.state.futureEdgeFrom, this.state.futureEdge.end);
+                        var cmd = new _Board.Command.AddEdgeFromNodeCommand(this, this.state.futureEdgeFrom, this.state.futureEdge.end);
                         var endingNode = cmd.getEndNodeV();
                         this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
                         this.invocationStack.trackExecution(cmd);
-                        this.editEdgeTransition(cmd.getEdge());
+                        //TODO: REMOVE THIS
+                        //this.editEdgeTransition(cmd.getEdge());
                         // Remove the future edge
                         this.state.futureEdge.remove();
                     }
@@ -881,7 +903,7 @@ var jsflap;
                     this.state.futureEdgeFromValid = false;
                     this.state.futureEdgeFromCreated = false;
                 }
-                else if (this.state.mode === Board_1.BoardMode.MOVE) {
+                else if (this.state.mode === 1 /* MOVE */) {
                     if (this.state.draggingCommand !== null) {
                         this.invocationStack.trackExecution(this.state.draggingCommand);
                         this.state.draggingCommand = null;
@@ -890,7 +912,7 @@ var jsflap;
                     this.state.modifyEdgeControl = null;
                     this.state.isDraggingBoard = false;
                 }
-                else if (this.state.mode === Board_1.BoardMode.ERASE) {
+                else if (this.state.mode === 2 /* ERASE */) {
                     this.state.isErasing = false;
                 }
             };
@@ -945,12 +967,12 @@ var jsflap;
                 if (foundOppositeEdgeV) {
                     // If there is an opposing edge already and its control point is unmoved, move it to separate the edges
                     if (foundOppositeEdgeV.getDirection() === 1) {
-                        foundOppositeEdgeV.pathMode = jsflap.Visualization.EdgeVisualizationPathMode.OPPOSING_A;
-                        edgeV.pathMode = jsflap.Visualization.EdgeVisualizationPathMode.OPPOSING_B;
+                        foundOppositeEdgeV.pathMode = 2 /* OPPOSING_A */;
+                        edgeV.pathMode = 3 /* OPPOSING_B */;
                     }
                     else {
-                        foundOppositeEdgeV.pathMode = jsflap.Visualization.EdgeVisualizationPathMode.OPPOSING_B;
-                        edgeV.pathMode = jsflap.Visualization.EdgeVisualizationPathMode.OPPOSING_A;
+                        foundOppositeEdgeV.pathMode = 3 /* OPPOSING_B */;
+                        edgeV.pathMode = 2 /* OPPOSING_A */;
                     }
                     foundOppositeEdgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? foundOppositeEdgeV.control : null);
                     edgeV.recalculatePath(foundOppositeEdgeV.hasMovedControlPoint() ? edgeV.control : null);
@@ -963,8 +985,7 @@ var jsflap;
             Board.prototype.editEdgeTransition = function (edge) {
                 var _this = this;
                 setTimeout(function () {
-                    var elm = _this.svg.selectAll('g.edgeTransitions text.transition')
-                        .filter(function (possibleEdge) { return possibleEdge === edge; });
+                    var elm = _this.svg.selectAll('g.edgeTransitions text.transition').filter(function (possibleEdge) { return possibleEdge === edge; });
                     if (elm.length > 0) {
                         _this.visualizations.editTransition(edge, elm.node());
                     }
@@ -976,7 +997,7 @@ var jsflap;
              * @param trackHistory
              */
             Board.prototype.setInitialNode = function (node, trackHistory) {
-                var cmd = new Board_1.Command.SetInitialNodeCommand(this, node ? node.model : null);
+                var cmd = new _Board.Command.SetInitialNodeCommand(this, node ? node.model : null);
                 if (trackHistory) {
                     this.invocationStack.trackExecution(cmd);
                 }
@@ -990,7 +1011,7 @@ var jsflap;
              * @param trackHistory
              */
             Board.prototype.markFinalNode = function (node, trackHistory) {
-                var cmd = new Board_1.Command.MarkFinalNodeCommand(this, node ? node.model : null);
+                var cmd = new _Board.Command.MarkFinalNodeCommand(this, node ? node.model : null);
                 if (trackHistory) {
                     this.invocationStack.trackExecution(cmd);
                 }
@@ -1004,7 +1025,7 @@ var jsflap;
              * @param trackHistory
              */
             Board.prototype.unmarkFinalNode = function (node, trackHistory) {
-                var cmd = new Board_1.Command.UnmarkFinalNodeCommand(this, node ? node.model : null);
+                var cmd = new _Board.Command.UnmarkFinalNodeCommand(this, node ? node.model : null);
                 if (trackHistory) {
                     this.invocationStack.trackExecution(cmd);
                 }
@@ -1022,13 +1043,13 @@ var jsflap;
                     return false;
                 }
                 var nearestNode = this.visualizations.getNearestNode(event.point);
-                if (this.state.mode === Board_1.BoardMode.DRAW) {
+                if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.editableTextInputField === null) {
                         if (nearestNode.node && nearestNode.distance < 70) {
                             this.state.futureEdgeFrom = nearestNode.node;
                         }
                         else {
-                            var cmd = new Board_1.Command.AddNodeAtPointCommand(this, event.point);
+                            var cmd = new _Board.Command.AddNodeAtPointCommand(this, event.point);
                             // Only add a node if the user is not currently click out of editing a transition OR is near a node
                             this.invocationStack.trackExecution(cmd);
                             this.state.futureEdgeFromCreated = true;
@@ -1036,17 +1057,17 @@ var jsflap;
                         }
                     }
                 }
-                else if (this.state.mode === Board_1.BoardMode.MOVE && !this.state.modifyEdgeControl) {
+                else if (this.state.mode === 1 /* MOVE */ && !this.state.modifyEdgeControl) {
                     if (nearestNode.node && nearestNode.hover) {
                         this.state.draggingNode = nearestNode.node;
-                        this.state.draggingCommand = new Board_1.Command.MoveNodeCommand(this, this.state.draggingNode);
+                        this.state.draggingCommand = new _Board.Command.MoveNodeCommand(this, this.state.draggingNode);
                     }
                     else {
                         this.state.isDraggingBoard = true;
-                        this.state.draggingCommand = new Board_1.Command.MoveBoardCommand(this);
+                        this.state.draggingCommand = new _Board.Command.MoveBoardCommand(this);
                     }
                 }
-                else if (this.state.mode === Board_1.BoardMode.ERASE) {
+                else if (this.state.mode === 2 /* ERASE */) {
                     this.state.isErasing = true;
                     this.handleErasing(event.point);
                 }
@@ -1065,11 +1086,10 @@ var jsflap;
                 if (event.event.which > 1) {
                     return false;
                 }
-                if (this.state.mode === Board_1.BoardMode.DRAW) {
+                if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.futureEdge !== null) {
                         if (this.state.shiftKeyPressed) {
-                            var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan2(dy, dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) +
-                                Math.pow(x2 - x1, 2));
+                            var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan2(dy, dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
                             if (dx !== 0) {
                                 point.x = x1 + distance * Math.cos(dTheta);
                                 point.y = y1 + distance * Math.sin(dTheta);
@@ -1100,7 +1120,7 @@ var jsflap;
                         }
                     }
                 }
-                else if (this.state.mode === Board_1.BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
+                else if (this.state.mode === 1 /* MOVE */ && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                     var snappedPoint = point.getMPoint();
                     if (this.state.shiftKeyPressed) {
                         snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
@@ -1124,7 +1144,7 @@ var jsflap;
                                     return;
                                 }
                                 var controlPoint;
-                                if (edgeV.hasMovedControlPoint() && edgeV.pathMode !== jsflap.Visualization.EdgeVisualizationPathMode.SELF) {
+                                if (edgeV.hasMovedControlPoint() && edgeV.pathMode !== 1 /* SELF */) {
                                     var otherNode = edgeModel.from === _this.state.draggingNode.model ? edgeModel.to.visualization : edgeModel.from.visualization;
                                     // Complicated algorithm to determine new control point location:
                                     // Setup common points
@@ -1146,7 +1166,7 @@ var jsflap;
                                     // We now know we need to adjust our new midpoint by the offset to get our point!
                                     controlPoint = newMidpoint.add(offset);
                                 }
-                                else if (edgeV.hasMovedControlPoint() && edgeV.pathMode === jsflap.Visualization.EdgeVisualizationPathMode.SELF) {
+                                else if (edgeV.hasMovedControlPoint() && edgeV.pathMode === 1 /* SELF */) {
                                     controlPoint = edgeV.control.getMPoint().add(newDraggingNodePoint.getMPoint().subtract(oldDraggingNodePoint));
                                 }
                                 edgeV.recalculatePath(controlPoint ? controlPoint : null);
@@ -1189,7 +1209,7 @@ var jsflap;
                     }
                     this.visualizations.update();
                 }
-                else if (this.state.mode === Board_1.BoardMode.ERASE && this.state.isErasing) {
+                else if (this.state.mode === 2 /* ERASE */ && this.state.isErasing) {
                     this.handleErasing(point);
                 }
                 this.state.lastMousePoint = event.point.getMPoint();
@@ -1201,17 +1221,17 @@ var jsflap;
             Board.prototype.handleErasing = function (point) {
                 // If we are hovering over an edge and we have not yet erased at least the first edge model from it yet
                 if (this.state.hoveringEdge && this.graph.hasEdge(this.state.hoveringEdge.models.items[0])) {
-                    var cmd = new Board_1.Command.EraseEdgeCommand(this, this.state.hoveringEdge);
+                    var cmd = new _Board.Command.EraseEdgeCommand(this, this.state.hoveringEdge);
                     this.invocationStack.trackExecution(cmd);
                 }
                 else if (this.state.hoveringTransition && this.graph.hasEdge(this.state.hoveringTransition)) {
-                    var cmd1 = new Board_1.Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
+                    var cmd1 = new _Board.Command.EraseEdgeTransitionCommand(this, this.state.hoveringTransition);
                     this.invocationStack.trackExecution(cmd1);
                 }
                 else {
                     var nearestNode = this.visualizations.getNearestNode(point);
                     if (nearestNode.node && nearestNode.hover) {
-                        var cmd2 = new Board_1.Command.EraseNodeCommand(this, nearestNode.node);
+                        var cmd2 = new _Board.Command.EraseNodeCommand(this, nearestNode.node);
                         this.invocationStack.trackExecution(cmd2);
                     }
                 }
@@ -1222,11 +1242,10 @@ var jsflap;
              * @private
              */
             Board.prototype._handleOpposingEdgeCollapsing = function (edgeV) {
-                if (edgeV.pathMode === jsflap.Visualization.EdgeVisualizationPathMode.OPPOSING_A ||
-                    edgeV.pathMode === jsflap.Visualization.EdgeVisualizationPathMode.OPPOSING_B) {
+                if (edgeV.pathMode === 2 /* OPPOSING_A */ || edgeV.pathMode === 3 /* OPPOSING_B */) {
                     var otherEdgeV = this.visualizations.getEdgeVisualizationByNodes(edgeV.toModel, edgeV.fromModel);
                     if (otherEdgeV) {
-                        otherEdgeV.pathMode = jsflap.Visualization.EdgeVisualizationPathMode.DEFAULT;
+                        otherEdgeV.pathMode = 0 /* DEFAULT */;
                         otherEdgeV.recalculatePath(otherEdgeV.hasMovedControlPoint() ? otherEdgeV.control : null);
                     }
                 }
@@ -1294,25 +1313,22 @@ var jsflap;
              */
             Board.prototype.keydown = function (event) {
                 switch (event.which) {
-                    // QUICK EDIT
                     case 32:
-                        if (this.state.mode !== Board_1.BoardMode.MOVE) {
+                        if (this.state.mode !== 1 /* MOVE */) {
                             this.state.quickMoveFrom = this.state.mode;
-                            this.state.mode = Board_1.BoardMode.MOVE;
+                            this.state.mode = 1 /* MOVE */;
                             this.visualizations.update();
                         }
                         break;
-                    // MODE SWITCHING
                     case 68:
-                        this.setMode(Board_1.BoardMode.DRAW);
+                        this.setMode(0 /* DRAW */);
                         break;
                     case 69:
-                        this.setMode(Board_1.BoardMode.ERASE);
+                        this.setMode(2 /* ERASE */);
                         break;
                     case 77:
-                        this.setMode(Board_1.BoardMode.MOVE);
+                        this.setMode(1 /* MOVE */);
                         break;
-                    // QUICK NODE SETTINGS
                     case 70:
                         var nearestNode = this.visualizations.getNearestNode(this.state.lastMousePoint);
                         if (nearestNode.node && nearestNode.hover) {
@@ -1373,7 +1389,7 @@ var jsflap;
              * @param event
              */
             Board.prototype.keyup = function (event) {
-                if (event.which === 32 && this.state.mode === Board_1.BoardMode.MOVE && this.state.quickMoveFrom !== null) {
+                if (event.which === 32 && this.state.mode === 1 /* MOVE */ && this.state.quickMoveFrom !== null) {
                     this.state.draggingNode = null;
                     this.state.modifyEdgeControl = null;
                     this.state.isDraggingBoard = false;
@@ -1454,28 +1470,11 @@ var jsflap;
                         texData += '    \\draw (' + textPos.x + ', ' + textPos.y + ') node[edgeTransition] {$' + textContent + '$}; \n';
                     });
                 });
-                return '\\documentclass[12pt]{article}\n' +
-                    '\\usepackage{tikz}\n' +
-                    '\\usetikzlibrary{arrows.meta}\n' +
-                    '\n' +
-                    '\\begin{document}\n' +
-                    '\n' +
-                    '\\begin{center}\n' +
-                    '\\resizebox{\\columnwidth}{!}{\n' +
-                    '    \\begin{tikzpicture}[y=-1, x = 1]\n' +
-                    '    \\tikzstyle{nodeLabel}+=[inner sep=0pt, font=\\large]\n' +
-                    '    \\tikzstyle{edge}+=[-{Latex[length=5, width=7]}]\n' +
-                    '    \\tikzstyle{edgeTransition}+=[draw=white, fill=white, inner sep = 1] \n' +
-                    texData +
-                    '    \\end{tikzpicture}\n' +
-                    '}\n' +
-                    '\\end{center}\n' +
-                    '\n' +
-                    '\\end{document}\n';
+                return '\\documentclass[12pt]{article}\n' + '\\usepackage{tikz}\n' + '\\usetikzlibrary{arrows.meta}\n' + '\n' + '\\begin{document}\n' + '\n' + '\\begin{center}\n' + '\\resizebox{\\columnwidth}{!}{\n' + '    \\begin{tikzpicture}[y=-1, x = 1]\n' + '    \\tikzstyle{nodeLabel}+=[inner sep=0pt, font=\\large]\n' + '    \\tikzstyle{edge}+=[-{Latex[length=5, width=7]}]\n' + '    \\tikzstyle{edgeTransition}+=[draw=white, fill=white, inner sep = 1] \n' + texData + '    \\end{tikzpicture}\n' + '}\n' + '\\end{center}\n' + '\n' + '\\end{document}\n';
             };
             return Board;
         })();
-        Board_1.Board = Board;
+        _Board.Board = Board;
     })(Board = jsflap.Board || (jsflap.Board = {}));
 })(jsflap || (jsflap = {}));
 
@@ -1562,7 +1561,7 @@ var jsflap;
         var BoardMode = Board.BoardMode;
         var BoardState = (function () {
             function BoardState() {
-                this.mode = BoardMode.DRAW;
+                this.mode = 0 /* DRAW */;
                 this.futureEdge = null;
                 this.futureEdgeFrom = null;
                 this.futureEdgeFromValid = false;
@@ -1897,18 +1896,24 @@ var jsflap;
                 str += '}, ';
                 // Nodes
                 str += '{';
-                str += this.nodes.items.map(function (node) { return node.toString(); }).join(', ');
+                str += this.nodes.items.map(function (node) {
+                    return node.toString();
+                }).join(', ');
                 str += '}, ';
                 //Transitions
                 str += '{';
-                str += this.edges.items.map(function (edge) { return edge.toString(); }).join(', ');
+                str += this.edges.items.map(function (edge) {
+                    return edge.toString();
+                }).join(', ');
                 str += '}, ';
                 // Start symbol
                 str += this.initialNode ? this.initialNode.toString() : '';
                 str += ', ';
                 // Final Nodes
                 str += '{';
-                str += this.finalNodes.items.map(function (node) { return node.toString(); }).join(', ');
+                str += this.finalNodes.items.map(function (node) {
+                    return node.toString();
+                }).join(', ');
                 str += '}';
                 // End definition
                 str += ')';
@@ -1999,7 +2004,6 @@ var jsflap;
                     if (!isValid) {
                         return false;
                     }
-                    // Loop through each node
                     for (var nodeString in this.nodes.items) {
                         if (this.nodes.items.hasOwnProperty(nodeString)) {
                             var node = this.nodes.items[nodeString];
@@ -2008,9 +2012,7 @@ var jsflap;
                             node.toEdges.items.forEach(function (edge) {
                                 var transitionChar = edge.transition.toString();
                                 // There MUST be one transition for every node
-                                if (transitionChar !== jsflap.BLANK &&
-                                    transitionChar !== jsflap.LAMBDA &&
-                                    alphabet.hasOwnProperty(transitionChar)) {
+                                if (transitionChar !== jsflap.BLANK && transitionChar !== jsflap.LAMBDA && alphabet.hasOwnProperty(transitionChar)) {
                                     delete alphabet[transitionChar];
                                 }
                                 else {
@@ -2040,7 +2042,7 @@ var jsflap;
 
 
 
-var __extends = (this && this.__extends) || function (d, b) {
+var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -2057,10 +2059,18 @@ var jsflap;
                 this.shortName = "TM";
             }
             TMGraph.prototype.createTransitionFromString = function (transition) {
-                var read = transition[0];
-                var write = transition[2];
-                var directionStr = transition[5];
-                var direction = (directionStr === "L" ? jsflap.Transition.TuringTransitionDirection.LEFT : (directionStr === "R" ? jsflap.Transition.TuringTransitionDirection.RIGHT : null));
+                var read, write, direction;
+                if (transition !== null && transition.length === 6) {
+                    read = transition[0];
+                    write = transition[2];
+                    var directionStr = transition[5];
+                    direction = (directionStr === "L" ? -1 /* LEFT */ : (directionStr === "R" ? 1 /* RIGHT */ : null));
+                }
+                else {
+                    read = jsflap.BLANK;
+                    write = jsflap.BLANK;
+                    direction = 1 /* RIGHT */;
+                }
                 return new jsflap.Transition.TuringTransition(read, write, direction);
             };
             TMGraph.prototype.updateAlphabetForEdge = function (edge) {
@@ -2120,7 +2130,6 @@ var jsflap;
                 this.visitedStates = {};
                 this.visitedStates[initialState.toString()] = initialState;
                 this.queue = [initialState];
-                // Start Backtracking
                 while (this.queue.length > 0) {
                     // Get the state off the front of the queue
                     this.currentState = this.queue.shift();
@@ -2248,7 +2257,6 @@ var jsflap;
                 this.visitedStates = {};
                 this.visitedStates[initialState.toString()] = initialState;
                 this.queue = [initialState];
-                // Start Backtracking
                 while (this.queue.length > 0) {
                     // Get the state off the front of the queue
                     this.currentState = this.queue.shift();
@@ -2380,8 +2388,7 @@ var jsflap;
              * @returns {number}
              */
             MPoint.prototype.getDistanceTo = function (other) {
-                return Math.sqrt(Math.pow(this.x - other.x, 2) +
-                    Math.pow(this.y - other.y, 2));
+                return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
             };
             /**
              * Gets the angle between two points
@@ -2453,7 +2460,7 @@ var jsflap;
     })(Point = jsflap.Point || (jsflap.Point = {}));
 })(jsflap || (jsflap = {}));
 
-var __extends = (this && this.__extends) || function (d, b) {
+var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -2534,11 +2541,39 @@ var jsflap;
             CharacterTransition.prototype.canFollowOn = function (input) {
                 return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
             };
+            CharacterTransition.prototype.getTransitionParts = function () {
+                return [
+                    new Transition.EditableTransitionPart(this.character, function (newContent, transition) { return transition.character = newContent; })
+                ];
+            };
+            CharacterTransition.prototype.clone = function () {
+                return new CharacterTransition(this.character);
+            };
             return CharacterTransition;
         })();
         Transition.CharacterTransition = CharacterTransition;
     })(Transition = jsflap.Transition || (jsflap.Transition = {}));
 })(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Transition;
+    (function (Transition) {
+        /**
+         * An editable transition part
+         */
+        var EditableTransitionPart = (function () {
+            function EditableTransitionPart(content, onEdit) {
+                this.content = content;
+                this.onEdit = onEdit;
+            }
+            return EditableTransitionPart;
+        })();
+        Transition.EditableTransitionPart = EditableTransitionPart;
+    })(Transition = jsflap.Transition || (jsflap.Transition = {}));
+})(jsflap || (jsflap = {}));
+
+
 
 
 
@@ -2547,26 +2582,15 @@ var jsflap;
     var Transition;
     (function (Transition) {
         /**
-         * A Transition of a multi character in an DFA
+         * A non-editable transition part
          */
-        var MultiCharacterTransition = (function () {
-            /**
-             * Creates a new multi char transition
-             * @param characters
-             */
-            function MultiCharacterTransition(characters) {
-                this.characters = characters;
+        var StaticTransitionPart = (function () {
+            function StaticTransitionPart(content) {
+                this.content = content;
             }
-            /**
-             * Gets the string representation of the transition
-             * @returns {string}
-             */
-            MultiCharacterTransition.prototype.toString = function () {
-                return this.characters;
-            };
-            return MultiCharacterTransition;
+            return StaticTransitionPart;
         })();
-        Transition.MultiCharacterTransition = MultiCharacterTransition;
+        Transition.StaticTransitionPart = StaticTransitionPart;
     })(Transition = jsflap.Transition || (jsflap.Transition = {}));
 })(jsflap || (jsflap = {}));
 
@@ -2599,12 +2623,24 @@ var jsflap;
             }
             TuringTransition.prototype.getDirectionString = function () {
                 switch (this.direction) {
-                    case TuringTransitionDirection.LEFT:
+                    case -1 /* LEFT */:
                         return 'L';
-                    case TuringTransitionDirection.RIGHT:
+                    case 1 /* RIGHT */:
                         return 'R';
                     default:
                         return 'S';
+                }
+            };
+            TuringTransition.prototype.setDirectionFromString = function (directionString) {
+                switch (directionString) {
+                    case 'L':
+                        this.direction = -1 /* LEFT */;
+                        break;
+                    case 'R':
+                        this.direction = 1 /* RIGHT */;
+                        break;
+                    default:
+                        this.direction = null;
                 }
             };
             /**
@@ -2621,6 +2657,18 @@ var jsflap;
              */
             TuringTransition.prototype.canFollowOn = function (input) {
                 return this.read === jsflap.LAMBDA ? true : (input === this.read);
+            };
+            TuringTransition.prototype.getTransitionParts = function () {
+                return [
+                    new Transition.EditableTransitionPart(this.read, function (newContent, transition) { return transition.read = newContent; }),
+                    new Transition.StaticTransitionPart("/"),
+                    new Transition.EditableTransitionPart(this.write, function (newContent, transition) { return transition.write = newContent; }),
+                    new Transition.StaticTransitionPart(";"),
+                    new Transition.EditableTransitionPart(this.getDirectionString(), function (newContent, transition) { return transition.setDirectionFromString(newContent); })
+                ];
+            };
+            TuringTransition.prototype.clone = function () {
+                return new TuringTransition(this.read, this.write, this.direction);
             };
             return TuringTransition;
         })();
@@ -2648,10 +2696,7 @@ var jsflap;
             var d1 = Math.random() * 0xffffffff | 0;
             var d2 = Math.random() * 0xffffffff | 0;
             var d3 = Math.random() * 0xffffffff | 0;
-            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' +
-                lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' +
-                lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] +
-                lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
+            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
         }
         Utils.getUUID = getUUID;
     })(Utils = jsflap.Utils || (jsflap.Utils = {}));
@@ -2695,9 +2740,7 @@ var jsflap;
                 }
                 this.models = new jsflap.EdgeList();
                 edgeListModels.forEach(function (edge) { return _this.addEdgeModel(edge); });
-                this.pathMode = (this.fromModel !== this.toModel) ?
-                    EdgeVisualizationPathMode.DEFAULT :
-                    EdgeVisualizationPathMode.SELF;
+                this.pathMode = (this.fromModel !== this.toModel) ? 0 /* DEFAULT */ : 1 /* SELF */;
                 this.recalculatePath(control);
             }
             /**
@@ -2733,7 +2776,7 @@ var jsflap;
              * @param control
              */
             EdgeVisualization.prototype.recalculatePath = function (control) {
-                if (this.pathMode !== EdgeVisualizationPathMode.SELF) {
+                if (this.pathMode !== 1 /* SELF */) {
                     var tempControlPoint = this.getInitialControlPoint(this.fromModel.visualization.position, this.toModel.visualization.position);
                     this.start = this.fromModel.visualization.getAnchorPointFrom(control ? control : tempControlPoint);
                     this.end = this.toModel.visualization.getAnchorPointFrom(control ? control : tempControlPoint);
@@ -2755,14 +2798,12 @@ var jsflap;
                 endPoint = endPoint ? endPoint : this.end;
                 var controlPoint = jsflap.Point.MPoint.getMidpoint(startPoint, endPoint);
                 switch (this.pathMode) {
-                    case EdgeVisualizationPathMode.SELF:
+                    case 1 /* SELF */:
                         controlPoint.y -= 80;
                         break;
-                    case EdgeVisualizationPathMode.OPPOSING_A:
-                    case EdgeVisualizationPathMode.OPPOSING_B:
-                        controlPoint.add(jsflap.Point.MPoint.getNormalOffset(startPoint, endPoint, 
-                        // The separation should be 1/15  the distance or 15px, what ever is greater
-                        Math.max(startPoint.getDistanceTo(endPoint) / 15, 20)));
+                    case 2 /* OPPOSING_A */:
+                    case 3 /* OPPOSING_B */:
+                        controlPoint.add(jsflap.Point.MPoint.getNormalOffset(startPoint, endPoint, Math.max(startPoint.getDistanceTo(endPoint) / 15, 20)));
                         break;
                 }
                 return controlPoint;
@@ -2818,7 +2859,7 @@ var jsflap;
             EdgeVisualization.prototype.getTransitionPoint = function (modelNumber) {
                 // Quadratic Bezier Curve formula evaluated halfway
                 var t = 0.5, x = (1 - t) * (1 - t) * this.start.x + 2 * (1 - t) * t * this.control.x + t * t * this.end.x, y = (1 - t) * (1 - t) * this.start.y + 2 * (1 - t) * t * this.control.y + t * t * this.end.y;
-                return new jsflap.Point.MPoint(x, y).add(jsflap.Point.MPoint.getNormalOffset(this.start, this.end, (this.pathMode !== EdgeVisualizationPathMode.SELF ? 1 : -1) * ((modelNumber ? modelNumber : 0) * 20)));
+                return new jsflap.Point.MPoint(x, y).add(jsflap.Point.MPoint.getNormalOffset(this.start, this.end, (this.pathMode !== 1 /* SELF */ ? 1 : -1) * ((modelNumber ? modelNumber : 0) * 20)));
             };
             /**
              * Gets the direction of the edge
@@ -2844,7 +2885,8 @@ var jsflap;
         var EditableTextNode = (function () {
             function EditableTextNode(board, textNode) {
                 this.maxLength = 1;
-                this.onComplete = function () { };
+                this.onComplete = function () {
+                };
                 this.padding = 3;
                 this.backgroundColor = "#EEE";
                 this.board = board;
@@ -2855,8 +2897,9 @@ var jsflap;
              */
             EditableTextNode.prototype.render = function () {
                 // Setup params
-                var position = this.textNode.getBoundingClientRect();
+                var position = this.textNode.getClientRects()[0];
                 var bbox = this.textNode.getBBox();
+                console.log(position, bbox);
                 var el = d3.select(this.textNode);
                 var frm = this.board.getSvg().append("foreignObject");
                 var _this = this;
@@ -2864,19 +2907,12 @@ var jsflap;
                 var fontSize = this.textNode.style.fontSize;
                 var fontWeight = this.textNode.style.fontWeight;
                 var lineHeight = this.textNode.style.lineHeight;
-                var width = (bbox.width + (2 * this.padding));
+                var width = (position.width + (2 * this.padding));
                 // Force a minimum width of 20
                 if (width < 20) {
                     width = 20;
                 }
-                var inp = frm
-                    .attr("x", position.left - this.padding)
-                    .attr("y", bbox.y - this.padding)
-                    .attr("width", width)
-                    .attr("height", bbox.height + (2 * this.padding))
-                    .append("xhtml:form")
-                    .append("input")
-                    .attr("value", function () {
+                var inp = frm.attr("x", position.left - this.padding).attr("y", bbox.y - this.padding).attr("width", width).attr("height", bbox.height + (2 * this.padding)).append("xhtml:form").append("input").attr("value", function () {
                     _this.inputField = this;
                     setTimeout(function () {
                         _this.inputField.focus();
@@ -2884,26 +2920,20 @@ var jsflap;
                     }, 5);
                     _this.board.state.editableTextInputField = this;
                     return _this.value;
-                })
-                    .attr("style", "width: " + width + "px; border: none; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight)
-                    .attr("maxlength", this.maxLength);
-                inp.transition()
-                    .style('background-color', this.backgroundColor);
-                inp
-                    .on("blur", function () {
+                }).attr("style", "width: " + width + "px; border: none; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight).attr("maxlength", this.maxLength);
+                inp.transition().style('background-color', this.backgroundColor);
+                inp.on("blur", function () {
                     _this.value = this.value;
                     _this.onComplete();
                     // TODO: Look into why the forigen object is removed here but not in the keyup function
                     frm.remove();
                     _this.board.state.editableTextInputField = null;
-                })
-                    .on("keydown", function () {
+                }).on("keydown", function () {
                     var e = d3.event;
                     if (e.keyCode == 13 || e.keyCode == 27) {
                         e.preventDefault();
                     }
-                })
-                    .on("keyup", function () {
+                }).on("keyup", function () {
                     var e = d3.event;
                     // Enter/ Escape/ reached end of field
                     if (e.keyCode == 13 || e.keyCode == 27 || this.value.length === _this.maxLength) {
@@ -2948,8 +2978,7 @@ var jsflap;
              * @param svg
              */
             FutureEdgeVisualization.prototype.addTo = function (svg) {
-                this.elm = svg.append('line')
-                    .attr('stroke', "#888");
+                this.elm = svg.append('line').attr('stroke', "#888");
                 this.update();
             };
             /**
@@ -2975,9 +3004,7 @@ var jsflap;
                     this._start.x = point.x;
                     this._start.y = point.y;
                     if (this.elm && point) {
-                        this.elm
-                            .attr('x1', point.x)
-                            .attr('y1', point.y);
+                        this.elm.attr('x1', point.x).attr('y1', point.y);
                     }
                 },
                 enumerable: true,
@@ -2999,9 +3026,7 @@ var jsflap;
                     this._end.x = point.x;
                     this._end.y = point.y;
                     if (this.elm && point) {
-                        this.elm
-                            .attr('x2', point.x)
-                            .attr('y2', point.y);
+                        this.elm.attr('x2', point.x).attr('y2', point.y);
                     }
                 },
                 enumerable: true,
@@ -3090,8 +3115,10 @@ var jsflap;
     var Visualization;
     (function (Visualization) {
         var initialStatePath = [
-            { "x": -20, "y": -20 }, { "x": 0, "y": 0 },
-            { "x": -20, "y": 20 }, { "x": -20, "y": -20 }
+            { "x": -20, "y": -20 },
+            { "x": 0, "y": 0 },
+            { "x": -20, "y": 20 },
+            { "x": -20, "y": -20 }
         ];
         var VisualizationCollection = (function () {
             /**
@@ -3156,46 +3183,21 @@ var jsflap;
              */
             VisualizationCollection.prototype.update = function () {
                 var _this = this;
-                var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === jsflap.Board.BoardMode.MOVE || this.shouldForceUpdateAnimation;
+                var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === 1 /* MOVE */ || this.shouldForceUpdateAnimation;
                 var nodesGroup = this.svg.select('g.nodes'), edgesGroup = this.svg.select('g.edges'), transitionsGroup = this.svg.select('g.transitions'), controlPointsGroup = this.svg.select('g.control-points');
-                var nodes = nodesGroup.selectAll("circle.node")
-                    .data(this.nodes, function (node) { return node.model.toString(); });
-                nodes
-                    .attr("r", function (d) { return d.radius; });
-                var newNodes = nodes.enter()
-                    .append("circle")
-                    .classed('node', true)
-                    .attr("cx", function (d) { return d.position.x; })
-                    .attr("cy", function (d) { return d.position.y; })
-                    .attr("r", function (d) { return d.radius - 10; })
-                    .attr('opacity', 0);
+                var nodes = nodesGroup.selectAll("circle.node").data(this.nodes, function (node) { return node.model.toString(); });
+                nodes.attr("r", function (d) { return d.radius; });
+                var newNodes = nodes.enter().append("circle").classed('node', true).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr("r", function (d) { return d.radius - 10; }).attr('opacity', 0);
                 newNodes.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
-                newNodes.transition()
-                    .ease("elastic")
-                    .duration(300)
-                    .attr("r", function (d) { return d.radius; })
-                    .attr('opacity', 1);
+                newNodes.transition().ease("elastic").duration(300).attr("r", function (d) { return d.radius; }).attr('opacity', 1);
                 var nodesMovement = shouldAnimateMovement ? nodes.transition().ease('cubic-out').duration(50) : nodes;
-                nodesMovement
-                    .attr("cx", function (d) { return d.position.x; })
-                    .attr("cy", function (d) { return d.position.y; });
-                nodes.exit()
-                    .transition()
-                    .attr('opacity', 0)
-                    .attr("r", function (d) { return d.radius - 10; })
-                    .remove();
-                var nodeLabels = nodesGroup.selectAll("text.nodeLabel")
-                    .data(this.nodes, function (node) { return node.model; });
-                var newNodeLabels = nodeLabels
-                    .enter()
-                    .append('text')
-                    .classed('nodeLabel', true)
-                    .attr('text-anchor', 'middle')
-                    .text(function (d) { return d.model.label; })
-                    .attr('opacity', 0);
+                nodesMovement.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
+                nodes.exit().transition().attr('opacity', 0).attr("r", function (d) { return d.radius - 10; }).remove();
+                var nodeLabels = nodesGroup.selectAll("text.nodeLabel").data(this.nodes, function (node) { return node.model; });
+                var newNodeLabels = nodeLabels.enter().append('text').classed('nodeLabel', true).attr('text-anchor', 'middle').text(function (d) { return d.model.label; }).attr('opacity', 0);
                 newNodeLabels.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
                 newNodeLabels.on("mouseup", function (node) {
-                    if (_this.state.mode === jsflap.Board.BoardMode.DRAW && !_this.state.futureEdgeFromValid && !_this.state.futureEdgeFromCreated) {
+                    if (_this.state.mode === 0 /* DRAW */ && !_this.state.futureEdgeFromValid && !_this.state.futureEdgeFromCreated) {
                         // Clicked just on the node and did not drag
                         var etn = new Visualization.EditableTextNode(_this.board, d3.event.target);
                         etn.value = node.model.label;
@@ -3222,232 +3224,104 @@ var jsflap;
                         etn.render();
                     }
                 });
-                newNodeLabels.transition()
-                    .delay(100)
-                    .duration(300)
-                    .attr('opacity', 1);
-                nodeLabels
-                    .text(function (d) { return d.model.label; });
+                newNodeLabels.transition().delay(100).duration(300).attr('opacity', 1);
+                nodeLabels.text(function (d) { return d.model.label; });
                 var nodeLabelsMovement = shouldAnimateMovement ? nodeLabels.transition().ease('cubic-out').duration(50) : nodeLabels;
-                nodeLabelsMovement
-                    .attr("x", function (d) { return d.position.x; })
-                    .attr("y", function (d) { return d.position.y + 5; });
-                nodeLabels.exit()
-                    .transition()
-                    .attr('opacity', 0)
-                    .remove();
-                var initialNodes = nodesGroup.selectAll("path.initialPath")
-                    .data(this.nodes.filter(function (node) { return node.model.initial; }));
-                var newInitialNodes = initialNodes
-                    .enter()
-                    .append('path')
-                    .classed('initialPath', true);
-                newInitialNodes
-                    .attr('opacity', 0)
-                    .transition()
-                    .delay(100)
-                    .duration(300)
-                    .attr('opacity', 1);
+                nodeLabelsMovement.attr("x", function (d) { return d.position.x; }).attr("y", function (d) { return d.position.y + 5; });
+                nodeLabels.exit().transition().attr('opacity', 0).remove();
+                var initialNodes = nodesGroup.selectAll("path.initialPath").data(this.nodes.filter(function (node) { return node.model.initial; }));
+                var newInitialNodes = initialNodes.enter().append('path').classed('initialPath', true);
+                newInitialNodes.attr('opacity', 0).transition().delay(100).duration(300).attr('opacity', 1);
                 // Only animate the transition if we are not dragging the nodes
                 var initialNodesMovement;
-                if (this.board.state.mode === jsflap.Board.BoardMode.DRAW) {
-                    initialNodesMovement =
-                        initialNodes
-                            .transition()
-                            .attr('opacity', 1);
+                if (this.board.state.mode === 0 /* DRAW */) {
+                    initialNodesMovement = initialNodes.transition().attr('opacity', 1);
                 }
                 else if (shouldAnimateMovement) {
-                    initialNodesMovement =
-                        initialNodes
-                            .transition()
-                            .ease('cubic-out')
-                            .duration(50)
-                            .attr('opacity', 1);
+                    initialNodesMovement = initialNodes.transition().ease('cubic-out').duration(50).attr('opacity', 1);
                 }
                 else {
                     initialNodesMovement = initialNodes;
                 }
-                initialNodesMovement
-                    .attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
-                initialNodes.exit()
-                    .attr('opacity', 1)
-                    .transition()
-                    .attr('opacity', 0)
-                    .remove();
-                var finalNodes = nodesGroup.selectAll("circle.finalCircle")
-                    .data(this.nodes.filter(function (node) { return node.model.final; }), function (node) { return node.model; });
-                finalNodes
-                    .attr('opacity', 1)
-                    .classed('finalCircle', true)
-                    .attr("r", function (d) { return d.radius - 3; });
+                initialNodesMovement.attr('d', function (d) { return 'M' + (d.position.x - d.radius) + ',' + d.position.y + ' l-20,-20 l0,40 Z'; });
+                initialNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).remove();
+                var finalNodes = nodesGroup.selectAll("circle.finalCircle").data(this.nodes.filter(function (node) { return node.model.final; }), function (node) { return node.model; });
+                finalNodes.attr('opacity', 1).classed('finalCircle', true).attr("r", function (d) { return d.radius - 3; });
                 var finalNodesMovement = shouldAnimateMovement ? finalNodes.transition().ease('cubic-out').duration(50) : finalNodes;
-                finalNodesMovement
-                    .attr("cx", function (d) { return d.position.x; })
-                    .attr("cy", function (d) { return d.position.y; });
-                var newFinalNodes = finalNodes
-                    .enter()
-                    .append('circle')
-                    .classed('finalCircle', true)
-                    .attr("r", function (d) { return d.radius - 10; })
-                    .attr("cx", function (d) { return d.position.x; })
-                    .attr("cy", function (d) { return d.position.y; })
-                    .attr('opacity', 0);
+                finalNodesMovement.attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; });
+                var newFinalNodes = finalNodes.enter().append('circle').classed('finalCircle', true).attr("r", function (d) { return d.radius - 10; }).attr("cx", function (d) { return d.position.x; }).attr("cy", function (d) { return d.position.y; }).attr('opacity', 0);
                 newFinalNodes.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
-                newFinalNodes
-                    .transition()
-                    .attr('opacity', 1)
-                    .attr("r", function (d) { return d.radius - 3; });
-                finalNodes.exit()
-                    .attr('opacity', 1)
-                    .transition()
-                    .attr('opacity', 0)
-                    .attr("r", function (d) { return d.radius + 10; })
-                    .remove();
+                newFinalNodes.transition().attr('opacity', 1).attr("r", function (d) { return d.radius - 3; });
+                finalNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).attr("r", function (d) { return d.radius + 10; }).remove();
                 var edgeKeyFn = function (edge) { return edge.models.items.map(function (edge) { return edge.toString(); }).join(','); };
-                var edgePaths = edgesGroup.selectAll("path.edge")
-                    .data(this.edges, edgeKeyFn);
+                var edgePaths = edgesGroup.selectAll("path.edge").data(this.edges, edgeKeyFn);
                 if (shouldAnimateMovement) {
-                    edgePaths
-                        .transition()
-                        .ease('cubic-out')
-                        .duration(50)
-                        .attr('d', function (d) { return d.getPath(); });
+                    edgePaths.transition().ease('cubic-out').duration(50).attr('d', function (d) { return d.getPath(); });
                 }
                 else if (this.state.draggingNode === null && this.state.isDraggingBoard === false) {
-                    edgePaths
-                        .transition()
-                        .duration(500)
-                        .ease('elastic')
-                        .attr('d', function (d) { return d.getPath(); });
+                    edgePaths.transition().duration(500).ease('elastic').attr('d', function (d) { return d.getPath(); });
                 }
                 else {
-                    edgePaths
-                        .attr('d', function (edge) { return edge.getPath(); });
+                    edgePaths.attr('d', function (edge) { return edge.getPath(); });
                 }
-                var newEdgePaths = edgePaths
-                    .enter()
-                    .append('path')
-                    .classed('edge', true);
-                newEdgePaths
-                    .filter(function (edge) { return edge.pathMode !== Visualization.EdgeVisualizationPathMode.DEFAULT; })
-                    .attr('d', function (edge) { return 'M' + edge.start + ' L' + edge.end; })
-                    .attr('opacity', .8)
-                    .transition()
-                    .attr('opacity', .8)
-                    .duration(500)
-                    .ease('elastic')
-                    .attr('d', function (d) { return d.getPath(); });
-                newEdgePaths
-                    .filter(function (edge) { return edge.pathMode === Visualization.EdgeVisualizationPathMode.DEFAULT; })
-                    .attr('opacity', .8)
-                    .transition()
-                    .duration(300)
-                    .attr('opacity', .8)
-                    .attr('d', function (d) { return d.getPath(); });
+                var newEdgePaths = edgePaths.enter().append('path').classed('edge', true);
+                newEdgePaths.filter(function (edge) { return edge.pathMode !== 0 /* DEFAULT */; }).attr('d', function (edge) { return 'M' + edge.start + ' L' + edge.end; }).attr('opacity', .8).transition().attr('opacity', .8).duration(500).ease('elastic').attr('d', function (d) { return d.getPath(); });
+                newEdgePaths.filter(function (edge) { return edge.pathMode === 0 /* DEFAULT */; }).attr('opacity', .8).transition().duration(300).attr('opacity', .8).attr('d', function (d) { return d.getPath(); });
                 newEdgePaths.on('mouseover', function (edge) {
                     _this.state.hoveringEdge = edge;
                 }).on('mouseout', function (edge) {
                     _this.state.hoveringEdge = null;
                 });
-                newEdgePaths
-                    .attr('style', "marker-end:url(#markerArrow)");
-                edgePaths
-                    .classed('rightAngle', function (edge) { return ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) ||
-                    (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1); });
-                edgePaths.exit()
-                    .transition()
-                    .attr("opacity", 0)
-                    .remove();
-                controlPointsGroup
-                    .style('display', this.state.mode === jsflap.Board.BoardMode.MOVE ? 'block' : '')
-                    .transition()
-                    .duration(200)
-                    .attr("opacity", this.state.mode === jsflap.Board.BoardMode.MOVE ? 1 : 0)
-                    .each('end', function () {
-                    controlPointsGroup.style('display', _this.state.mode !== jsflap.Board.BoardMode.MOVE ? 'none' : '');
+                newEdgePaths.attr('style', "marker-end:url(#markerArrow)");
+                edgePaths.classed('rightAngle', function (edge) { return ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) || (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1); });
+                edgePaths.exit().transition().attr("opacity", 0).remove();
+                controlPointsGroup.style('display', this.state.mode === 1 /* MOVE */ ? 'block' : '').transition().duration(200).attr("opacity", this.state.mode === 1 /* MOVE */ ? 1 : 0).each('end', function () {
+                    controlPointsGroup.style('display', _this.state.mode !== 1 /* MOVE */ ? 'none' : '');
                 });
-                var edgePathControlPoints = controlPointsGroup.selectAll("circle.control")
-                    .data(this.edges);
-                edgePathControlPoints
-                    .enter()
-                    .append('circle')
-                    .classed('control', true)
-                    .attr('r', 10)
-                    .on('mousedown', function (edge) {
-                    if (_this.state.mode === jsflap.Board.BoardMode.MOVE) {
+                var edgePathControlPoints = controlPointsGroup.selectAll("circle.control").data(this.edges);
+                edgePathControlPoints.enter().append('circle').classed('control', true).attr('r', 10).on('mousedown', function (edge) {
+                    if (_this.state.mode === 1 /* MOVE */) {
                         _this.state.modifyEdgeControl = edge;
                         _this.state.draggingCommand = new jsflap.Board.Command.MoveEdgeControlCommand(_this.board, edge);
                     }
-                })
-                    .on('dblclick', function (edge) {
-                    if (_this.state.mode === jsflap.Board.BoardMode.MOVE) {
+                }).on('dblclick', function (edge) {
+                    if (_this.state.mode === 1 /* MOVE */) {
                         edge.resetControlPoint();
                         edge.recalculatePath();
-                        edgePaths
-                            .transition()
-                            .duration(500)
-                            .ease('elastic')
-                            .attr('d', function (d) { return d.getPath(); });
-                        edgeTransitions
-                            .transition()
-                            .duration(500)
-                            .ease('elastic')
-                            .attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; })
-                            .attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
-                        edgePathControlPoints
-                            .transition()
-                            .ease('elastic')
-                            .duration(500)
-                            .attr('cx', function (d) { return d.control.x; })
-                            .attr('cy', function (d) { return d.control.y; })
-                            .each('end', function () {
+                        edgePaths.transition().duration(500).ease('elastic').attr('d', function (d) { return d.getPath(); });
+                        edgeTransitions.transition().duration(500).ease('elastic').attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; }).attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
+                        edgePathControlPoints.transition().ease('elastic').duration(500).attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; }).each('end', function () {
                             _this.update();
                         });
                     }
-                })
-                    .on('mouseover', function (edge) {
+                }).on('mouseover', function (edge) {
                     _this.state.hoveringEdge = edge;
                 }).on('mouseout', function (edge) {
                     _this.state.hoveringEdge = null;
                 });
                 var edgePathControlPointsMovement;
                 if (shouldAnimateMovement) {
-                    edgePathControlPointsMovement = edgePathControlPoints
-                        .transition()
-                        .ease('cubic-out')
-                        .duration(50);
+                    edgePathControlPointsMovement = edgePathControlPoints.transition().ease('cubic-out').duration(50);
                 }
                 else {
                     edgePathControlPointsMovement = edgePathControlPoints;
                 }
-                edgePathControlPointsMovement
-                    .attr('cx', function (d) { return d.control.x; })
-                    .attr('cy', function (d) { return d.control.y; });
+                edgePathControlPointsMovement.attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; });
                 edgePathControlPoints.exit().remove();
-                var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions')
-                    .data(this.edges, edgeKeyFn);
-                edgeTransitionGroup
-                    .enter()
-                    .append('g')
-                    .classed('edgeTransitions', true);
-                edgeTransitionGroup
-                    .exit()
-                    .transition()
-                    .attr('opacity', 0)
-                    .remove();
-                var edgeTransitions = edgeTransitionGroup.selectAll('text.transition')
-                    .data(function (edge) { return edge.models.items; }, function (edge) { return edge.toString(); });
-                var newEdgeTransitions = edgeTransitions
-                    .enter()
-                    .append('text')
-                    .classed('transition', true)
-                    .attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; })
-                    .attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
-                edgeTransitions
-                    .text(function (d) {
-                    var value = d.transition.toString();
+                var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions').data(this.edges, edgeKeyFn);
+                edgeTransitionGroup.enter().append('g').classed('edgeTransitions', true);
+                edgeTransitionGroup.exit().transition().attr('opacity', 0).remove();
+                var edgeTransitions = edgeTransitionGroup.selectAll('text.transition').data(function (edge) { return edge.models.items; }, function (edge) { return edge.toString(); });
+                var newEdgeTransitions = edgeTransitions.enter().append('text').classed('transition', true).attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; }).attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
+                var edgeTransitionParts = edgeTransitions.selectAll('tspan.transitionPart').data(function (d) { return d.transition.getTransitionParts(); });
+                edgeTransitionParts.enter().append('tspan').classed('transitionPart', true);
+                edgeTransitionParts.text(function (d) {
+                    var value = d.content;
                     if (value === " ") {
                         return String.fromCharCode(0x25a0); // UTF-8 Black Square
+                    }
+                    else if (value === "") {
+                        return String.fromCharCode(0x25a1); // UTF-8 White Square
                     }
                     else {
                         return value;
@@ -3455,59 +3329,44 @@ var jsflap;
                 });
                 var edgeTransitionsMovement;
                 if (shouldAnimateMovement) {
-                    edgeTransitionsMovement = edgeTransitions
-                        .transition()
-                        .ease('cubic-out')
-                        .duration(50);
+                    edgeTransitionsMovement = edgeTransitions.transition().ease('cubic-out').duration(50);
                 }
                 else if (this.state.draggingNode === null && this.state.isDraggingBoard === false) {
-                    edgeTransitionsMovement = edgeTransitions
-                        .transition()
-                        .ease('elastic')
-                        .duration(500);
+                    edgeTransitionsMovement = edgeTransitions.transition().ease('elastic').duration(500);
                 }
                 else {
                     edgeTransitionsMovement = edgeTransitions;
                 }
-                edgeTransitionsMovement
-                    .attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; })
-                    .attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
-                edgeTransitions.exit()
-                    .transition()
-                    .attr('opacity', 0)
-                    .remove();
-                newEdgeTransitions
-                    .on('mousedown', function (edge) {
+                edgeTransitionsMovement.attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; }).attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
+                edgeTransitions.exit().transition().attr('opacity', 0).remove();
+                newEdgeTransitions.on('mousedown', function (edge) {
                     var event = d3.event;
-                    if (_this.state.mode === jsflap.Board.BoardMode.DRAW) {
+                    if (_this.state.mode === 0 /* DRAW */) {
                         event.stopPropagation();
                         event.preventDefault();
                     }
-                    else if (_this.state.mode === jsflap.Board.BoardMode.ERASE) {
+                    else if (_this.state.mode === 2 /* ERASE */) {
                         _this.state.hoveringTransition = edge;
                     }
                     else {
                         _this.state.modifyEdgeControl = edge.visualization;
                     }
-                })
-                    .on("mouseup", function (d) {
+                }).on("mouseup", function (d) {
                     if (_this.state.modifyEdgeControl) {
                         _this.state.modifyEdgeControl = null;
                     }
-                    else if (_this.state.mode === jsflap.Board.BoardMode.DRAW) {
-                        _this.editTransition(d, null, true);
+                    else if (_this.state.mode === 0 /* DRAW */) {
+                        var model = d3.select(d3.event.target).data()[0];
+                        if (model instanceof jsflap.Transition.EditableTransitionPart) {
+                            _this.editTransition(d, null, true);
+                        }
                     }
-                })
-                    .on('mouseover', function (edge) {
+                }).on('mouseover', function (edge) {
                     _this.state.hoveringTransition = edge;
                 }).on('mouseout', function (edge) {
                     _this.state.hoveringTransition = null;
                 });
-                newEdgeTransitions
-                    .attr('opacity', 0)
-                    .transition()
-                    .duration(300)
-                    .attr('opacity', 1);
+                newEdgeTransitions.attr('opacity', 0).transition().duration(300).attr('opacity', 1);
                 if (typeof this.board.onBoardUpdateFn === 'function') {
                     this.board.onBoardUpdateFn();
                 }
@@ -3627,9 +3486,17 @@ var jsflap;
             VisualizationCollection.prototype.editTransition = function (edge, node, trackHistory) {
                 var _this = this;
                 var previousTransition = edge.transition;
+                var target;
                 // TODO: Generalize this transition editing
-                var target = node || d3.event.target;
-                var value = edge.transition.toString();
+                if (node === null) {
+                    target = d3.event.target;
+                }
+                else {
+                    target = d3.select(node).select("tspan")[0][0];
+                }
+                var transitionPart = d3.select(target).data()[0];
+                console.log(node, target, d3.select(target).data());
+                var value = transitionPart.content;
                 value = value !== jsflap.LAMBDA ? value : '';
                 var etn = new Visualization.EditableTextNode(this.board, target);
                 etn.value = value;
@@ -3639,11 +3506,10 @@ var jsflap;
                         // The user was no longer editing the transition, don't do anything
                         return true;
                     }
-                    var transition = new jsflap.Transition.CharacterTransition(etn.inputField.value || jsflap.LAMBDA);
-                    var similarTransitions = edge.visualization.models.items.length > 1 ?
-                        edge.visualization.models.items
-                            .filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); })
-                        : [];
+                    var transition = previousTransition.clone();
+                    var newValue = etn.inputField.value || jsflap.LAMBDA;
+                    transitionPart.onEdit(newValue, transition);
+                    var similarTransitions = edge.visualization.models.items.length > 1 ? edge.visualization.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
                     if (similarTransitions.length == 0) {
                         var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
                         if (trackHistory) {
@@ -3677,8 +3543,10 @@ var jsflap;
                 function AbstractCommand(board) {
                     this.board = board;
                 }
-                /* abstract */ AbstractCommand.prototype.execute = function () { };
-                /* abstract */ AbstractCommand.prototype.undo = function () { };
+                /* abstract */ AbstractCommand.prototype.execute = function () {
+                };
+                /* abstract */ AbstractCommand.prototype.undo = function () {
+                };
                 return AbstractCommand;
             })();
             Command.AbstractCommand = AbstractCommand;
@@ -4121,8 +3989,7 @@ var jsflap;
                 MoveNodeCommand.prototype.getRelatedEdges = function () {
                     var _this = this;
                     return this.board.visualizations.edges.filter(function (edgeV) {
-                        return edgeV.fromModel.visualization === _this.nodeV ||
-                            edgeV.toModel.visualization === _this.nodeV;
+                        return edgeV.fromModel.visualization === _this.nodeV || edgeV.toModel.visualization === _this.nodeV;
                     });
                 };
                 MoveNodeCommand.prototype.makeEdgeVisualizationPositionStates = function (edgeVisualizations) {

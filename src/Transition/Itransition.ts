@@ -5,6 +5,8 @@ module jsflap.Transition {
      */
     export interface ITransition {
         toString(): string;
+        getTransitionParts(): ITransitionPart[]
+        clone(): ITransition;
     }
 
 }

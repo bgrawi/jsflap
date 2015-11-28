@@ -38,7 +38,6 @@ module jsflap.Visualization {
             // Setup params
             var position = this.textNode.getClientRects()[0];
             var bbox = this.textNode.getBBox();
-            console.log(position, bbox);
             var el = d3.select(this.textNode);
             var frm = this.board.getSvg().append("foreignObject");
             var _this = this;
@@ -55,8 +54,8 @@ module jsflap.Visualization {
             }
 
             var inp = frm
-                .attr("x", position.left - this.padding)
-                .attr("y", bbox.y - this.padding)
+                .attr("x", position.left - this.padding + 1)
+                .attr("y", bbox.y - this.padding + 1)
                 .attr("width", width)
                 .attr("height", bbox.height + (2 * this.padding))
                 .append("xhtml:form")
@@ -70,7 +69,7 @@ module jsflap.Visualization {
                     _this.board.state.editableTextInputField = this;
                     return _this.value;
                 })
-                .attr("style", "width: " + width + "px; border: none; padding: " + this.padding +"px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize +"; font-weight:" + fontWeight + "; line-height:" + lineHeight)
+                .attr("style", "width: " + width + "px; border: none; text-align: center; padding: " + this.padding +"px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize +"; font-weight:" + fontWeight + "; line-height:" + lineHeight)
                 .attr("maxlength", this.maxLength);
 
             inp.transition()

@@ -893,8 +893,7 @@ var jsflap;
                         var endingNode = cmd.getEndNodeV();
                         this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
                         this.invocationStack.trackExecution(cmd);
-                        //TODO: REMOVE THIS
-                        //this.editEdgeTransition(cmd.getEdge());
+                        this.editEdgeTransition(cmd.getEdge());
                         // Remove the future edge
                         this.state.futureEdge.remove();
                     }
@@ -983,13 +982,13 @@ var jsflap;
              * @param edge
              */
             Board.prototype.editEdgeTransition = function (edge) {
-                var _this = this;
-                setTimeout(function () {
-                    var elm = _this.svg.selectAll('g.edgeTransitions text.transition').filter(function (possibleEdge) { return possibleEdge === edge; });
-                    if (elm.length > 0) {
-                        _this.visualizations.editTransition(edge, elm.node());
-                    }
-                }, 10);
+                //setTimeout(() => {
+                var elm = this.svg.selectAll('g.edgeTransitions text.transition').filter(function (possibleEdge) { return possibleEdge === edge; }).select("tspan:first-child");
+                if (elm.length > 0) {
+                    this.visualizations.update();
+                    this.visualizations.editTransition(edge, elm.node());
+                }
+                //}, 20);
             };
             /**
              * Sets the initial node for the graph
@@ -2899,7 +2898,6 @@ var jsflap;
                 // Setup params
                 var position = this.textNode.getClientRects()[0];
                 var bbox = this.textNode.getBBox();
-                console.log(position, bbox);
                 var el = d3.select(this.textNode);
                 var frm = this.board.getSvg().append("foreignObject");
                 var _this = this;
@@ -2912,7 +2910,7 @@ var jsflap;
                 if (width < 20) {
                     width = 20;
                 }
-                var inp = frm.attr("x", position.left - this.padding).attr("y", bbox.y - this.padding).attr("width", width).attr("height", bbox.height + (2 * this.padding)).append("xhtml:form").append("input").attr("value", function () {
+                var inp = frm.attr("x", position.left - this.padding + 1).attr("y", bbox.y - this.padding + 1).attr("width", width).attr("height", bbox.height + (2 * this.padding)).append("xhtml:form").append("input").attr("value", function () {
                     _this.inputField = this;
                     setTimeout(function () {
                         _this.inputField.focus();
@@ -2920,7 +2918,7 @@ var jsflap;
                     }, 5);
                     _this.board.state.editableTextInputField = this;
                     return _this.value;
-                }).attr("style", "width: " + width + "px; border: none; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight).attr("maxlength", this.maxLength);
+                }).attr("style", "width: " + width + "px; border: none; text-align: center; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight).attr("maxlength", this.maxLength);
                 inp.transition().style('background-color', this.backgroundColor);
                 inp.on("blur", function () {
                     _this.value = this.value;
@@ -3366,7 +3364,11 @@ var jsflap;
                 }).on('mouseout', function (edge) {
                     _this.state.hoveringTransition = null;
                 });
-                newEdgeTransitions.attr('opacity', 0).transition().duration(300).attr('opacity', 1);
+                // newEdgeTransitions
+                //     .attr('opacity', 0)
+                //     .transition()
+                //     .duration(300)
+                //     .attr('opacity', 1);
                 if (typeof this.board.onBoardUpdateFn === 'function') {
                     this.board.onBoardUpdateFn();
                 }
@@ -3492,10 +3494,9 @@ var jsflap;
                     target = d3.event.target;
                 }
                 else {
-                    target = d3.select(node).select("tspan")[0][0];
+                    target = node;
                 }
                 var transitionPart = d3.select(target).data()[0];
-                console.log(node, target, d3.select(target).data());
                 var value = transitionPart.content;
                 value = value !== jsflap.LAMBDA ? value : '';
                 var etn = new Visualization.EditableTextNode(this.board, target);

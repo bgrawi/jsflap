@@ -201,8 +201,8 @@ module jsflap.Board {
                     this.state.futureEdge.end = endingNode.getAnchorPointFrom(this.state.futureEdge.start) || this.state.futureEdge.start;
 
                     this.invocationStack.trackExecution(cmd);
-                    //TODO: REMOVE THIS
-                    //this.editEdgeTransition(cmd.getEdge());
+                    
+                    this.editEdgeTransition(cmd.getEdge());
 
                     // Remove the future edge
                     this.state.futureEdge.remove();
@@ -297,14 +297,16 @@ module jsflap.Board {
          * @param edge
          */
         public editEdgeTransition(edge: Edge) {
-            setTimeout(() => {
+            //setTimeout(() => {
                 var elm = this.svg.selectAll('g.edgeTransitions text.transition')
-                    .filter((possibleEdge: Edge) => possibleEdge === edge);
+                    .filter((possibleEdge: Edge) => possibleEdge === edge)
+                    .select("tspan:first-child");
 
                 if (elm.length > 0) {
+                    this.visualizations.update();
                     this.visualizations.editTransition(edge, <SVGTextElement> elm.node());
                 }
-            }, 10);
+            //}, 20);
         }
 
         /**

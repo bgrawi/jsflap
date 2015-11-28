@@ -464,6 +464,7 @@ module jsflap.Visualization {
 
             var edgeTransitionParts = edgeTransitions.selectAll('tspan.transitionPart')
                 .data((d: Edge) => d.transition.getTransitionParts());
+                
             
             edgeTransitionParts
                 .enter()
@@ -534,11 +535,11 @@ module jsflap.Visualization {
                     this.state.hoveringTransition = null;
                 });
 
-            newEdgeTransitions
-                .attr('opacity', 0)
-                .transition()
-                .duration(300)
-                .attr('opacity', 1);
+            // newEdgeTransitions
+            //     .attr('opacity', 0)
+            //     .transition()
+            //     .duration(300)
+            //     .attr('opacity', 1);
 
             if(typeof this.board.onBoardUpdateFn === 'function') {
                 this.board.onBoardUpdateFn();
@@ -679,12 +680,10 @@ module jsflap.Visualization {
             if(node === null) {
                 target = <SVGTextElement> d3.event.target;
             } else {
-                target = d3.select(node).select("tspan")[0][0];
+                target = node;
             }
          
             var transitionPart: Transition.EditableTransitionPart = d3.select(target).data()[0];
-            
-            console.log(node, target, d3.select(target).data());
          
             var value = transitionPart.content;
             

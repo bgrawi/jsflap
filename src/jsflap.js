@@ -49,21 +49,28 @@
         .directive('jsflapTestInputs', function() {
             var inputTemplate = {
                 inputString: '',
-                result: null
+                result: null,
+                outputString: ''
             };
             return {
                 restrict: 'A',
                 require: '^jsflapApp',
                 link: {
                     pre: function(scope, elm, attrs, jsflapApp) {
-                        var machine = new jsflap.Machine.FAMachine();
                         scope.resultTotals = [
                             0,
                             0,
                             0
                         ];
+                        
+                        scope.hasOutputString = false;
 
                         function updateTests() {
+                            if(jsflapApp.machine instanceof jsflap.Machine.TMachine) {
+                                scope.hasOutputString = true;
+                            } else {
+                                scope.hasOutputString = false;
+                            }
                             //console.log('STARTING TESTS');
                             scope.resultTotals[0] = 0;
                             scope.resultTotals[1] = 0;
@@ -71,7 +78,12 @@
                             //var t0 = performance.now();
                             scope.testInputs.forEach(function(testInput) {
                                 try {
-                                    testInput.result = machine.run(testInput.inputString, jsflapApp.graph);
+                                    testInput.result = jsflapApp.machine.run(testInput.inputString, jsflapApp.graph);
+                                    if(scope.hasOutputString) {
+                                        testInput.outputString = jsflapApp.machine.getCurrentTapeString();
+                                    } else {
+                                        testInput.outputString = '';
+                                    }
                                     scope.resultTotals[+(testInput.result)] += 1;
                                 } catch(e) {
                                     // Invalid Graph
@@ -123,14 +135,33 @@
             return {
                 restrict: 'A',
                 link: function(scope, elm, attrs) {
+                    
+                    var shiftKeyDown = false;
 
                     elm.on('keydown', function(event) {
                         switch(event.which) {
                             case 13:
                                 scope.$emit('createTestInput', scope.$index);
                                 break;
+                            case 16:
+                                shiftKeyDown = true;
+                                break;
                             case 27:
                                 scope.$emit('removeTestInput', scope.$index);
+                                break;
+                            case 32:
+                                if(shiftKeyDown) {
+                                    event.preventDefault();
+                                    scope.testInput.inputString += jsflap.BLANK; 
+                                    scope.$digest();
+                                }
+                                break;
+                        }
+                    });
+                    elm.on('keyup', function(event) {
+                        switch(event.which) {
+                            case 18:
+                                shiftKeyDown = false;
                                 break;
                         }
                     });
@@ -157,6 +188,7 @@
         .controller('AppController', function($scope, $timeout, $modal) {
             this.graph = new jsflap.Graph.FAGraph(false);
             this.board = null;
+            this.machine = new jsflap.Machine.FAMachine();
 
             $scope.graphString = '';
             this.onBoardUpdate = function() {
@@ -203,9 +235,11 @@
                 switch(newType) {
                     case "FA":
                         self.setGraph(new jsflap.Graph.FAGraph(false));
+                        self.machine = new jsflap.Machine.FAMachine();
                         break;
                     case "TM":
                         self.setGraph(new jsflap.Graph.TMGraph(false));
+                        self.machine = new jsflap.Machine.TMachine();
                         break;
                 }
             });

@@ -74,7 +74,11 @@ module jsflap.Transition {
          * @returns {boolean}
          */
         canFollowOn(input: string): boolean {
-            return this.read === LAMBDA? true: (input === this.read);
+            if(this.read === BLANK || this.read === null || this.read === '') {
+                return input === BLANK || input === null || input === '';
+            } else {
+                return input === this.read;
+            }
         }
         
         getTransitionParts(): ITransitionPart[] {

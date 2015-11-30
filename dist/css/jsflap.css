@@ -223,6 +223,10 @@ section.board-sidebar input {
     padding-bottom: 20px;
 }
 
+section.board-sidebar .outputStringResult {
+    padding: 3px;
+}
+
 section.board-sidebar input:focus {
     box-shadow: none;
     border: none;
@@ -230,12 +234,12 @@ section.board-sidebar input:focus {
     background-color: #F3F3F3;
 }
 
-section.board-sidebar input.accepted {
+section.board-sidebar .accepted, section.board-sidebar .accepted input {
     background-color: #26A65B;
     color: #fff;
 }
 
-section.board-sidebar input.rejected {
+section.board-sidebar .rejected, section.board-sidebar .rejected input {
     background-color: #C3272B;
     color: #fff;
 }

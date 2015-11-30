@@ -139,8 +139,9 @@
                     </div>
                 </div>
             </div>
-            <label ng-repeat="testInput in testInputs">
-                <input type="text" name="{{$index}}" ng-model="testInput.inputString" ng-trim="false" jsflap-test-input="" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''" placeholder="Enter test string here" autocomplete="off">
+            <label ng-repeat="testInput in testInputs" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''">
+                <input type="text" name="{{$index}}" ng-model="testInput.inputString" ng-trim="false" jsflap-test-input="" placeholder="Enter test string here" autocomplete="off">
+                <span class="outputStringResult" ng-show="hasOutputString"><strong>&rarr;</strong> {{testInput.outputString}}</span>
             </label>
             <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
         </form>

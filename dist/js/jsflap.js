@@ -49,21 +49,28 @@
         .directive('jsflapTestInputs', function() {
             var inputTemplate = {
                 inputString: '',
-                result: null
+                result: null,
+                outputString: ''
             };
             return {
                 restrict: 'A',
                 require: '^jsflapApp',
                 link: {
                     pre: function(scope, elm, attrs, jsflapApp) {
-                        var machine = new jsflap.Machine.FAMachine();
                         scope.resultTotals = [
                             0,
                             0,
                             0
                         ];
+                        
+                        scope.hasOutputString = false;
 
                         function updateTests() {
+                            if(jsflapApp.machine instanceof jsflap.Machine.TMachine) {
+                                scope.hasOutputString = true;
+                            } else {
+                                scope.hasOutputString = false;
+                            }
                             //console.log('STARTING TESTS');
                             scope.resultTotals[0] = 0;
                             scope.resultTotals[1] = 0;
@@ -71,7 +78,12 @@
                             //var t0 = performance.now();
                             scope.testInputs.forEach(function(testInput) {
                                 try {
-                                    testInput.result = machine.run(testInput.inputString, jsflapApp.graph);
+                                    testInput.result = jsflapApp.machine.run(testInput.inputString, jsflapApp.graph);
+                                    if(scope.hasOutputString) {
+                                        testInput.outputString = jsflapApp.machine.getCurrentTapeString();
+                                    } else {
+                                        testInput.outputString = '';
+                                    }
                                     scope.resultTotals[+(testInput.result)] += 1;
                                 } catch(e) {
                                     // Invalid Graph
@@ -123,14 +135,33 @@
             return {
                 restrict: 'A',
                 link: function(scope, elm, attrs) {
+                    
+                    var shiftKeyDown = false;
 
                     elm.on('keydown', function(event) {
                         switch(event.which) {
                             case 13:
                                 scope.$emit('createTestInput', scope.$index);
                                 break;
+                            case 16:
+                                shiftKeyDown = true;
+                                break;
                             case 27:
                                 scope.$emit('removeTestInput', scope.$index);
+                                break;
+                            case 32:
+                                if(shiftKeyDown) {
+                                    event.preventDefault();
+                                    scope.testInput.inputString += jsflap.BLANK; 
+                                    scope.$digest();
+                                }
+                                break;
+                        }
+                    });
+                    elm.on('keyup', function(event) {
+                        switch(event.which) {
+                            case 18:
+                                shiftKeyDown = false;
                                 break;
                         }
                     });
@@ -157,6 +188,7 @@
         .controller('AppController', function($scope, $timeout, $modal) {
             this.graph = new jsflap.Graph.FAGraph(false);
             this.board = null;
+            this.machine = new jsflap.Machine.FAMachine();
 
             $scope.graphString = '';
             this.onBoardUpdate = function() {
@@ -203,9 +235,11 @@
                 switch(newType) {
                     case "FA":
                         self.setGraph(new jsflap.Graph.FAGraph(false));
+                        self.machine = new jsflap.Machine.FAMachine();
                         break;
                     case "TM":
                         self.setGraph(new jsflap.Graph.TMGraph(false));
+                        self.machine = new jsflap.Machine.TMachine();
                         break;
                 }
             });
@@ -2230,6 +2264,12 @@ var jsflap;
              * @param graph
              */
             function TMachine(graph) {
+                /**
+                 * The max number of times a state with the same input position, node, and tape contents can be repeated
+                 */
+                this.MAX_STATE_REPEAT = 100;
+                this.MAX_STEP_COUNT = 1000;
+                this.stepCount = 0;
                 this.setGraph(graph);
             }
             /**
@@ -2247,6 +2287,9 @@ var jsflap;
              */
             TMachine.prototype.run = function (input, graph) {
                 var inputTape = input.split('');
+                if (inputTape.length === 0) {
+                    inputTape.push(null);
+                }
                 if (graph) {
                     this.graph = graph;
                 }
@@ -2260,9 +2303,10 @@ var jsflap;
                 }
                 // Setup for backtracking
                 this.visitedStates = {};
-                this.visitedStates[initialState.toString()] = initialState;
+                this.visitedStates[initialState.toString()] = 1;
                 this.queue = [initialState];
-                while (this.queue.length > 0) {
+                this.stepCount = 0;
+                while (this.queue.length > 0 && this.stepCount++ < this.MAX_STEP_COUNT) {
                     // Get the state off the front of the queue
                     this.currentState = this.queue.shift();
                     // Check if we are in a final state
@@ -2273,16 +2317,39 @@ var jsflap;
                     var nextStates = this.currentState.getNextStates();
                     for (var nextStateIndex = 0; nextStateIndex < nextStates.length; nextStateIndex++) {
                         var nextState = nextStates[nextStateIndex];
+                        var nextStateString = nextState.toString();
                         // Check if we have already visited this state before
-                        if (!this.visitedStates.hasOwnProperty(nextState.toString())) {
+                        if (!this.visitedStates.hasOwnProperty(nextStateString)) {
                             // We haven't, add it to our visited state list and queue
-                            this.visitedStates[nextState.toString()] = nextState;
+                            this.visitedStates[nextState.toString()] = 1;
                             this.queue.push(nextState);
+                        }
+                        else if (this.visitedStates[nextStateString] < this.MAX_STATE_REPEAT) {
+                            this.queue.push(nextState);
+                        }
+                        else {
+                            // Reached max state repeat
+                            return false;
                         }
                     }
                 }
                 // If we got here the states were all invalid
                 return false;
+            };
+            TMachine.prototype.getCurrentTapeString = function () {
+                if (this.currentState === null) {
+                    return '';
+                }
+                var resultString = '';
+                this.currentState.input.forEach(function (element, index) {
+                    if (element === null) {
+                        resultString += jsflap.BLANK;
+                    }
+                    else {
+                        resultString += element;
+                    }
+                });
+                return resultString;
             };
             return TMachine;
         })();
@@ -2661,7 +2728,12 @@ var jsflap;
              * @returns {boolean}
              */
             TuringTransition.prototype.canFollowOn = function (input) {
-                return this.read === jsflap.LAMBDA ? true : (input === this.read);
+                if (this.read === jsflap.BLANK || this.read === null || this.read === '') {
+                    return input === jsflap.BLANK || input === null || input === '';
+                }
+                else {
+                    return input === this.read;
+                }
             };
             TuringTransition.prototype.getTransitionParts = function () {
                 return [
@@ -3514,7 +3586,6 @@ var jsflap;
                 etn.value = value;
                 etn.maxLength = 1;
                 etn.onComplete = function (wasNormalCompletion) {
-                    console.log(wasNormalCompletion);
                     if (_this.state.editableTextInputField !== etn.inputField) {
                         // The user was no longer editing the transition, don't do anything
                         return true;

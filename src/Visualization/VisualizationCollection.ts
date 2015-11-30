@@ -693,7 +693,6 @@ module jsflap.Visualization {
             etn.value = value;
             etn.maxLength = 1;
             etn.onComplete = (wasNormalCompletion: boolean) => {
-                console.log(wasNormalCompletion);
                 if(_this.state.editableTextInputField !== etn.inputField) {
 
                     // The user was no longer editing the transition, don't do anything

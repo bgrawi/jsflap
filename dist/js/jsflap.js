@@ -2033,6 +2033,9 @@ var jsflap;
                     return isValid;
                 }
             };
+            FAGraph.prototype.getEmptyTransitionCharacter = function () {
+                return jsflap.LAMBDA;
+            };
             return FAGraph;
         })();
         Graph.FAGraph = FAGraph;
@@ -2081,6 +2084,9 @@ var jsflap;
                 if (transitionCharWrite !== null && !this.alphabet.hasOwnProperty(transitionCharWrite)) {
                     this.alphabet[transitionCharWrite] = true;
                 }
+            };
+            TMGraph.prototype.getEmptyTransitionCharacter = function () {
+                return jsflap.BLANK;
             };
             return TMGraph;
         })(Graph.FAGraph);
@@ -2920,9 +2926,12 @@ var jsflap;
                     return _this.value;
                 }).attr("style", "width: " + width + "px; border: none; text-align: center; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight).attr("maxlength", this.maxLength);
                 inp.transition().style('background-color', this.backgroundColor);
+                var completed = false;
                 inp.on("blur", function () {
                     _this.value = this.value;
-                    _this.onComplete();
+                    if (!completed)
+                        _this.onComplete(false);
+                    completed = true;
                     // TODO: Look into why the forigen object is removed here but not in the keyup function
                     frm.remove();
                     _this.board.state.editableTextInputField = null;
@@ -2940,7 +2949,8 @@ var jsflap;
                         e.preventDefault();
                         // Set the object's model from the dom object's one.
                         _this.value = this.value;
-                        if (_this.onComplete()) {
+                        if (completed || _this.onComplete(true)) {
+                            completed = true;
                             // Leave the field up if the completion was invalid
                             this.remove();
                             _this.board.state.editableTextInputField = null;
@@ -3356,7 +3366,7 @@ var jsflap;
                     else if (_this.state.mode === 0 /* DRAW */) {
                         var model = d3.select(d3.event.target).data()[0];
                         if (model instanceof jsflap.Transition.EditableTransitionPart) {
-                            _this.editTransition(d, null, true);
+                            _this.editTransition(d, null, true, true);
                         }
                     }
                 }).on('mouseover', function (edge) {
@@ -3485,7 +3495,8 @@ var jsflap;
              * @param node
              * @param trackHistory
              */
-            VisualizationCollection.prototype.editTransition = function (edge, node, trackHistory) {
+            VisualizationCollection.prototype.editTransition = function (edge, node, trackHistory, onlyCurrentPart) {
+                var _this = this;
                 var _this = this;
                 var previousTransition = edge.transition;
                 var target;
@@ -3498,26 +3509,49 @@ var jsflap;
                 }
                 var transitionPart = d3.select(target).data()[0];
                 var value = transitionPart.content;
-                value = value !== jsflap.LAMBDA ? value : '';
+                value = value !== this.board.graph.getEmptyTransitionCharacter() ? value : '';
                 var etn = new Visualization.EditableTextNode(this.board, target);
                 etn.value = value;
                 etn.maxLength = 1;
-                etn.onComplete = function () {
+                etn.onComplete = function (wasNormalCompletion) {
+                    console.log(wasNormalCompletion);
                     if (_this.state.editableTextInputField !== etn.inputField) {
                         // The user was no longer editing the transition, don't do anything
                         return true;
                     }
                     var transition = previousTransition.clone();
-                    var newValue = etn.inputField.value || jsflap.LAMBDA;
+                    var newValue = etn.inputField.value || _this.board.graph.getEmptyTransitionCharacter();
                     transitionPart.onEdit(newValue, transition);
                     var similarTransitions = edge.visualization.models.items.length > 1 ? edge.visualization.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
                     if (similarTransitions.length == 0) {
                         var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
-                        if (trackHistory) {
-                            _this.board.invocationStack.trackExecution(cmd);
+                        if (onlyCurrentPart) {
+                            if (trackHistory) {
+                                _this.board.invocationStack.trackExecution(cmd);
+                            }
+                            else {
+                                cmd.execute();
+                            }
                         }
                         else {
-                            cmd.execute();
+                            if (!trackHistory) {
+                                cmd.execute();
+                            }
+                            if (wasNormalCompletion) {
+                                var newTarget = target.nextSibling;
+                                while (newTarget !== null && d3.select(newTarget).data()[0] instanceof jsflap.Transition.StaticTransitionPart) {
+                                    newTarget = newTarget.nextSibling;
+                                }
+                                if (newTarget !== null && d3.select(newTarget).data()[0] instanceof jsflap.Transition.EditableTransitionPart) {
+                                    setTimeout(function () { return _this.editTransition(edge, newTarget, trackHistory, false); }, 10);
+                                }
+                                else if (trackHistory) {
+                                    _this.board.invocationStack.trackExecution(cmd);
+                                }
+                            }
+                            else if (trackHistory) {
+                                _this.board.invocationStack.trackExecution(cmd);
+                            }
                         }
                     }
                     else {

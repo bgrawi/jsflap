@@ -28,5 +28,9 @@ module jsflap.Graph {
                 this.alphabet[transitionCharWrite] = true;
             }
         }
+        
+        getEmptyTransitionCharacter(): string {
+            return BLANK;
+        }
     }
 }

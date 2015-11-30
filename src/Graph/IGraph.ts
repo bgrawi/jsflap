@@ -45,5 +45,7 @@ module jsflap.Graph {
         fromString(input: string): boolean;
 
         isValid(): boolean;
+        
+        getEmptyTransitionCharacter(): string;
     }
 }

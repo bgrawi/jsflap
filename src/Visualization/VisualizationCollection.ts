@@ -525,7 +525,7 @@ module jsflap.Visualization {
                     } else if(this.state.mode === Board.BoardMode.DRAW) {
                         var model = d3.select(d3.event.target).data()[0];
                         if(model instanceof Transition.EditableTransitionPart) {
-                            this.editTransition(d, null, true);
+                            this.editTransition(d, null, true, true);
                         }
                     }
                 })
@@ -668,7 +668,7 @@ module jsflap.Visualization {
          * @param node
          * @param trackHistory
          */
-        editTransition(edge: Edge, node?: SVGTextElement, trackHistory?: boolean) {
+        editTransition(edge: Edge, node?: SVGTextElement, trackHistory?: boolean, onlyCurrentPart?: boolean) {
 
             var _this = this;
 
@@ -687,12 +687,13 @@ module jsflap.Visualization {
          
             var value = transitionPart.content;
             
-            value = value !== LAMBDA? value: '';
+            value = value !== this.board.graph.getEmptyTransitionCharacter()? value: '';
             
             var etn = new EditableTextNode(this.board, target);
             etn.value = value;
             etn.maxLength = 1;
-            etn.onComplete = () => {
+            etn.onComplete = (wasNormalCompletion: boolean) => {
+                console.log(wasNormalCompletion);
                 if(_this.state.editableTextInputField !== etn.inputField) {
 
                     // The user was no longer editing the transition, don't do anything
@@ -701,7 +702,7 @@ module jsflap.Visualization {
                 
                 var transition = previousTransition.clone();
                 
-                var newValue = (<HTMLInputElement> etn.inputField).value || LAMBDA;
+                var newValue = (<HTMLInputElement> etn.inputField).value || this.board.graph.getEmptyTransitionCharacter();
                 transitionPart.onEdit(newValue, transition);
                 
                 var similarTransitions = edge.visualization.models.items.length > 1?
@@ -711,10 +712,29 @@ module jsflap.Visualization {
 
                 if(similarTransitions.length == 0) {
                     var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
-                    if(trackHistory) {
-                        _this.board.invocationStack.trackExecution(cmd);
-                    } else {
-                        cmd.execute();
+                    if(onlyCurrentPart) {
+                        if(trackHistory) {
+                            _this.board.invocationStack.trackExecution(cmd);
+                        } else {
+                            cmd.execute();
+                        }
+                    } else { 
+                        if(!trackHistory) {
+                            cmd.execute();
+                        }   
+                        if(wasNormalCompletion) {
+                            var newTarget = target.nextSibling;
+                            while(newTarget !== null &&  d3.select(newTarget).data()[0] instanceof Transition.StaticTransitionPart) {
+                                newTarget = newTarget.nextSibling;
+                            }
+                            if(newTarget !== null && d3.select(newTarget).data()[0] instanceof Transition.EditableTransitionPart) {
+                                setTimeout( () => _this.editTransition(edge, <SVGTextElement> newTarget, trackHistory, false), 10);
+                            } else if(trackHistory) {
+                                _this.board.invocationStack.trackExecution(cmd);
+                            }
+                        } else if(trackHistory) {
+                            _this.board.invocationStack.trackExecution(cmd);
+                        }
                     }
                 } else {
                    // _this.editTransition(edge, target, !!trackHistory);

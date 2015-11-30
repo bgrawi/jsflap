@@ -74,11 +74,14 @@ module jsflap.Visualization {
 
             inp.transition()
             .style('background-color', this.backgroundColor);
+            
+            var completed = false;
 
             inp
                 .on("blur", function() {
                     _this.value = this.value;
-                    _this.onComplete();
+                    if(!completed) _this.onComplete(false);
+                    completed = true;
                     
                     // TODO: Look into why the forigen object is removed here but not in the keyup function
                     frm.remove();
@@ -101,7 +104,8 @@ module jsflap.Visualization {
                         
                         // Set the object's model from the dom object's one.
                         _this.value = this.value;
-                        if(_this.onComplete()) {
+                        if(completed || _this.onComplete(true)) {
+                            completed = true;
                             // Leave the field up if the completion was invalid
                             this.remove();
                             _this.board.state.editableTextInputField = null;

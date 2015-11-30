@@ -516,5 +516,9 @@ module jsflap.Graph {
                 return isValid;
             }
         }
+        
+        getEmptyTransitionCharacter(): string {
+            return LAMBDA;
+        }
     }
 }

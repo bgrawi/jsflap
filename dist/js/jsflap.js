@@ -812,6 +812,10 @@ var jsflap;
                  * The function to call after the board has been updated
                  */
                 this.onBoardUpdateFn = null;
+                /**
+                 * Quick test to determine if the platform is Apple-based for modifier keys
+                 */
+                this.platformIsApple = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
                 this.svg = d3.select(svg);
                 this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
                 this.setNewGraph(graph);
@@ -894,13 +898,19 @@ var jsflap;
                     d3.event.preventDefault();
                 });
                 document.addEventListener('keydown', function (event) {
-                    // Always monitor modifier keys regardless of context
-                    if (event.which === 16) {
-                        _this.state.shiftKeyPressed = true;
-                        _this.boardBase.attr("fill", "url(#grid)");
-                    }
-                    if (event.which === 17) {
-                        _this.state.ctrlKeyPressed = true;
+                    switch (event.which) {
+                        case 16:
+                            _this.state.shiftKeyPressed = true;
+                            _this.boardBase.attr("fill", "url(#grid)");
+                            break;
+                        case 17:
+                            _this.state.ctrlKeyPressed = true;
+                            break;
+                        case 91:
+                        case 93:
+                        case 224:
+                            _this.state.metaKeyPressed = true;
+                            break;
                     }
                     if (!(event.target instanceof HTMLInputElement)) {
                         var result = _this.keydown(event);
@@ -909,13 +919,19 @@ var jsflap;
                     return result;
                 });
                 document.addEventListener('keyup', function (event) {
-                    // Always monitor modifier keys regardless of context
-                    if (event.which === 16) {
-                        _this.state.shiftKeyPressed = false;
-                        _this.boardBase.attr("fill", "#FFFFFF");
-                    }
-                    if (event.which === 17) {
-                        _this.state.ctrlKeyPressed = false;
+                    switch (event.which) {
+                        case 16:
+                            _this.state.shiftKeyPressed = false;
+                            _this.boardBase.attr("fill", "#FFFFFF");
+                            break;
+                        case 17:
+                            _this.state.ctrlKeyPressed = false;
+                            break;
+                        case 91:
+                        case 93:
+                        case 224:
+                            _this.state.metaKeyPressed = false;
+                            break;
                     }
                     if (!(event.target instanceof HTMLInputElement)) {
                         var result = _this.keyup(event);
@@ -1390,14 +1406,14 @@ var jsflap;
                         }
                         break;
                     case 89:
-                        if (this.state.ctrlKeyPressed) {
+                        if (this.isModifierKeyPressed()) {
                             this.invocationStack.redo();
                             event.preventDefault();
                         }
                         return false;
                         break;
                     case 90:
-                        if (this.state.ctrlKeyPressed) {
+                        if (this.isModifierKeyPressed()) {
                             if (this.state.shiftKeyPressed) {
                                 this.invocationStack.redo();
                             }
@@ -1443,6 +1459,9 @@ var jsflap;
                     this.visualizations.update();
                 }
                 return true;
+            };
+            Board.prototype.isModifierKeyPressed = function () {
+                return this.platformIsApple ? this.state.metaKeyPressed : this.state.ctrlKeyPressed;
             };
             Board.prototype.getBounds = function () {
                 var minX = Number.MAX_VALUE, maxX = 0, minY = Number.MAX_VALUE, maxY = 0, posX, posY, radius, curMinX, curMaxX, curMinY, curMaxY;
@@ -1610,6 +1629,7 @@ var jsflap;
                 this.futureEdgeFromCreated = false;
                 this.shiftKeyPressed = false;
                 this.ctrlKeyPressed = false;
+                this.metaKeyPressed = false;
                 this.draggingNode = null;
                 this.isErasing = false;
                 this.hoveringEdge = null;

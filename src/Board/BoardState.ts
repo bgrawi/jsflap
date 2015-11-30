@@ -19,8 +19,9 @@ module jsflap.Board {
         public futureEdgeFromValid: boolean = false;
         public futureEdgeFromCreated: boolean = false;
         public shiftKeyPressed: boolean = false;
-
+        
         public ctrlKeyPressed: boolean = false;
+        public metaKeyPressed: boolean = false;
 
         public draggingNode: Visualization.NodeVisualization = null;
         public isErasing: boolean = false;

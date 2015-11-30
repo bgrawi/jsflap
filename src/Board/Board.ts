@@ -36,6 +36,11 @@ module jsflap.Board {
          * @type {jsflap.Board.BoardInvocationStack}
          */
         public invocationStack: BoardInvocationStack;
+        
+        /**
+         * Quick test to determine if the platform is Apple-based for modifier keys
+         */
+        private platformIsApple: boolean = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 
         /**
          * Represents both the visualization and the graph underneath
@@ -145,14 +150,21 @@ module jsflap.Board {
                 d3.event.preventDefault();
             });
             document.addEventListener('keydown', function (event) {
-
+                
                 // Always monitor modifier keys regardless of context
-                if(event.which === 16) {
-                    _this.state.shiftKeyPressed = true;
-                    _this.boardBase.attr("fill", "url(#grid)");
-                }
-                if(event.which === 17) {
-                    _this.state.ctrlKeyPressed = true;
+                switch(event.which) {
+                   case 16:
+                       _this.state.shiftKeyPressed = true;
+                       _this.boardBase.attr("fill", "url(#grid)");
+                       break;
+                   case 17:
+                       _this.state.ctrlKeyPressed = true;
+                       break;
+                   case 91:
+                   case 93:
+                   case 224:
+                       _this.state.metaKeyPressed = true;
+                       break; 
                 }
 
                 if(!(event.target instanceof HTMLInputElement)) {
@@ -164,12 +176,19 @@ module jsflap.Board {
             document.addEventListener('keyup', function (event) {
 
                 // Always monitor modifier keys regardless of context
-                if(event.which === 16) {
-                    _this.state.shiftKeyPressed = false;
-                    _this.boardBase.attr("fill", "#FFFFFF");
-                }
-                if(event.which === 17) {
-                    _this.state.ctrlKeyPressed = false;
+                switch(event.which) {
+                   case 16:
+                       _this.state.shiftKeyPressed = false;
+                       _this.boardBase.attr("fill", "#FFFFFF");
+                       break;
+                   case 17:
+                       _this.state.ctrlKeyPressed = false;
+                       break;
+                   case 91:
+                   case 93:
+                   case 224:
+                       _this.state.metaKeyPressed = false;
+                       break; 
                 }
 
                 if(!(event.target instanceof HTMLInputElement)) {
@@ -730,7 +749,7 @@ module jsflap.Board {
                     break;
 
                 case 89: // Y (For CTRL-Y)
-                    if(this.state.ctrlKeyPressed) {
+                    if(this.isModifierKeyPressed()) {
                         this.invocationStack.redo();
                         event.preventDefault();
                     }
@@ -738,7 +757,7 @@ module jsflap.Board {
                     break;
 
                 case 90: // Z (For CTRL-Z)
-                    if(this.state.ctrlKeyPressed) {
+                    if(this.isModifierKeyPressed()) {
                         if(this.state.shiftKeyPressed) {
                             this.invocationStack.redo();
                         } else {
@@ -784,6 +803,10 @@ module jsflap.Board {
                 this.visualizations.update();
             }
             return true;
+        }
+        
+        private isModifierKeyPressed() {
+            return this.platformIsApple? this.state.metaKeyPressed: this.state.ctrlKeyPressed;
         }
 
         public getBounds() {

@@ -149,6 +149,7 @@ module jsflap.Board {
                 // Always monitor modifier keys regardless of context
                 if(event.which === 16) {
                     _this.state.shiftKeyPressed = true;
+                    _this.boardBase.attr("fill", "url(#grid)");
                 }
                 if(event.which === 17) {
                     _this.state.ctrlKeyPressed = true;
@@ -165,6 +166,7 @@ module jsflap.Board {
                 // Always monitor modifier keys regardless of context
                 if(event.which === 16) {
                     _this.state.shiftKeyPressed = false;
+                    _this.boardBase.attr("fill", "#FFFFFF");
                 }
                 if(event.which === 17) {
                     _this.state.ctrlKeyPressed = false;
@@ -185,10 +187,6 @@ module jsflap.Board {
         private mouseup(event: MouseEvent) {
             if(event.event.which > 1) {
                 return false;
-            }
-
-            if(this.state.shiftKeyPressed) {
-                this.state.shiftKeyPressed = false;
             }
 
             if(this.state.mode === BoardMode.DRAW) {
@@ -368,8 +366,13 @@ module jsflap.Board {
                     if (nearestNode.node && nearestNode.distance < 70) {
                         this.state.futureEdgeFrom = nearestNode.node;
                     } else {
+                        
+                        var snappedPoint = event.point.getMPoint();
+                        if(this.state.shiftKeyPressed) {
+                            snappedPoint.round(20);
+                        }
     
-                        var cmd = new Command.AddNodeAtPointCommand(this, event.point);
+                        var cmd = new Command.AddNodeAtPointCommand(this, snappedPoint);
     
                         // Only add a node if the user is not currently click out of editing a transition OR is near a node
                         this.invocationStack.trackExecution(cmd);
@@ -423,11 +426,11 @@ module jsflap.Board {
                             distance = Math.sqrt(
                                 Math.pow(y2 - y1, 2) +
                                 Math.pow(x2 - x1, 2)
-                            );
+                            ); 
                         if (dx !== 0) {
                             point.x = x1 + distance * Math.cos(dTheta);
                             point.y = y1 + distance * Math.sin(dTheta);
-
+                            
                             // Also snap to a 20-pixel gid disabled for now
                             //point.x = (Math.round(point.x / 20) * 20);
                             //point.y = (Math.round(point.y / 20) * 20);
@@ -459,8 +462,7 @@ module jsflap.Board {
             } else if(this.state.mode === BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                 var snappedPoint = point.getMPoint();
                 if(this.state.shiftKeyPressed) {
-                    snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
-                    snappedPoint.y = (Math.round(snappedPoint.y / 20) * 20);
+                    snappedPoint.round(20);
                 }
 
                 if(this.state.draggingNode) {
@@ -537,41 +539,38 @@ module jsflap.Board {
                     this.state.modifyEdgeControl.recalculatePath(this.state.modifyEdgeControl.control)
                 } else if(this.state.isDraggingBoard) {
                     // Move all the elements of the board
-                    // Gets the delta between the points
+                    // Gets the delta between the points   
+                    
+                    if(this.state.shiftKeyPressed) {
+                        point.round(20);
+                    }                 
                     point.subtract(this.state.lastMousePoint);
 
-                    // Keep track of control points so that they are only added once
-                    var controlPoints: Object = {};
-
-                    // Custom update function to ensure control points are moved correctly
-                    var updateFn = (edgeModel: Edge) => {
+                    this.visualizations.nodes.forEach((nodeV: Visualization.NodeVisualization) => {
+                        nodeV.position.add(point);
+                    });
+                    this.visualizations.edges.forEach((edgeV: Visualization.EdgeVisualization) => {
                         var controlPoint: Point.MPoint = null;
 
                         // Only bother keeping the relative location of the control point if it has been moved
-                        if(edgeModel.visualization.hasMovedControlPoint()) {
-                            var edgeHash = edgeModel.toString();
-
-                            // Only do the addition once per edge
-                            if(!controlPoints.hasOwnProperty(edgeHash)) {
-                                controlPoints[edgeHash] = edgeModel.visualization.control.add(point);
-                                controlPoint = controlPoints[edgeHash];
-                            } else {
-                                controlPoint = controlPoints[edgeHash];
-                            }
+                        if(edgeV.hasMovedControlPoint()) {
+                            controlPoint = edgeV.control.add(point);
                         }
-                        edgeModel.visualization.recalculatePath(controlPoint?controlPoint: null);
-                    };
-                    this.visualizations.nodes.forEach((node: Visualization.NodeVisualization) => {
-                        node.position.add(point);
-                        node.updateEdgeVisualizationPaths(updateFn);
+                        edgeV.recalculatePath(controlPoint?controlPoint: null);
                     });
                 }
                 this.visualizations.update();
             } else if(this.state.mode === BoardMode.ERASE && this.state.isErasing) {
                 this.handleErasing(point);
             }
+            
+            var snappedMousePoint = event.point.getMPoint();
+            
+            if(this.state.shiftKeyPressed) {
+                snappedMousePoint.round(20);
+            }
 
-            this.state.lastMousePoint = event.point.getMPoint();
+            this.state.lastMousePoint = snappedMousePoint;
         }
 
         /**

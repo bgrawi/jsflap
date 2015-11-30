@@ -374,7 +374,11 @@
 
                 svgClone = self.board.svg[0][0].cloneNode(true);
 
-                svgClone.innerHTML = svgClone.innerHTML.replace(/markerArrow/g, "markerArrow_save")
+                // Avoid id collisions when adding the svg back to the body  
+                svgClone.innerHTML = svgClone.innerHTML.replace(/markerArrow/g, "markerArrow_save").replace(/grid/g, "grid_save")
+                
+                // Remove the control points if the board was in move state
+                svgClone.querySelector("g.control-points").remove();
 
                 svgClone.style.width = width;
                 svgClone.style.height = height;

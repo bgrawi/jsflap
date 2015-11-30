@@ -374,7 +374,11 @@
 
                 svgClone = self.board.svg[0][0].cloneNode(true);
 
-                svgClone.innerHTML = svgClone.innerHTML.replace(/markerArrow/g, "markerArrow_save")
+                // Avoid id collisions when adding the svg back to the body  
+                svgClone.innerHTML = svgClone.innerHTML.replace(/markerArrow/g, "markerArrow_save").replace(/grid/g, "grid_save")
+                
+                // Remove the control points if the board was in move state
+                svgClone.querySelector("g.control-points").remove();
 
                 svgClone.style.width = width;
                 svgClone.style.height = height;
@@ -893,6 +897,7 @@ var jsflap;
                     // Always monitor modifier keys regardless of context
                     if (event.which === 16) {
                         _this.state.shiftKeyPressed = true;
+                        _this.boardBase.attr("fill", "url(#grid)");
                     }
                     if (event.which === 17) {
                         _this.state.ctrlKeyPressed = true;
@@ -907,6 +912,7 @@ var jsflap;
                     // Always monitor modifier keys regardless of context
                     if (event.which === 16) {
                         _this.state.shiftKeyPressed = false;
+                        _this.boardBase.attr("fill", "#FFFFFF");
                     }
                     if (event.which === 17) {
                         _this.state.ctrlKeyPressed = false;
@@ -925,9 +931,6 @@ var jsflap;
             Board.prototype.mouseup = function (event) {
                 if (event.event.which > 1) {
                     return false;
-                }
-                if (this.state.shiftKeyPressed) {
-                    this.state.shiftKeyPressed = false;
                 }
                 if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.futureEdge) {
@@ -1090,7 +1093,11 @@ var jsflap;
                             this.state.futureEdgeFrom = nearestNode.node;
                         }
                         else {
-                            var cmd = new _Board.Command.AddNodeAtPointCommand(this, event.point);
+                            var snappedPoint = event.point.getMPoint();
+                            if (this.state.shiftKeyPressed) {
+                                snappedPoint.round(20);
+                            }
+                            var cmd = new _Board.Command.AddNodeAtPointCommand(this, snappedPoint);
                             // Only add a node if the user is not currently click out of editing a transition OR is near a node
                             this.invocationStack.trackExecution(cmd);
                             this.state.futureEdgeFromCreated = true;
@@ -1164,8 +1171,7 @@ var jsflap;
                 else if (this.state.mode === 1 /* MOVE */ && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                     var snappedPoint = point.getMPoint();
                     if (this.state.shiftKeyPressed) {
-                        snappedPoint.x = (Math.round(snappedPoint.x / 20) * 20);
-                        snappedPoint.y = (Math.round(snappedPoint.y / 20) * 20);
+                        snappedPoint.round(20);
                     }
                     if (this.state.draggingNode) {
                         var oldDraggingNodePoint = this.state.draggingNode.position.getMPoint();
@@ -1222,30 +1228,21 @@ var jsflap;
                     }
                     else if (this.state.isDraggingBoard) {
                         // Move all the elements of the board
-                        // Gets the delta between the points
+                        // Gets the delta between the points   
+                        if (this.state.shiftKeyPressed) {
+                            point.round(20);
+                        }
                         point.subtract(this.state.lastMousePoint);
-                        // Keep track of control points so that they are only added once
-                        var controlPoints = {};
-                        // Custom update function to ensure control points are moved correctly
-                        var updateFn = function (edgeModel) {
+                        this.visualizations.nodes.forEach(function (nodeV) {
+                            nodeV.position.add(point);
+                        });
+                        this.visualizations.edges.forEach(function (edgeV) {
                             var controlPoint = null;
                             // Only bother keeping the relative location of the control point if it has been moved
-                            if (edgeModel.visualization.hasMovedControlPoint()) {
-                                var edgeHash = edgeModel.toString();
-                                // Only do the addition once per edge
-                                if (!controlPoints.hasOwnProperty(edgeHash)) {
-                                    controlPoints[edgeHash] = edgeModel.visualization.control.add(point);
-                                    controlPoint = controlPoints[edgeHash];
-                                }
-                                else {
-                                    controlPoint = controlPoints[edgeHash];
-                                }
+                            if (edgeV.hasMovedControlPoint()) {
+                                controlPoint = edgeV.control.add(point);
                             }
-                            edgeModel.visualization.recalculatePath(controlPoint ? controlPoint : null);
-                        };
-                        this.visualizations.nodes.forEach(function (node) {
-                            node.position.add(point);
-                            node.updateEdgeVisualizationPaths(updateFn);
+                            edgeV.recalculatePath(controlPoint ? controlPoint : null);
                         });
                     }
                     this.visualizations.update();
@@ -1253,7 +1250,11 @@ var jsflap;
                 else if (this.state.mode === 2 /* ERASE */ && this.state.isErasing) {
                     this.handleErasing(point);
                 }
-                this.state.lastMousePoint = event.point.getMPoint();
+                var snappedMousePoint = event.point.getMPoint();
+                if (this.state.shiftKeyPressed) {
+                    snappedMousePoint.round(20);
+                }
+                this.state.lastMousePoint = snappedMousePoint;
             };
             /**
              * Handles erasing at a point
@@ -2519,10 +2520,12 @@ var jsflap;
             /**
              * Rounds this point to the nearest pixel
              */
-            MPoint.prototype.round = function () {
-                //TODO: Support rounding precision
-                this.x = Math.round(this.x);
-                this.y = Math.round(this.y);
+            MPoint.prototype.round = function (precision) {
+                if (!precision) {
+                    precision = 1;
+                }
+                this.x = Math.round(this.x / precision) * precision;
+                this.y = Math.round(this.y / precision) * precision;
                 return this;
             };
             /**

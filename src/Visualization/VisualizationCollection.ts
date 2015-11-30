@@ -670,8 +670,6 @@ module jsflap.Visualization {
          */
         editTransition(edge: Edge, node?: SVGTextElement, trackHistory?: boolean, onlyCurrentPart?: boolean) {
 
-            var _this = this;
-
             var previousTransition = edge.transition;
 
             var target: SVGTextElement;
@@ -693,7 +691,7 @@ module jsflap.Visualization {
             etn.value = value;
             etn.maxLength = 1;
             etn.onComplete = (wasNormalCompletion: boolean) => {
-                if(_this.state.editableTextInputField !== etn.inputField) {
+                if(this.state.editableTextInputField !== etn.inputField) {
 
                     // The user was no longer editing the transition, don't do anything
                     return true;
@@ -710,10 +708,10 @@ module jsflap.Visualization {
                         :[];
 
                 if(similarTransitions.length == 0) {
-                    var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
+                    var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(this.board, edge, transition, previousTransition);
                     if(onlyCurrentPart) {
                         if(trackHistory) {
-                            _this.board.invocationStack.trackExecution(cmd);
+                            this.board.invocationStack.trackExecution(cmd);
                         } else {
                             cmd.execute();
                         }
@@ -727,12 +725,12 @@ module jsflap.Visualization {
                                 newTarget = newTarget.nextSibling;
                             }
                             if(newTarget !== null && d3.select(newTarget).data()[0] instanceof Transition.EditableTransitionPart) {
-                                setTimeout( () => _this.editTransition(edge, <SVGTextElement> newTarget, trackHistory, false), 10);
+                                setTimeout( () => this.editTransition(edge, <SVGTextElement> newTarget, trackHistory, false), 10);
                             } else if(trackHistory) {
-                                _this.board.invocationStack.trackExecution(cmd);
+                                this.board.invocationStack.trackExecution(cmd);
                             }
                         } else if(trackHistory) {
-                            _this.board.invocationStack.trackExecution(cmd);
+                            this.board.invocationStack.trackExecution(cmd);
                         }
                     }
                 } else {

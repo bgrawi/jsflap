@@ -223,8 +223,10 @@ section.board-sidebar input {
     padding-bottom: 20px;
 }
 
-section.board-sidebar .outputStringResult {
+section.board-sidebar .testInputInfo {
     padding: 3px;
+    overflow-x: auto;
+    width: 100%;
 }
 
 section.board-sidebar input:focus {

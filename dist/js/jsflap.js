@@ -50,7 +50,8 @@
             var inputTemplate = {
                 inputString: '',
                 result: null,
-                outputString: ''
+                outputString: '',
+                error: ''
             };
             return {
                 restrict: 'A',
@@ -77,18 +78,24 @@
                             scope.resultTotals[2] = 0;
                             //var t0 = performance.now();
                             scope.testInputs.forEach(function(testInput) {
+                                testInput.error = '';
                                 try {
                                     testInput.result = jsflapApp.machine.run(testInput.inputString, jsflapApp.graph);
-                                    if(scope.hasOutputString) {
-                                        testInput.outputString = jsflapApp.machine.getCurrentTapeString();
-                                    } else {
-                                        testInput.outputString = '';
-                                    }
                                     scope.resultTotals[+(testInput.result)] += 1;
                                 } catch(e) {
                                     // Invalid Graph
                                     scope.resultTotals[2] += 1;
                                     testInput.result = null;
+                                    
+                                    if(e instanceof jsflap.Machine.MachineError) {
+                                        testInput.error = e.toString();
+                                    }
+                                }
+                                
+                                if(scope.hasOutputString) {
+                                    testInput.outputString = jsflapApp.machine.getCurrentTapeString();
+                                } else {
+                                    testInput.outputString = '';
                                 }
                             });
                             //var t1 = performance.now();
@@ -151,16 +158,17 @@
                                 break;
                             case 32:
                                 if(shiftKeyDown) {
-                                    event.preventDefault();
-                                    scope.testInput.inputString += jsflap.BLANK; 
-                                    scope.$digest();
+                                    event.preventDefault(); 
+                                    scope.$apply(function() {
+                                        scope.testInput.inputString += jsflap.BLANK;
+                                    });
                                 }
                                 break;
                         }
                     });
                     elm.on('keyup', function(event) {
                         switch(event.which) {
-                            case 18:
+                            case 16:
                                 shiftKeyDown = false;
                                 break;
                         }
@@ -2258,6 +2266,23 @@ var jsflap;
 (function (jsflap) {
     var Machine;
     (function (Machine) {
+        var MachineError = (function () {
+            function MachineError(message) {
+                this.message = message;
+            }
+            MachineError.prototype.toString = function () {
+                return this.message;
+            };
+            return MachineError;
+        })();
+        Machine.MachineError = MachineError;
+    })(Machine = jsflap.Machine || (jsflap.Machine = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Machine;
+    (function (Machine) {
         var TMachine = (function () {
             /**
              * Creates a new machine based on a graph
@@ -2321,23 +2346,26 @@ var jsflap;
                         // Check if we have already visited this state before
                         if (!this.visitedStates.hasOwnProperty(nextStateString)) {
                             // We haven't, add it to our visited state list and queue
-                            this.visitedStates[nextState.toString()] = 1;
+                            this.visitedStates[nextStateString] = 1;
                             this.queue.push(nextState);
                         }
                         else if (this.visitedStates[nextStateString] < this.MAX_STATE_REPEAT) {
+                            this.visitedStates[nextStateString]++;
                             this.queue.push(nextState);
                         }
                         else {
-                            // Reached max state repeat
-                            return false;
+                            throw new Machine.MachineError("Reached max state repeat (" + this.MAX_STATE_REPEAT + ")");
                         }
                     }
+                }
+                if (this.stepCount - 1 === this.MAX_STEP_COUNT) {
+                    throw new Machine.MachineError("Reached max steps (" + this.MAX_STEP_COUNT + ")");
                 }
                 // If we got here the states were all invalid
                 return false;
             };
             TMachine.prototype.getCurrentTapeString = function () {
-                if (this.currentState === null) {
+                if (!this.currentState) {
                     return '';
                 }
                 var resultString = '';
@@ -2706,9 +2734,11 @@ var jsflap;
             TuringTransition.prototype.setDirectionFromString = function (directionString) {
                 switch (directionString) {
                     case 'L':
+                    case 'l':
                         this.direction = -1 /* LEFT */;
                         break;
                     case 'R':
+                    case 'r':
                         this.direction = 1 /* RIGHT */;
                         break;
                     default:
@@ -3568,7 +3598,6 @@ var jsflap;
              * @param trackHistory
              */
             VisualizationCollection.prototype.editTransition = function (edge, node, trackHistory, onlyCurrentPart) {
-                var _this = this;
                 var _this = this;
                 var previousTransition = edge.transition;
                 var target;

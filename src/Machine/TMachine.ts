@@ -100,15 +100,20 @@ module jsflap.Machine {
                     if(!this.visitedStates.hasOwnProperty(nextStateString) ) {
 
                         // We haven't, add it to our visited state list and queue
-                        this.visitedStates[nextState.toString()] = 1;
+                        this.visitedStates[nextStateString] = 1;
                         this.queue.push(nextState);
                     } else if(this.visitedStates[nextStateString] < this.MAX_STATE_REPEAT) {
+                        this.visitedStates[nextStateString]++;
                         this.queue.push(nextState);
                     } else {
                         // Reached max state repeat
-                        return false;
+                        throw new MachineError("Reached max state repeat (" + this.MAX_STATE_REPEAT + ")");
                     }
                 }
+            }
+            
+            if(this.stepCount - 1 === this.MAX_STEP_COUNT) {
+                throw new MachineError("Reached max steps (" + this.MAX_STEP_COUNT + ")");
             }
 
             // If we got here the states were all invalid
@@ -116,7 +121,7 @@ module jsflap.Machine {
         }
         
         getCurrentTapeString(): string {
-            if(this.currentState === null) {
+            if(!this.currentState) {
                 return '';
             }
             

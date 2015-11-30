@@ -50,7 +50,8 @@
             var inputTemplate = {
                 inputString: '',
                 result: null,
-                outputString: ''
+                outputString: '',
+                error: ''
             };
             return {
                 restrict: 'A',
@@ -77,18 +78,24 @@
                             scope.resultTotals[2] = 0;
                             //var t0 = performance.now();
                             scope.testInputs.forEach(function(testInput) {
+                                testInput.error = '';
                                 try {
                                     testInput.result = jsflapApp.machine.run(testInput.inputString, jsflapApp.graph);
-                                    if(scope.hasOutputString) {
-                                        testInput.outputString = jsflapApp.machine.getCurrentTapeString();
-                                    } else {
-                                        testInput.outputString = '';
-                                    }
                                     scope.resultTotals[+(testInput.result)] += 1;
                                 } catch(e) {
                                     // Invalid Graph
                                     scope.resultTotals[2] += 1;
                                     testInput.result = null;
+                                    
+                                    if(e instanceof jsflap.Machine.MachineError) {
+                                        testInput.error = e.toString();
+                                    }
+                                }
+                                
+                                if(scope.hasOutputString) {
+                                    testInput.outputString = jsflapApp.machine.getCurrentTapeString();
+                                } else {
+                                    testInput.outputString = '';
                                 }
                             });
                             //var t1 = performance.now();
@@ -151,16 +158,17 @@
                                 break;
                             case 32:
                                 if(shiftKeyDown) {
-                                    event.preventDefault();
-                                    scope.testInput.inputString += jsflap.BLANK; 
-                                    scope.$digest();
+                                    event.preventDefault(); 
+                                    scope.$apply(function() {
+                                        scope.testInput.inputString += jsflap.BLANK;
+                                    });
                                 }
                                 break;
                         }
                     });
                     elm.on('keyup', function(event) {
                         switch(event.which) {
-                            case 18:
+                            case 16:
                                 shiftKeyDown = false;
                                 break;
                         }

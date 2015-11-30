@@ -50,9 +50,11 @@ module jsflap.Transition {
         setDirectionFromString(directionString: string) {
             switch(directionString) {
                 case 'L':
+                case 'l':
                     this.direction = TuringTransitionDirection.LEFT;
                     break;
                 case 'R':
+                case 'r':
                     this.direction = TuringTransitionDirection.RIGHT;
                     break;
                 default:

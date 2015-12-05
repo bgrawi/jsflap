@@ -915,6 +915,8 @@ module jsflap.Board {
                        textContent = edgeModel.transition.toString();
                     if(textContent === jsflap.LAMBDA) {
                         textContent = '\\lambda';
+                    } else if(textContent === jsflap.BLANK) {
+                        textContent = '\\Box';
                     }
                     texData += '    \\draw (' + textPos.x + ', ' + textPos.y + ') node[edgeTransition] {$' + textContent + '$}; \n';
                 });

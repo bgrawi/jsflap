@@ -475,7 +475,7 @@ module jsflap.Visualization {
                 .text((d: Transition.ITransitionPart) => {
                         var value = d.content;
                         if(value === " ") {
-                            return String.fromCharCode(0x25a0); // UTF-8 Black Square
+                            return String.fromCharCode(0x2423); // UTF-8 Open Box
                         } else if(value === "") {
                             return String.fromCharCode(0x25a1); // UTF-8 White Square
                         } else {
@@ -669,7 +669,6 @@ module jsflap.Visualization {
          * @param trackHistory
          */
         editTransition(edge: Edge, node?: SVGTextElement, trackHistory?: boolean, onlyCurrentPart?: boolean) {
-
             var previousTransition = edge.transition;
 
             var target: SVGTextElement;
@@ -701,15 +700,19 @@ module jsflap.Visualization {
                 
                 var newValue = (<HTMLInputElement> etn.inputField).value || this.board.graph.getEmptyTransitionCharacter();
                 transitionPart.onEdit(newValue, transition);
-                
+                var previousPending = transition.pending;
+                transition.pending = false;
                 var similarTransitions = edge.visualization.models.items.length > 1?
                     edge.visualization.models.items
-                        .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString())
+                        .filter((otherEdge: Edge) => (otherEdge.hashCode() != edge.hashCode() && (otherEdge.transition.toString() === transition.toString())))
                         :[];
+                    transition.pending = previousPending;
 
                 if(similarTransitions.length == 0) {
                     var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(this.board, edge, transition, previousTransition);
                     if(onlyCurrentPart) {
+                        transition.pending = false;
+                        previousTransition.pending = false;
                         if(trackHistory) {
                             this.board.invocationStack.trackExecution(cmd);
                         } else {
@@ -717,6 +720,8 @@ module jsflap.Visualization {
                         }
                     } else { 
                         if(!trackHistory) {
+                            transition.pending = false;
+                            previousTransition.pending = false;
                             cmd.execute();
                         }   
                         if(wasNormalCompletion) {
@@ -727,9 +732,13 @@ module jsflap.Visualization {
                             if(newTarget !== null && d3.select(newTarget).data()[0] instanceof Transition.EditableTransitionPart) {
                                 setTimeout( () => this.editTransition(edge, <SVGTextElement> newTarget, trackHistory, false), 10);
                             } else if(trackHistory) {
+                                transition.pending = false;
+                                previousTransition.pending = false;
                                 this.board.invocationStack.trackExecution(cmd);
                             }
                         } else if(trackHistory) {
+                            transition.pending = false;
+                            previousTransition.pending = false;
                             this.board.invocationStack.trackExecution(cmd);
                         }
                     }

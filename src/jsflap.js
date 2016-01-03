@@ -252,10 +252,6 @@
                 }
             });
 
-            $scope.settings = {
-                theme: 'modern'
-            };
-
             $scope.openHelpModal = function () {
                 var modalInstance = $modal.open({
                     templateUrl: 'templates/HelpModal.html',

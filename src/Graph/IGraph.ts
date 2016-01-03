@@ -27,7 +27,7 @@ module jsflap.Graph {
         addNode(node: Node): Node;
         addNode(label: string): Node;
 
-        addEdge(from: any, to: any, transition: any): Edge;
+        addEdge(from: any, to: any, transition: any, pending?: boolean): Edge;
         addEdge(edge: Edge): Edge;
 
         getInitialNode(): Node;

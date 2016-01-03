@@ -51,6 +51,8 @@ module jsflap.Board.Command {
          * The edge visualization
          */
         private edgeV: EdgeV;
+        
+        private firstTime: boolean = true;
 
         constructor(board: Board, startNodeV: NodeV, endingPoint: Point.IPoint) {
             this.board = board;
@@ -79,7 +81,8 @@ module jsflap.Board.Command {
             }
 
             //if(!this.edgeV) {
-                this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge ? this.edge.transition : null);
+                this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge ? this.edge.transition : null, null, true);
+                this.firstTime = false;
             //} else {
             //    this.board.addEdgeVisualization(this.edgeV);
             //    this.board.handleOppositeEdgeExpanding(this.edgeV);

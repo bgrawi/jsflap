@@ -252,10 +252,6 @@
                 }
             });
 
-            $scope.settings = {
-                theme: 'modern'
-            };
-
             $scope.openHelpModal = function () {
                 var modalInstance = $modal.open({
                     templateUrl: 'templates/HelpModal.html',
@@ -453,6 +449,7 @@ var jsflap;
 (function (jsflap) {
     jsflap.LAMBDA = 'λ';
     jsflap.BLANK = '☐';
+    jsflap.UNKNOWN = String.fromCharCode(0xFFFD);
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -808,6 +805,10 @@ var jsflap;
              * @param $rootScope The scope to broadcast events on
              */
             function Board(svg, graph, $rootScope) {
+                this.settings = {
+                    theme: "modern",
+                    transitionStyle: 0 /* UPRIGHT */
+                };
                 /**
                  * The function to call after the board has been updated
                  */
@@ -817,7 +818,7 @@ var jsflap;
                  */
                 this.platformIsApple = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
                 this.svg = d3.select(svg);
-                this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "#FFFFFF").attr("width", svg.getBoundingClientRect().width).attr("height", svg.getBoundingClientRect().height);
+                this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "url(#grid)").attr("width", "100%").attr("height", "100%");
                 this.setNewGraph(graph);
                 this.registerBindings($rootScope);
             }
@@ -898,10 +899,15 @@ var jsflap;
                     d3.event.preventDefault();
                 });
                 document.addEventListener('keydown', function (event) {
+                    // Do not track modifier keys if the event was in an input field
+                    // TODO: Better input field detection (e.g. textarea/select lists w/o multiple compares)
+                    if (event.target.tagName.toLowerCase() === 'input') {
+                        return;
+                    }
                     switch (event.which) {
                         case 16:
                             _this.state.shiftKeyPressed = true;
-                            _this.boardBase.attr("fill", "url(#grid)");
+                            _this.boardBase.attr("fill", "#FFFFFF");
                             break;
                         case 17:
                             _this.state.ctrlKeyPressed = true;
@@ -922,7 +928,7 @@ var jsflap;
                     switch (event.which) {
                         case 16:
                             _this.state.shiftKeyPressed = false;
-                            _this.boardBase.attr("fill", "#FFFFFF");
+                            _this.boardBase.attr("fill", "url(#grid)");
                             break;
                         case 17:
                             _this.state.ctrlKeyPressed = false;
@@ -984,8 +990,8 @@ var jsflap;
              * @param transition
              * @param index
              */
-            Board.prototype.addEdge = function (existingEdgeV, from, to, transition, index) {
-                var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA), foundEdgeV;
+            Board.prototype.addEdge = function (existingEdgeV, from, to, transition, index, pending) {
+                var edge = this.graph.addEdge(from.model, to.model, transition || jsflap.LAMBDA, pending), foundEdgeV;
                 foundEdgeV = this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
                 // If there already is a visualization between these two edges, add the edge to that model
                 if (foundEdgeV) {
@@ -1110,7 +1116,7 @@ var jsflap;
                         }
                         else {
                             var snappedPoint = event.point.getMPoint();
-                            if (this.state.shiftKeyPressed) {
+                            if (!this.state.shiftKeyPressed) {
                                 snappedPoint.round(20);
                             }
                             var cmd = new _Board.Command.AddNodeAtPointCommand(this, snappedPoint);
@@ -1152,12 +1158,8 @@ var jsflap;
                 }
                 if (this.state.mode === 0 /* DRAW */) {
                     if (this.state.futureEdge !== null) {
-                        if (this.state.shiftKeyPressed) {
-                            var x1 = this.state.futureEdge.start.x, x2 = point.x, y1 = this.state.futureEdge.start.y, y2 = point.y, dx = x2 - x1, dy = y2 - y1, theta = Math.atan2(dy, dx), dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4), distance = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-                            if (dx !== 0) {
-                                point.x = x1 + distance * Math.cos(dTheta);
-                                point.y = y1 + distance * Math.sin(dTheta);
-                            }
+                        if (!this.state.shiftKeyPressed) {
+                            point.round(20);
                         }
                         var nearestNode = this.visualizations.getNearestNode(point);
                         if (nearestNode.node && nearestNode.distance < 40) {
@@ -1186,7 +1188,7 @@ var jsflap;
                 }
                 else if (this.state.mode === 1 /* MOVE */ && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                     var snappedPoint = point.getMPoint();
-                    if (this.state.shiftKeyPressed) {
+                    if (!this.state.shiftKeyPressed) {
                         snappedPoint.round(20);
                     }
                     if (this.state.draggingNode) {
@@ -1245,7 +1247,7 @@ var jsflap;
                     else if (this.state.isDraggingBoard) {
                         // Move all the elements of the board
                         // Gets the delta between the points   
-                        if (this.state.shiftKeyPressed) {
+                        if (!this.state.shiftKeyPressed) {
                             point.round(20);
                         }
                         point.subtract(this.state.lastMousePoint);
@@ -1267,7 +1269,7 @@ var jsflap;
                     this.handleErasing(point);
                 }
                 var snappedMousePoint = event.point.getMPoint();
-                if (this.state.shiftKeyPressed) {
+                if (!this.state.shiftKeyPressed) {
                     snappedMousePoint.round(20);
                 }
                 this.state.lastMousePoint = snappedMousePoint;
@@ -1370,6 +1372,10 @@ var jsflap;
              * @param event
              */
             Board.prototype.keydown = function (event) {
+                // Do not alow any undo/redo, mode changes, or node settings while drawing new edge
+                if (this.state.futureEdgeFrom !== null) {
+                    return;
+                }
                 switch (event.which) {
                     case 32:
                         if (this.state.mode !== 1 /* MOVE */) {
@@ -1528,6 +1534,9 @@ var jsflap;
                         if (textContent === jsflap.LAMBDA) {
                             textContent = '\\lambda';
                         }
+                        else if (textContent === jsflap.BLANK) {
+                            textContent = '\\Box';
+                        }
                         texData += '    \\draw (' + textPos.x + ', ' + textPos.y + ') node[edgeTransition] {$' + textContent + '$}; \n';
                     });
                 });
@@ -1614,6 +1623,18 @@ var jsflap;
 (function (jsflap) {
     var Board;
     (function (Board) {
+        (function (TransitionStyle) {
+            TransitionStyle[TransitionStyle["UPRIGHT"] = 0] = "UPRIGHT";
+            TransitionStyle[TransitionStyle["PERPENDICULAR"] = 1] = "PERPENDICULAR";
+        })(Board.TransitionStyle || (Board.TransitionStyle = {}));
+        var TransitionStyle = Board.TransitionStyle;
+    })(Board = jsflap.Board || (jsflap.Board = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Board;
+    (function (Board) {
         (function (BoardMode) {
             BoardMode[BoardMode["DRAW"] = 0] = "DRAW";
             BoardMode[BoardMode["MOVE"] = 1] = "MOVE";
@@ -1667,494 +1688,6 @@ var jsflap;
         })();
         Board.MouseEvent = MouseEvent;
     })(Board = jsflap.Board || (jsflap.Board = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
-    var Graph;
-    (function (Graph) {
-        var FAGraph = (function () {
-            /**
-             * Create a new graph
-             * @param deterministic
-             * @param nodes
-             * @param edges
-             */
-            function FAGraph(deterministic, nodes, edges) {
-                var _this = this;
-                this.shortName = "FA";
-                this.init(deterministic);
-                if (nodes) {
-                    nodes.forEach(function (node) {
-                        _this.addNode(node);
-                    });
-                }
-                if (edges) {
-                    edges.forEach(function (edge) {
-                        _this.addEdge(edge);
-                    });
-                }
-            }
-            /**
-             * Initialize the graph
-             * @param deterministic
-             */
-            FAGraph.prototype.init = function (deterministic) {
-                this.deterministic = deterministic;
-                this.initialNode = null;
-                this.nodes = new jsflap.NodeList();
-                this.finalNodes = new jsflap.NodeList();
-                this.edges = new jsflap.EdgeList();
-                this.alphabet = {};
-            };
-            /**
-             * Gets the nodes from the graph
-             * @returns {NodeList}
-             */
-            FAGraph.prototype.getNodes = function () {
-                return this.nodes;
-            };
-            /**
-             * Gets the edges from the graph
-             * @returns {EdgeList}
-             */
-            FAGraph.prototype.getEdges = function () {
-                return this.edges;
-            };
-            /**
-             * Adds a node based on a label
-             * @returns {jsflap.Node|any}
-             * @param node
-             * @param options
-             */
-            FAGraph.prototype.addNode = function (node, options) {
-                var newNode;
-                if (typeof node === 'string') {
-                    newNode = new jsflap.Node(node, options);
-                }
-                else if (node instanceof jsflap.Node) {
-                    newNode = node;
-                }
-                var result = this.nodes.add(newNode);
-                // If unique node that is initial, make this one the new initial
-                if (result === newNode) {
-                    if (result.initial) {
-                        this.setInitialNode(result);
-                    }
-                    if (result.final) {
-                        this.finalNodes.add(result);
-                    }
-                }
-                return result;
-            };
-            /**
-             * Removes a node from the graph
-             * @param node
-             * @returns {boolean}
-             */
-            FAGraph.prototype.removeNode = function (node) {
-                var foundNode = this.nodes.get(node);
-                if (!foundNode) {
-                    return false;
-                }
-                if (foundNode === this.initialNode) {
-                    //this.setInitialNode(null);
-                    this.initialNode = null;
-                }
-                if (foundNode.final && this.finalNodes.has(foundNode)) {
-                    this.finalNodes.remove(foundNode);
-                }
-                if (foundNode) {
-                    this.nodes.remove(foundNode);
-                }
-                return true;
-            };
-            /**
-             * Gets a node from the node list
-             * @param node
-             * @returns {any}
-             */
-            FAGraph.prototype.getNode = function (node) {
-                return this.nodes.get(node);
-            };
-            /**
-             * Determines if the graph has the node
-             * @param node
-             * @returns {any}
-             */
-            FAGraph.prototype.hasNode = function (node) {
-                return this.nodes.has(node);
-            };
-            /**
-             * Adds an edge to the graph
-             * @param from
-             * @param to
-             * @param transition
-             * @returns {jsflap.Edge|any}
-             */
-            FAGraph.prototype.addEdge = function (from, to, transition) {
-                var edge;
-                if (from && to && transition) {
-                    // Determine if we need to make objects or not
-                    var fromObj, toObj, transitionObj;
-                    if (typeof from === 'string') {
-                        fromObj = this.getNode(from);
-                    }
-                    else if (from instanceof jsflap.Node) {
-                        fromObj = from;
-                    }
-                    if (typeof to === 'string') {
-                        toObj = this.getNode(to);
-                    }
-                    else if (to instanceof jsflap.Node) {
-                        toObj = to;
-                    }
-                    if (typeof transition === 'string') {
-                        transitionObj = this.createTransitionFromString(transition);
-                    }
-                    else if (typeof transition === 'object') {
-                        transitionObj = transition;
-                    }
-                    edge = new jsflap.Edge(fromObj, toObj, transitionObj);
-                }
-                else if (from instanceof jsflap.Edge) {
-                    edge = from;
-                }
-                else {
-                    throw new Error('Invalid Arguments for creating an edge');
-                }
-                if (!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
-                    throw new Error('Graph does not have all nodes in in the edge');
-                }
-                this.updateAlphabetForEgde(edge);
-                return this.edges.add(edge);
-            };
-            FAGraph.prototype.createTransitionFromString = function (str) {
-                return new jsflap.Transition.CharacterTransition(str);
-            };
-            /**
-             * Updates the alphabet after any changes to the transitions
-             */
-            FAGraph.prototype.updateAlphabet = function () {
-                var _this = this;
-                // Clear the alphabet
-                this.alphabet = {};
-                // Update the alphabet
-                this.edges.items.forEach(function (edge) { return _this.updateAlphabetForEgde(edge); });
-            };
-            FAGraph.prototype.updateAlphabetForEgde = function (edge) {
-                var transitionChar = edge.transition.toString();
-                if (!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== jsflap.LAMBDA && transitionChar !== jsflap.BLANK) {
-                    this.alphabet[transitionChar] = true;
-                }
-            };
-            /**
-             * Gets an edge from the edge list
-             * @param edge
-             * @returns {any}
-             */
-            FAGraph.prototype.getEdge = function (edge) {
-                return this.edges.get(edge);
-            };
-            /**
-             * Removes an edge from the graph
-             * @param edge
-             */
-            FAGraph.prototype.removeEdge = function (edge) {
-                var foundEdge = this.edges.get(edge);
-                if (!foundEdge) {
-                    return false;
-                }
-                foundEdge.removeNodes();
-                return this.edges.remove(foundEdge);
-            };
-            /**
-             * Determines if the graph has the edge or not
-             * @param edge
-             * @returns {boolean}
-             */
-            FAGraph.prototype.hasEdge = function (edge) {
-                return this.edges.has(edge);
-            };
-            /**
-             * Gets the initial node for the graph
-             * @returns {Node}
-             */
-            FAGraph.prototype.getInitialNode = function () {
-                return this.initialNode;
-            };
-            /**
-             * Sets the node as initial and verifies that there is only ever one initial node
-             * @param node
-             * @returns {jsflap.Node}
-             */
-            FAGraph.prototype.setInitialNode = function (node) {
-                if (this.initialNode) {
-                    this.initialNode.initial = false;
-                }
-                if (node) {
-                    node.initial = true;
-                    this.initialNode = node;
-                }
-                else {
-                    this.initialNode = null;
-                }
-                return node;
-            };
-            /**
-             * Marks a node as final in the graph
-             * @param node
-             * @returns {jsflap.Node|any}
-             */
-            FAGraph.prototype.markFinalNode = function (node) {
-                node.final = true;
-                if (this.nodes.has(node) && !this.finalNodes.has(node)) {
-                    this.finalNodes.add(node);
-                }
-                return node;
-            };
-            /**
-             * Unmarks a node as final from the graph
-             * @param node
-             * @returns {jsflap.Node}
-             */
-            FAGraph.prototype.unmarkFinalNode = function (node) {
-                node.final = false;
-                if (this.nodes.has(node) && this.finalNodes.has(node)) {
-                    this.finalNodes.remove(node);
-                }
-                return node;
-            };
-            /**
-             * Gets the list of final nodes
-             * @returns {NodeList}
-             */
-            FAGraph.prototype.getFinalNodes = function () {
-                return this.finalNodes;
-            };
-            /**
-             * Gets the alphabet
-             * @returns {Object}
-             */
-            FAGraph.prototype.getAlphabet = function () {
-                return this.alphabet;
-            };
-            /**
-             * Generates a representation of this graph as a string
-             * @returns {string}
-             */
-            FAGraph.prototype.toString = function () {
-                var str = '';
-                // Determinism prefix
-                str += (this.deterministic) ? 'D' : 'N';
-                // Type of graph
-                str += this.shortName;
-                // Separator and start of definition
-                str += ':(';
-                // Alphabet
-                this.updateAlphabet();
-                str += '{';
-                str += Object.keys(this.alphabet).join(', ');
-                str += '}, ';
-                // Nodes
-                str += '{';
-                str += this.nodes.items.map(function (node) {
-                    return node.toString();
-                }).join(', ');
-                str += '}, ';
-                //Transitions
-                str += '{';
-                str += this.edges.items.map(function (edge) {
-                    return edge.toString();
-                }).join(', ');
-                str += '}, ';
-                // Start symbol
-                str += this.initialNode ? this.initialNode.toString() : '';
-                str += ', ';
-                // Final Nodes
-                str += '{';
-                str += this.finalNodes.items.map(function (node) {
-                    return node.toString();
-                }).join(', ');
-                str += '}';
-                // End definition
-                str += ')';
-                return str;
-            };
-            FAGraph.prototype.fromString = function (input) {
-                var _this = this;
-                var configRegex = new RegExp("^([D,N])" + this.shortName + ":\\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\\)$");
-                // Check to see if valid config
-                if (!configRegex.test(input)) {
-                    return false;
-                }
-                var configParse = configRegex.exec(input), configResult = {
-                    deterministic: null,
-                    alphabet: null,
-                    nodes: null,
-                    edges: null,
-                    initialNode: null,
-                    finalNodes: null
-                };
-                try {
-                    // Determinism:
-                    configResult.deterministic = configParse[1] === 'D';
-                    // Alphabet:
-                    configResult.alphabet = configParse[2].split(', ');
-                    // Nodes:
-                    configResult.nodes = configParse[3].split(', ');
-                    // Edges
-                    // Get rid of leading/trailing parenthesis if not null
-                    if (configParse[4].length > 0) {
-                        configParse[4] = configParse[4].substr(1, configParse[4].length - 2);
-                    }
-                    configResult.edges = configParse[4].split('), (').map(function (edge) {
-                        return edge.split(', ');
-                    });
-                    // Initial Nodes:
-                    configResult.initialNode = configParse[5];
-                    // Final Nodes
-                    configResult.finalNodes = configParse[6].split(', ');
-                    // Now actually modify the graph
-                    // Initialize the graph to the set deterministic
-                    this.init(configResult.deterministic);
-                    // Setup the alphabet in case it is an invalid DFA
-                    if (configResult.alphabet) {
-                        configResult.alphabet.forEach(function (letter) {
-                            _this.alphabet[letter] = true;
-                        });
-                    }
-                    // Set up each node
-                    if (configResult.nodes) {
-                        configResult.nodes.forEach(function (node) {
-                            if (node) {
-                                _this.addNode(node, {
-                                    initial: configResult.initialNode === node,
-                                    final: configResult.finalNodes.indexOf(node) !== -1
-                                });
-                            }
-                        });
-                    }
-                    // Setup each edge
-                    if (configResult.edges) {
-                        configResult.edges.forEach(function (edge) {
-                            if (edge && edge.length === 3) {
-                                _this.addEdge.apply(_this, edge);
-                            }
-                        });
-                    }
-                }
-                catch (e) {
-                    // If any error happened in parsing, forget about it.
-                    return false;
-                }
-                // If we made it here it was all valid
-                return true;
-            };
-            /**
-             * Checks if the current graph is valid
-             * @returns {boolean}
-             */
-            FAGraph.prototype.isValid = function () {
-                var isValid = true;
-                // It's not valid if there is either no start node or no end nodes
-                if (!this.initialNode || this.getFinalNodes().size === 0) {
-                    isValid = false;
-                }
-                this.updateAlphabet();
-                if (this.deterministic) {
-                    if (!isValid) {
-                        return false;
-                    }
-                    for (var nodeString in this.nodes.items) {
-                        if (this.nodes.items.hasOwnProperty(nodeString)) {
-                            var node = this.nodes.items[nodeString];
-                            var alphabet = angular.copy(this.alphabet);
-                            // Loop through each of the node's outward edges
-                            node.toEdges.items.forEach(function (edge) {
-                                var transitionChar = edge.transition.toString();
-                                // There MUST be one transition for every node
-                                if (transitionChar !== jsflap.BLANK && transitionChar !== jsflap.LAMBDA && alphabet.hasOwnProperty(transitionChar)) {
-                                    delete alphabet[transitionChar];
-                                }
-                                else {
-                                    isValid = false;
-                                }
-                            });
-                            if (!isValid) {
-                                break;
-                            }
-                            if (Object.keys(alphabet).length > 0) {
-                                isValid = false;
-                                break;
-                            }
-                        }
-                    }
-                    return isValid;
-                }
-                else {
-                    return isValid;
-                }
-            };
-            FAGraph.prototype.getEmptyTransitionCharacter = function () {
-                return jsflap.LAMBDA;
-            };
-            return FAGraph;
-        })();
-        Graph.FAGraph = FAGraph;
-    })(Graph = jsflap.Graph || (jsflap.Graph = {}));
-})(jsflap || (jsflap = {}));
-
-
-
-var __extends = this.__extends || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
-};
-var jsflap;
-(function (jsflap) {
-    var Graph;
-    (function (Graph) {
-        var TMGraph = (function (_super) {
-            __extends(TMGraph, _super);
-            function TMGraph() {
-                _super.apply(this, arguments);
-                this.shortName = "TM";
-            }
-            TMGraph.prototype.createTransitionFromString = function (transition) {
-                var read, write, direction;
-                if (transition !== null && transition.length === 6) {
-                    read = transition[0];
-                    write = transition[2];
-                    var directionStr = transition[5];
-                    direction = (directionStr === "L" ? -1 /* LEFT */ : (directionStr === "R" ? 1 /* RIGHT */ : null));
-                }
-                else {
-                    read = jsflap.BLANK;
-                    write = jsflap.BLANK;
-                    direction = 1 /* RIGHT */;
-                }
-                return new jsflap.Transition.TuringTransition(read, write, direction);
-            };
-            TMGraph.prototype.updateAlphabetForEdge = function (edge) {
-                var transitionCharRead = edge.transition.read;
-                var transitionCharWrite = edge.transition.write;
-                if (transitionCharRead !== null && !this.alphabet.hasOwnProperty(transitionCharRead)) {
-                    this.alphabet[transitionCharRead] = true;
-                }
-                if (transitionCharWrite !== null && !this.alphabet.hasOwnProperty(transitionCharWrite)) {
-                    this.alphabet[transitionCharWrite] = true;
-                }
-            };
-            TMGraph.prototype.getEmptyTransitionCharacter = function () {
-                return jsflap.BLANK;
-            };
-            return TMGraph;
-        })(Graph.FAGraph);
-        Graph.TMGraph = TMGraph;
-    })(Graph = jsflap.Graph || (jsflap.Graph = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -2641,7 +2174,14 @@ var jsflap;
              * Creates a new single char transition
              * @param character
              */
-            function CharacterTransition(character) {
+            function CharacterTransition(character, pending) {
+                /**
+                 * Whether or not this transition is pending editing
+                 */
+                this.pending = false;
+                if (pending !== null) {
+                    this.pending = pending;
+                }
                 if (character.length > 1) {
                     throw new Error("Character Transition length must be less than or equal to 1");
                 }
@@ -2654,7 +2194,7 @@ var jsflap;
              * @returns {string}
              */
             CharacterTransition.prototype.toString = function () {
-                return this.character;
+                return !this.pending ? this.character : jsflap.UNKNOWN;
             };
             /**
              * Determines if the input matches this transition
@@ -2662,6 +2202,9 @@ var jsflap;
              * @returns {boolean}
              */
             CharacterTransition.prototype.canFollowOn = function (input) {
+                if (this.pending) {
+                    return false;
+                }
                 return this.character === jsflap.LAMBDA ? true : (input.charAt(0) === this.character);
             };
             CharacterTransition.prototype.getTransitionParts = function () {
@@ -2670,7 +2213,7 @@ var jsflap;
                 ];
             };
             CharacterTransition.prototype.clone = function () {
-                return new CharacterTransition(this.character);
+                return new CharacterTransition(this.character, this.pending);
             };
             return CharacterTransition;
         })();
@@ -2734,7 +2277,14 @@ var jsflap;
              * Creates a new single char transition
              * @param character
              */
-            function TuringTransition(read, write, direction) {
+            function TuringTransition(read, write, direction, pending) {
+                /**
+                 * Whether or not this transition is pending editing
+                 */
+                this.pending = false;
+                if (pending !== null) {
+                    this.pending = pending;
+                }
                 if (read.length > 1 || write.length > 1) {
                     throw new Error("Turing Transition read and write length must be less than or equal to 1");
                 }
@@ -2773,6 +2323,9 @@ var jsflap;
              * @returns {string}
              */
             TuringTransition.prototype.toString = function () {
+                if (this.pending) {
+                    return jsflap.UNKNOWN;
+                }
                 return this.read + '/' + this.write + '; ' + this.getDirectionString();
             };
             /**
@@ -2781,6 +2334,9 @@ var jsflap;
              * @returns {boolean}
              */
             TuringTransition.prototype.canFollowOn = function (input) {
+                if (this.pending) {
+                    return false;
+                }
                 if (this.read === jsflap.BLANK || this.read === null || this.read === '') {
                     return input === jsflap.BLANK || input === null || input === '';
                 }
@@ -3023,6 +2579,15 @@ var jsflap;
                 this.textNode = textNode;
             }
             /**
+             * Shows an error on the input for 1.5 seconds
+             */
+            EditableTextNode.prototype.showError = function (inp) {
+                inp.style('color', "#C3272B");
+                setTimeout(function () {
+                    inp.style('color', "inherit");
+                }, 1500);
+            };
+            /**
              * Renders the editable text box on the screen and sets up listeners
              */
             EditableTextNode.prototype.render = function () {
@@ -3041,6 +2606,7 @@ var jsflap;
                 if (width < 20) {
                     width = 20;
                 }
+                var styleString = "width: " + width + "px; text-align: center; border: none; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight + ";";
                 var inp = frm.attr("x", position.left - this.padding + 1).attr("y", bbox.y - this.padding + 1).attr("width", width).attr("height", bbox.height + (2 * this.padding)).append("xhtml:form").append("input").attr("value", function () {
                     _this.inputField = this;
                     setTimeout(function () {
@@ -3049,17 +2615,22 @@ var jsflap;
                     }, 5);
                     _this.board.state.editableTextInputField = this;
                     return _this.value;
-                }).attr("style", "width: " + width + "px; border: none; text-align: center; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight).attr("maxlength", this.maxLength);
+                }).attr("style", styleString).attr("maxlength", this.maxLength);
                 inp.transition().style('background-color', this.backgroundColor);
                 var completed = false;
-                inp.on("blur", function () {
+                inp.on("blur", function (event) {
                     _this.value = this.value;
-                    if (!completed)
-                        _this.onComplete(false);
-                    completed = true;
-                    // TODO: Look into why the forigen object is removed here but not in the keyup function
-                    frm.remove();
-                    _this.board.state.editableTextInputField = null;
+                    if (completed || _this.onComplete(false)) {
+                        completed = true;
+                        // TODO: Look into why the forigen object is removed here but not in the keyup function
+                        frm.remove();
+                        _this.board.state.editableTextInputField = null;
+                    }
+                    else {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return false;
+                    }
                 }).on("keydown", function () {
                     var e = d3.event;
                     if (e.keyCode == 13 || e.keyCode == 27) {
@@ -3072,6 +2643,7 @@ var jsflap;
                         if (e.stopPropagation)
                             e.stopPropagation();
                         e.preventDefault();
+                        inp.on("blur", null);
                         // Set the object's model from the dom object's one.
                         _this.value = this.value;
                         if (completed || _this.onComplete(true)) {
@@ -3081,6 +2653,8 @@ var jsflap;
                             _this.board.state.editableTextInputField = null;
                         }
                         else {
+                            // TODO: Show more error feedback
+                            _this.showError(inp);
                         }
                     }
                 });
@@ -3451,7 +3025,7 @@ var jsflap;
                 edgeTransitionParts.text(function (d) {
                     var value = d.content;
                     if (value === " ") {
-                        return String.fromCharCode(0x25a0); // UTF-8 Black Square
+                        return String.fromCharCode(0x2423); // UTF-8 Open Box
                     }
                     else if (value === "") {
                         return String.fromCharCode(0x25a1); // UTF-8 White Square
@@ -3645,10 +3219,15 @@ var jsflap;
                     var transition = previousTransition.clone();
                     var newValue = etn.inputField.value || _this.board.graph.getEmptyTransitionCharacter();
                     transitionPart.onEdit(newValue, transition);
-                    var similarTransitions = edge.visualization.models.items.length > 1 ? edge.visualization.models.items.filter(function (otherEdge) { return otherEdge.transition.toString() === transition.toString(); }) : [];
+                    var previousPending = transition.pending;
+                    transition.pending = false;
+                    var similarTransitions = edge.visualization.models.items.length > 1 ? edge.visualization.models.items.filter(function (otherEdge) { return (otherEdge.hashCode() != edge.hashCode() && (otherEdge.transition.toString() === transition.toString())); }) : [];
+                    transition.pending = previousPending;
                     if (similarTransitions.length == 0) {
                         var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(_this.board, edge, transition, previousTransition);
                         if (onlyCurrentPart) {
+                            transition.pending = false;
+                            previousTransition.pending = false;
                             if (trackHistory) {
                                 _this.board.invocationStack.trackExecution(cmd);
                             }
@@ -3658,6 +3237,8 @@ var jsflap;
                         }
                         else {
                             if (!trackHistory) {
+                                transition.pending = false;
+                                previousTransition.pending = false;
                                 cmd.execute();
                             }
                             if (wasNormalCompletion) {
@@ -3669,10 +3250,14 @@ var jsflap;
                                     setTimeout(function () { return _this.editTransition(edge, newTarget, trackHistory, false); }, 10);
                                 }
                                 else if (trackHistory) {
+                                    transition.pending = false;
+                                    previousTransition.pending = false;
                                     _this.board.invocationStack.trackExecution(cmd);
                                 }
                             }
                             else if (trackHistory) {
+                                transition.pending = false;
+                                previousTransition.pending = false;
                                 _this.board.invocationStack.trackExecution(cmd);
                             }
                         }
@@ -3689,6 +3274,495 @@ var jsflap;
         })();
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Graph;
+    (function (Graph) {
+        var FAGraph = (function () {
+            /**
+             * Create a new graph
+             * @param deterministic
+             * @param nodes
+             * @param edges
+             */
+            function FAGraph(deterministic, nodes, edges) {
+                var _this = this;
+                this.shortName = "FA";
+                this.init(deterministic);
+                if (nodes) {
+                    nodes.forEach(function (node) {
+                        _this.addNode(node);
+                    });
+                }
+                if (edges) {
+                    edges.forEach(function (edge) {
+                        _this.addEdge(edge);
+                    });
+                }
+            }
+            /**
+             * Initialize the graph
+             * @param deterministic
+             */
+            FAGraph.prototype.init = function (deterministic) {
+                this.deterministic = deterministic;
+                this.initialNode = null;
+                this.nodes = new jsflap.NodeList();
+                this.finalNodes = new jsflap.NodeList();
+                this.edges = new jsflap.EdgeList();
+                this.alphabet = {};
+            };
+            /**
+             * Gets the nodes from the graph
+             * @returns {NodeList}
+             */
+            FAGraph.prototype.getNodes = function () {
+                return this.nodes;
+            };
+            /**
+             * Gets the edges from the graph
+             * @returns {EdgeList}
+             */
+            FAGraph.prototype.getEdges = function () {
+                return this.edges;
+            };
+            /**
+             * Adds a node based on a label
+             * @returns {jsflap.Node|any}
+             * @param node
+             * @param options
+             */
+            FAGraph.prototype.addNode = function (node, options) {
+                var newNode;
+                if (typeof node === 'string') {
+                    newNode = new jsflap.Node(node, options);
+                }
+                else if (node instanceof jsflap.Node) {
+                    newNode = node;
+                }
+                var result = this.nodes.add(newNode);
+                // If unique node that is initial, make this one the new initial
+                if (result === newNode) {
+                    if (result.initial) {
+                        this.setInitialNode(result);
+                    }
+                    if (result.final) {
+                        this.finalNodes.add(result);
+                    }
+                }
+                return result;
+            };
+            /**
+             * Removes a node from the graph
+             * @param node
+             * @returns {boolean}
+             */
+            FAGraph.prototype.removeNode = function (node) {
+                var foundNode = this.nodes.get(node);
+                if (!foundNode) {
+                    return false;
+                }
+                if (foundNode === this.initialNode) {
+                    //this.setInitialNode(null);
+                    this.initialNode = null;
+                }
+                if (foundNode.final && this.finalNodes.has(foundNode)) {
+                    this.finalNodes.remove(foundNode);
+                }
+                if (foundNode) {
+                    this.nodes.remove(foundNode);
+                }
+                return true;
+            };
+            /**
+             * Gets a node from the node list
+             * @param node
+             * @returns {any}
+             */
+            FAGraph.prototype.getNode = function (node) {
+                return this.nodes.get(node);
+            };
+            /**
+             * Determines if the graph has the node
+             * @param node
+             * @returns {any}
+             */
+            FAGraph.prototype.hasNode = function (node) {
+                return this.nodes.has(node);
+            };
+            /**
+             * Adds an edge to the graph
+             * @param from
+             * @param to
+             * @param transition
+             * @param pending
+             * @returns {jsflap.Edge|any}
+             */
+            FAGraph.prototype.addEdge = function (from, to, transition, pending) {
+                var edge;
+                if (from && to && transition) {
+                    // Determine if we need to make objects or not
+                    var fromObj, toObj, transitionObj;
+                    if (typeof from === 'string') {
+                        fromObj = this.getNode(from);
+                    }
+                    else if (from instanceof jsflap.Node) {
+                        fromObj = from;
+                    }
+                    if (typeof to === 'string') {
+                        toObj = this.getNode(to);
+                    }
+                    else if (to instanceof jsflap.Node) {
+                        toObj = to;
+                    }
+                    if (typeof transition === 'string') {
+                        transitionObj = this.createTransitionFromString(transition, !!pending);
+                    }
+                    else if (typeof transition === 'object') {
+                        transitionObj = transition;
+                    }
+                    edge = new jsflap.Edge(fromObj, toObj, transitionObj);
+                }
+                else if (from instanceof jsflap.Edge) {
+                    edge = from;
+                }
+                else {
+                    throw new Error('Invalid Arguments for creating an edge');
+                }
+                if (!this.hasNode(edge.from) || !this.hasNode(edge.to)) {
+                    throw new Error('Graph does not have all nodes in in the edge');
+                }
+                this.updateAlphabetForEgde(edge);
+                return this.edges.add(edge);
+            };
+            FAGraph.prototype.createTransitionFromString = function (str, pending) {
+                return new jsflap.Transition.CharacterTransition(str, pending);
+            };
+            /**
+             * Updates the alphabet after any changes to the transitions
+             */
+            FAGraph.prototype.updateAlphabet = function () {
+                var _this = this;
+                // Clear the alphabet
+                this.alphabet = {};
+                // Update the alphabet
+                this.edges.items.forEach(function (edge) { return _this.updateAlphabetForEgde(edge); });
+            };
+            FAGraph.prototype.updateAlphabetForEgde = function (edge) {
+                var transitionChar = edge.transition.toString();
+                if (!this.alphabet.hasOwnProperty(transitionChar) && transitionChar !== jsflap.LAMBDA && transitionChar !== jsflap.BLANK) {
+                    this.alphabet[transitionChar] = true;
+                }
+            };
+            /**
+             * Gets an edge from the edge list
+             * @param edge
+             * @returns {any}
+             */
+            FAGraph.prototype.getEdge = function (edge) {
+                return this.edges.get(edge);
+            };
+            /**
+             * Removes an edge from the graph
+             * @param edge
+             */
+            FAGraph.prototype.removeEdge = function (edge) {
+                var foundEdge = this.edges.get(edge);
+                if (!foundEdge) {
+                    return false;
+                }
+                foundEdge.removeNodes();
+                return this.edges.remove(foundEdge);
+            };
+            /**
+             * Determines if the graph has the edge or not
+             * @param edge
+             * @returns {boolean}
+             */
+            FAGraph.prototype.hasEdge = function (edge) {
+                return this.edges.has(edge);
+            };
+            /**
+             * Gets the initial node for the graph
+             * @returns {Node}
+             */
+            FAGraph.prototype.getInitialNode = function () {
+                return this.initialNode;
+            };
+            /**
+             * Sets the node as initial and verifies that there is only ever one initial node
+             * @param node
+             * @returns {jsflap.Node}
+             */
+            FAGraph.prototype.setInitialNode = function (node) {
+                if (this.initialNode) {
+                    this.initialNode.initial = false;
+                }
+                if (node) {
+                    node.initial = true;
+                    this.initialNode = node;
+                }
+                else {
+                    this.initialNode = null;
+                }
+                return node;
+            };
+            /**
+             * Marks a node as final in the graph
+             * @param node
+             * @returns {jsflap.Node|any}
+             */
+            FAGraph.prototype.markFinalNode = function (node) {
+                node.final = true;
+                if (this.nodes.has(node) && !this.finalNodes.has(node)) {
+                    this.finalNodes.add(node);
+                }
+                return node;
+            };
+            /**
+             * Unmarks a node as final from the graph
+             * @param node
+             * @returns {jsflap.Node}
+             */
+            FAGraph.prototype.unmarkFinalNode = function (node) {
+                node.final = false;
+                if (this.nodes.has(node) && this.finalNodes.has(node)) {
+                    this.finalNodes.remove(node);
+                }
+                return node;
+            };
+            /**
+             * Gets the list of final nodes
+             * @returns {NodeList}
+             */
+            FAGraph.prototype.getFinalNodes = function () {
+                return this.finalNodes;
+            };
+            /**
+             * Gets the alphabet
+             * @returns {Object}
+             */
+            FAGraph.prototype.getAlphabet = function () {
+                return this.alphabet;
+            };
+            /**
+             * Generates a representation of this graph as a string
+             * @returns {string}
+             */
+            FAGraph.prototype.toString = function () {
+                var str = '';
+                // Determinism prefix
+                str += (this.deterministic) ? 'D' : 'N';
+                // Type of graph
+                str += this.shortName;
+                // Separator and start of definition
+                str += ':(';
+                // Alphabet
+                this.updateAlphabet();
+                str += '{';
+                str += Object.keys(this.alphabet).join(', ');
+                str += '}, ';
+                // Nodes
+                str += '{';
+                str += this.nodes.items.map(function (node) {
+                    return node.toString();
+                }).join(', ');
+                str += '}, ';
+                //Transitions
+                str += '{';
+                str += this.edges.items.map(function (edge) {
+                    return edge.toString();
+                }).join(', ');
+                str += '}, ';
+                // Start symbol
+                str += this.initialNode ? this.initialNode.toString() : '';
+                str += ', ';
+                // Final Nodes
+                str += '{';
+                str += this.finalNodes.items.map(function (node) {
+                    return node.toString();
+                }).join(', ');
+                str += '}';
+                // End definition
+                str += ')';
+                return str;
+            };
+            FAGraph.prototype.fromString = function (input) {
+                var _this = this;
+                var configRegex = new RegExp("^([D,N])" + this.shortName + ":\\({(.*)}, {(.*)}, {(.*)}, (.*), {(.*)}\\)$");
+                // Check to see if valid config
+                if (!configRegex.test(input)) {
+                    return false;
+                }
+                var configParse = configRegex.exec(input), configResult = {
+                    deterministic: null,
+                    alphabet: null,
+                    nodes: null,
+                    edges: null,
+                    initialNode: null,
+                    finalNodes: null
+                };
+                try {
+                    // Determinism:
+                    configResult.deterministic = configParse[1] === 'D';
+                    // Alphabet:
+                    configResult.alphabet = configParse[2].split(', ');
+                    // Nodes:
+                    configResult.nodes = configParse[3].split(', ');
+                    // Edges
+                    // Get rid of leading/trailing parenthesis if not null
+                    if (configParse[4].length > 0) {
+                        configParse[4] = configParse[4].substr(1, configParse[4].length - 2);
+                    }
+                    configResult.edges = configParse[4].split('), (').map(function (edge) {
+                        return edge.split(', ');
+                    });
+                    // Initial Nodes:
+                    configResult.initialNode = configParse[5];
+                    // Final Nodes
+                    configResult.finalNodes = configParse[6].split(', ');
+                    // Now actually modify the graph
+                    // Initialize the graph to the set deterministic
+                    this.init(configResult.deterministic);
+                    // Setup the alphabet in case it is an invalid DFA
+                    if (configResult.alphabet) {
+                        configResult.alphabet.forEach(function (letter) {
+                            _this.alphabet[letter] = true;
+                        });
+                    }
+                    // Set up each node
+                    if (configResult.nodes) {
+                        configResult.nodes.forEach(function (node) {
+                            if (node) {
+                                _this.addNode(node, {
+                                    initial: configResult.initialNode === node,
+                                    final: configResult.finalNodes.indexOf(node) !== -1
+                                });
+                            }
+                        });
+                    }
+                    // Setup each edge
+                    if (configResult.edges) {
+                        configResult.edges.forEach(function (edge) {
+                            if (edge && edge.length === 3) {
+                                _this.addEdge.apply(_this, edge);
+                            }
+                        });
+                    }
+                }
+                catch (e) {
+                    // If any error happened in parsing, forget about it.
+                    return false;
+                }
+                // If we made it here it was all valid
+                return true;
+            };
+            /**
+             * Checks if the current graph is valid
+             * @returns {boolean}
+             */
+            FAGraph.prototype.isValid = function () {
+                var isValid = true;
+                // It's not valid if there is either no start node or no end nodes
+                if (!this.initialNode || this.getFinalNodes().size === 0) {
+                    isValid = false;
+                }
+                this.updateAlphabet();
+                if (this.deterministic) {
+                    if (!isValid) {
+                        return false;
+                    }
+                    for (var nodeString in this.nodes.items) {
+                        if (this.nodes.items.hasOwnProperty(nodeString)) {
+                            var node = this.nodes.items[nodeString];
+                            var alphabet = angular.copy(this.alphabet);
+                            // Loop through each of the node's outward edges
+                            node.toEdges.items.forEach(function (edge) {
+                                var transitionChar = edge.transition.toString();
+                                // There MUST be one transition for every node
+                                if (transitionChar !== jsflap.BLANK && transitionChar !== jsflap.LAMBDA && alphabet.hasOwnProperty(transitionChar)) {
+                                    delete alphabet[transitionChar];
+                                }
+                                else {
+                                    isValid = false;
+                                }
+                            });
+                            if (!isValid) {
+                                break;
+                            }
+                            if (Object.keys(alphabet).length > 0) {
+                                isValid = false;
+                                break;
+                            }
+                        }
+                    }
+                    return isValid;
+                }
+                else {
+                    return isValid;
+                }
+            };
+            FAGraph.prototype.getEmptyTransitionCharacter = function () {
+                return jsflap.LAMBDA;
+            };
+            return FAGraph;
+        })();
+        Graph.FAGraph = FAGraph;
+    })(Graph = jsflap.Graph || (jsflap.Graph = {}));
+})(jsflap || (jsflap = {}));
+
+
+
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+var jsflap;
+(function (jsflap) {
+    var Graph;
+    (function (Graph) {
+        var TMGraph = (function (_super) {
+            __extends(TMGraph, _super);
+            function TMGraph() {
+                _super.apply(this, arguments);
+                this.shortName = "TM";
+            }
+            TMGraph.prototype.createTransitionFromString = function (transition, pending) {
+                var read, write, direction;
+                if (transition !== null && transition.length === 6) {
+                    read = transition[0];
+                    write = transition[2];
+                    var directionStr = transition[5];
+                    direction = (directionStr === "L" ? -1 /* LEFT */ : (directionStr === "R" ? 1 /* RIGHT */ : null));
+                }
+                else {
+                    read = jsflap.BLANK;
+                    write = jsflap.BLANK;
+                    direction = 1 /* RIGHT */;
+                }
+                return new jsflap.Transition.TuringTransition(read, write, direction, pending);
+            };
+            TMGraph.prototype.updateAlphabetForEdge = function (edge) {
+                var transitionCharRead = edge.transition.read;
+                var transitionCharWrite = edge.transition.write;
+                if (transitionCharRead !== null && !this.alphabet.hasOwnProperty(transitionCharRead)) {
+                    this.alphabet[transitionCharRead] = true;
+                }
+                if (transitionCharWrite !== null && !this.alphabet.hasOwnProperty(transitionCharWrite)) {
+                    this.alphabet[transitionCharWrite] = true;
+                }
+            };
+            TMGraph.prototype.getEmptyTransitionCharacter = function () {
+                return jsflap.BLANK;
+            };
+            return TMGraph;
+        })(Graph.FAGraph);
+        Graph.TMGraph = TMGraph;
+    })(Graph = jsflap.Graph || (jsflap.Graph = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;
@@ -3721,6 +3795,7 @@ var jsflap;
             var NodeV = jsflap.Visualization.NodeVisualization;
             var AddEdgeFromNodeCommand = (function () {
                 function AddEdgeFromNodeCommand(board, startNodeV, endingPoint) {
+                    this.firstTime = true;
                     this.board = board;
                     this.graph = board.graph;
                     this.startNodeV = startNodeV;
@@ -3742,7 +3817,8 @@ var jsflap;
                         this.board.visualizations.addNode(this.endNodeV);
                     }
                     //if(!this.edgeV) {
-                    this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge ? this.edge.transition : null);
+                    this.edgeV = this.board.addEdge(this.edgeV, this.startNodeV, this.endNodeV, this.edge ? this.edge.transition : null, null, true);
+                    this.firstTime = false;
                     //} else {
                     //    this.board.addEdgeVisualization(this.edgeV);
                     //    this.board.handleOppositeEdgeExpanding(this.edgeV);

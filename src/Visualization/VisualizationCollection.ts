@@ -500,6 +500,20 @@ module jsflap.Visualization {
             edgeTransitionsMovement
                 .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).x)
                 .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y);
+                
+            if(this.board.settings.transitionStyle == Board.TransitionStyle.PERPENDICULAR) {
+                edgeTransitions
+                    .attr("transform", function(d: Edge) { 
+                        var angle = (d.to.visualization.position.getAngleTo(d.from.visualization.position) * (180 / Math.PI));
+                        if(angle < -90 || angle >= 90) {
+                            angle += 180;
+                        }
+                        return "rotate("+ angle +" " + this.attributes.x.textContent + ", " + this.attributes.y.textContent + ")"
+                });
+            } else {
+                edgeTransitionsMovement
+                    .attr("transform", "");
+            }
 
             edgeTransitions.exit()
                 .transition()

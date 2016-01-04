@@ -57,6 +57,7 @@ module jsflap.Board {
             this.svg = d3.select(svg);
             this.boardBase = this.svg.select('g.background').append("rect")
                 .attr("fill", "url(#grid)")
+                .attr("opacity", 1)
                 .attr("width","100%")
                 .attr("height", "100%");
             this.setNewGraph(graph);
@@ -164,7 +165,7 @@ module jsflap.Board {
                 switch(event.which) {
                    case 16:
                        _this.state.shiftKeyPressed = true;
-                       _this.boardBase.attr("fill", "#FFFFFF");
+                       _this.boardBase.transition().duration(250).attr("opacity", 0);
                        break;
                    case 17:
                        _this.state.ctrlKeyPressed = true;
@@ -188,7 +189,7 @@ module jsflap.Board {
                 switch(event.which) {
                    case 16:
                        _this.state.shiftKeyPressed = false;
-                       _this.boardBase.attr("fill", "url(#grid)");
+                       _this.boardBase.transition().duration(250).attr("opacity", 1);
                        break;
                    case 17:
                        _this.state.ctrlKeyPressed = false;

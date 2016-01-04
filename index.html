@@ -68,6 +68,12 @@
                             <li ng-repeat="(themeKey, themeName) in availableThemes" ng-class="themeKey === board.settings.theme? 'active': ''"><a href="#" ng-click="board.settings.theme = themeKey">{{themeName}}</a></li>
                         </ul>
                     </li>
+                    <li has-dropdown>
+                        <a href="#"><i class="fa fa-font"></i> Transition Style</a>
+                        <ul top-bar-dropdown>
+                            <li ng-repeat="transitionStyleName in availableTransitionStyles" ng-class="$index === board.settings.transitionStyle? 'active': ''"><a href="#" ng-click="board.settings.transitionStyle = $index; board.visualizations.update()">{{transitionStyleName}}</a></li>
+                        </ul>
+                    </li>
                     <li>
                         <a href="#" ng-click="board.reindexNodeNames()">
                             <i class="fa fa-fw fa-list-ol"></i> Re-index

@@ -60,7 +60,7 @@ html, body {
 
 .main-row, .main-row .columns {
     height: 100%;
-    height: calc(100% - 3rem);
+    height: calc(100% - 45px);
 }
 
 .top-bar-section ul.center {

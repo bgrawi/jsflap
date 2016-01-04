@@ -44,10 +44,12 @@ module jsflap.Visualization {
          * Renders the editable text box on the screen and sets up listeners
          */
         render() {
+            window.a = this.textNode;
             
             // Setup params
             var position = this.textNode.getClientRects()[0];
             var bbox = this.textNode.getBBox();
+            var boundingClientRect = this.textNode.getBoundingClientRect();
             var el = d3.select(this.textNode);
             var frm = this.board.getSvg().append("foreignObject");
             var _this = this;
@@ -63,11 +65,31 @@ module jsflap.Visualization {
                 width = 20;
             }
             
+            var x = position.left - (this.padding),
+                y = position.top - (45 - this.padding);
+                
+            //x = boundingClientRect.left - this.padding;
+            //y = boundingClientRect.top - this.padding;
+            
+            var textContainer = (<SVGTextElement> this.textNode.parentNode);
+            var angle = 0;
+            if((<any>textContainer.transform.baseVal).length > 0 && textContainer.transform.baseVal[0].angle != null) {
+                angle = textContainer.transform.baseVal[0].angle;
+                // TODO: Make the position point transformed based on the rotation
+                // var positionPoint = (<any> this.board.getSvg().node()).createSVGPoint();
+                // positionPoint.x = x;
+                // positionPoint.y = y;
+                // positionPoint = positionPoint.matrixTransform(this.textNode.getCTM());
+                // x = positionPoint.x;
+                // y = positionPoint.y;
+            }
+            
+            //transform:rotate("+ angle +"deg);
             var styleString = "width: " + width + "px; text-align: center; border: none; padding: " + this.padding +"px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize +"; font-weight:" + fontWeight + "; line-height:" + lineHeight + ";";
 
             var inp = frm
-                .attr("x", position.left - this.padding + 1)
-                .attr("y", bbox.y - this.padding + 1)
+                .attr("x", x)
+                .attr("y", y)
                 .attr("width", width)
                 .attr("height", bbox.height + (2 * this.padding))
                 .append("xhtml:form")
@@ -112,6 +134,17 @@ module jsflap.Visualization {
                 })
                 .on("keyup", function() {
                     var e = d3.event;
+                    
+                    // Skip shift/ctrl/meta keys
+                    switch(e.keyCode) {
+                        case 16:
+                        case 17:
+                        case 91:
+                        case 93:
+                        case 224:
+                            return;
+                        default:
+                    }
                     
                     // Enter/ Escape/ reached end of field
                     if (e.keyCode == 13 || e.keyCode == 27 || this.value.length === _this.maxLength) {

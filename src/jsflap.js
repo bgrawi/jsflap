@@ -224,6 +224,8 @@
                 'modern': 'Modern Theme',
                 'classic': 'Classic Theme'
             };
+            
+            $scope.availableTransitionStyles = ["Upright", "Perpendicular"];
 
             $scope.availableTypes = {
                 'FA': 'Finite Automation',  

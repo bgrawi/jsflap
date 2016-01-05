@@ -2,7 +2,7 @@ module jsflap.Graph {
     export class TMGraph extends FAGraph {
         public shortName = "TM";
         
-        createTransitionFromString(transition: string): jsflap.Transition.ITransition {
+        createTransitionFromString(transition: string, pending: boolean): jsflap.Transition.ITransition {
             var read, write, direction;
             if(transition !== null && transition.length === 6) {
                 read = transition[0];
@@ -14,7 +14,7 @@ module jsflap.Graph {
                 write = BLANK;
                 direction = jsflap.Transition.TuringTransitionDirection.RIGHT;
             }
-            return new jsflap.Transition.TuringTransition(read, write, direction);
+            return new jsflap.Transition.TuringTransition(read, write, direction, pending);
         }
         
         updateAlphabetForEdge(edge: Edge) {

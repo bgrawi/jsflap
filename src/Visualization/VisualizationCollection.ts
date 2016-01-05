@@ -53,9 +53,11 @@ module jsflap.Visualization {
          */
         public board: Board.Board;
 
-        public shouldAutoUpdateOnModify: boolean = true
+        public shouldAutoUpdateOnModify: boolean = true;
 
         public shouldForceUpdateAnimation: boolean = false;
+        
+        public shouldForceStandardAnimation: boolean = false;
 
         /**
          * Creates a new visualization collection
@@ -77,36 +79,24 @@ module jsflap.Visualization {
             if(node.model.initial) {
                 initialOption = {
                     display: 'Remove Initial',
-                    callback: () => {
-                        this.board.setInitialNode(null, true);
-                        this.update();
-                    }
+                    callback: () => this.board.setInitialNode(null, true)
                 };
             } else {
                 initialOption = {
                     display: 'Make Initial',
-                    callback: () => {
-                        this.board.setInitialNode(node, true);
-                        this.update();
-                    }
+                    callback: () => this.board.setInitialNode(node, true)
                 };
             }
 
             if(node.model.final) {
                 finalOption = {
                     display: 'Remove Final',
-                    callback: () => {
-                        this.board.unmarkFinalNode(node, true);
-                        this.update();
-                    }
+                    callback: () => this.board.unmarkFinalNode(node, true)
                 };
             } else {
                 finalOption = {
                     display: 'Make Final',
-                    callback: () => {
-                        this.board.markFinalNode(node, true);
-                        this.update();
-                    }
+                    callback: () => this.board.markFinalNode(node, true)
                 };
             }
 
@@ -117,7 +107,7 @@ module jsflap.Visualization {
          * Updates the visualizations
          */
         public update() {
-            var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === Board.BoardMode.MOVE || this.shouldForceUpdateAnimation;
+            var shouldAnimateMovement = !this.state.shiftKeyPressed && this.state.mode === Board.BoardMode.MOVE || this.shouldForceUpdateAnimation;
 
             var nodesGroup = this.svg.select('g.nodes'),
                 edgesGroup = this.svg.select('g.edges'),
@@ -171,6 +161,12 @@ module jsflap.Visualization {
             newNodeLabels.on('contextmenu', (node: NodeVisualization) => this.nodeContextMenu(node));
             
             newNodeLabels.on("mouseup", (node: NodeVisualization) => {
+                    var event = <any> d3.event; // Cast to any to allow which access below
+                    
+                    // Only respond to left clicks
+                    if(event.which != 1) {
+                        return;
+                    }
                     if(this.state.mode === Board.BoardMode.DRAW && !this.state.futureEdgeFromValid && !this.state.futureEdgeFromCreated) {
                         
                         // Clicked just on the node and did not drag
@@ -178,6 +174,7 @@ module jsflap.Visualization {
                         etn.value = node.model.label;
                         etn.maxLength = 3;
                         etn.padding = 4;
+                        etn.offset = [1, 1];
                         etn.onComplete = () => {
                             if(node.model.label !== etn.value) {
                                 if(etn.value === "" || etn.value === " " || etn.value === "  " || etn.value === "   ") {
@@ -300,7 +297,7 @@ module jsflap.Visualization {
                 // TODO: Make the key function less expensive
                 .data(this.edges, edgeKeyFn);
 
-            if(shouldAnimateMovement) {
+            if(shouldAnimateMovement && !this.shouldForceStandardAnimation) {
                 edgePaths
                     .transition()
                     .ease('cubic-out')
@@ -362,81 +359,6 @@ module jsflap.Visualization {
                 .attr("opacity", 0)
                 .remove();
 
-
-            controlPointsGroup
-                .style('display', this.state.mode === Board.BoardMode.MOVE? 'block': '')
-                .transition()
-                .duration(200)
-                .attr("opacity", this.state.mode === Board.BoardMode.MOVE? 1: 0)
-                .each('end', () => {
-                    controlPointsGroup.style('display', this.state.mode !== Board.BoardMode.MOVE? 'none': '');
-                });
-
-            var edgePathControlPoints = controlPointsGroup.selectAll("circle.control")
-                .data(this.edges);
-
-            edgePathControlPoints
-                .enter()
-                .append('circle')
-                .classed('control', true)
-                .attr('r', 10)
-                .on('mousedown', (edge: EdgeVisualization) => {
-                    if(this.state.mode === Board.BoardMode.MOVE) {
-                        this.state.modifyEdgeControl = edge;
-                        this.state.draggingCommand = new Board.Command.MoveEdgeControlCommand(this.board, edge);
-                    }
-                })
-                .on('dblclick', (edge: EdgeVisualization) => {
-                    if(this.state.mode === Board.BoardMode.MOVE) {
-                        edge.resetControlPoint();
-                        edge.recalculatePath();
-                        edgePaths
-                            .transition()
-                            .duration(500)
-                            .ease('elastic')
-                            .attr('d', (d: EdgeVisualization) => d.getPath());
-
-                        edgeTransitions
-                            .transition()
-                            .duration(500)
-                            .ease('elastic')
-                            .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).x)
-                            .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y);
-
-                        edgePathControlPoints
-                            .transition()
-                            .ease('elastic')
-                            .duration(500)
-                            .attr('cx', (d: EdgeVisualization) =>  d.control.x)
-                            .attr('cy', (d: EdgeVisualization) =>  d.control.y)
-                            .each('end', () => {
-                                this.update();
-                            });
-
-                        //this.update();
-                    }
-                })
-                .on('mouseover', (edge: EdgeVisualization) => {
-                    this.state.hoveringEdge = edge;
-                }).on('mouseout', (edge: EdgeVisualization) => {
-                    this.state.hoveringEdge = null;
-                });
-
-            var edgePathControlPointsMovement;
-            if(shouldAnimateMovement) {
-                edgePathControlPointsMovement = edgePathControlPoints
-                    .transition()
-                    .ease('cubic-out')
-                    .duration(50);
-            } else {
-                edgePathControlPointsMovement = edgePathControlPoints;
-            }
-            edgePathControlPointsMovement
-                .attr('cx', (d: EdgeVisualization) =>  d.control.x)
-                .attr('cy', (d: EdgeVisualization) =>  d.control.y);
-
-            edgePathControlPoints.exit().remove();
-
             var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions')
                 .data(this.edges, edgeKeyFn);
 
@@ -475,7 +397,7 @@ module jsflap.Visualization {
                 .text((d: Transition.ITransitionPart) => {
                         var value = d.content;
                         if(value === " ") {
-                            return String.fromCharCode(0x25a0); // UTF-8 Black Square
+                            return String.fromCharCode(0x2423); // UTF-8 Open Box
                         } else if(value === "") {
                             return String.fromCharCode(0x25a1); // UTF-8 White Square
                         } else {
@@ -484,7 +406,7 @@ module jsflap.Visualization {
                     });
 
             var edgeTransitionsMovement;
-            if(shouldAnimateMovement) {
+            if(shouldAnimateMovement && !this.shouldForceStandardAnimation) {
                 edgeTransitionsMovement = edgeTransitions
                     .transition()
                     .ease('cubic-out')
@@ -500,6 +422,22 @@ module jsflap.Visualization {
             edgeTransitionsMovement
                 .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).x)
                 .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y);
+                
+            if(this.board.settings.transitionStyle == Board.TransitionStyle.PERPENDICULAR) {
+                edgeTransitions
+                    .attr("transform", function(d: Edge) {
+                        // TODO: Minimize the expensiveness of calling this 3 times per point!
+                        var transitionPoint = d.visualization.getTransitionPoint(d.visualizationNumber); 
+                        var angle = (d.to.visualization.position.getAngleTo(d.from.visualization.position) * (180 / Math.PI));
+                        if(angle < -90 || angle >= 90) {
+                            angle += 180;
+                        }
+                        return "rotate("+ angle +" " + transitionPoint.x + ", " + transitionPoint.y + ")"
+                });
+            } else {
+                edgeTransitionsMovement
+                    .attr("transform", "");
+            }
 
             edgeTransitions.exit()
                 .transition()
@@ -534,6 +472,62 @@ module jsflap.Visualization {
                 }).on('mouseout', (edge: Edge) => {
                     this.state.hoveringTransition = null;
                 });
+                
+            controlPointsGroup
+                .style('display', this.state.mode === Board.BoardMode.MOVE? 'block': '')
+                .transition()
+                .duration(200)
+                .attr("opacity", this.state.mode === Board.BoardMode.MOVE? 1: 0)
+                .each('end', () => {
+                    controlPointsGroup.style('display', this.state.mode !== Board.BoardMode.MOVE? 'none': '');
+                });
+
+            var edgePathControlPoints = controlPointsGroup.selectAll("circle.control")
+                .data(this.edges);
+
+            edgePathControlPoints
+                .enter()
+                .append('circle')
+                .classed('control', true)
+                .attr('r', 10)
+                .on('mousedown', (edge: EdgeVisualization) => {
+                    if(this.state.mode === Board.BoardMode.MOVE) {
+                        this.state.modifyEdgeControl = edge;
+                        this.state.draggingCommand = new Board.Command.MoveEdgeControlCommand(this.board, edge);
+                    }
+                })
+                .on('dblclick', (edge: EdgeVisualization) => {
+                    if(this.state.mode === Board.BoardMode.MOVE) {
+                        edge.resetControlPoint();
+                        edge.recalculatePath();
+                         edgeTransitions
+                            .attr('x', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).x)
+                            .attr('y', (d: Edge) =>  d.visualization.getTransitionPoint(d.visualizationNumber).y);
+                        this.shouldForceStandardAnimation = true;
+                        this.update();
+                        this.shouldForceStandardAnimation = false;
+                    }
+                })
+                .on('mouseover', (edge: EdgeVisualization) => {
+                    this.state.hoveringEdge = edge;
+                }).on('mouseout', (edge: EdgeVisualization) => {
+                    this.state.hoveringEdge = null;
+                });
+
+            var edgePathControlPointsMovement;
+            if(shouldAnimateMovement) {
+                edgePathControlPointsMovement = edgePathControlPoints
+                    .transition()
+                    .ease('cubic-out')
+                    .duration(50);
+            } else {
+                edgePathControlPointsMovement = edgePathControlPoints;
+            }
+            edgePathControlPointsMovement
+                .attr('cx', (d: EdgeVisualization) =>  d.control.x)
+                .attr('cy', (d: EdgeVisualization) =>  d.control.y);
+
+            edgePathControlPoints.exit().remove();
 
             // newEdgeTransitions
             //     .attr('opacity', 0)
@@ -669,7 +663,6 @@ module jsflap.Visualization {
          * @param trackHistory
          */
         editTransition(edge: Edge, node?: SVGTextElement, trackHistory?: boolean, onlyCurrentPart?: boolean) {
-
             var previousTransition = edge.transition;
 
             var target: SVGTextElement;
@@ -701,15 +694,19 @@ module jsflap.Visualization {
                 
                 var newValue = (<HTMLInputElement> etn.inputField).value || this.board.graph.getEmptyTransitionCharacter();
                 transitionPart.onEdit(newValue, transition);
-                
+                var previousPending = transition.pending;
+                transition.pending = false;
                 var similarTransitions = edge.visualization.models.items.length > 1?
                     edge.visualization.models.items
-                        .filter((otherEdge: Edge) => otherEdge.transition.toString() === transition.toString())
+                        .filter((otherEdge: Edge) => (otherEdge.hashCode() != edge.hashCode() && (otherEdge.transition.toString() === transition.toString())))
                         :[];
+                    transition.pending = previousPending;
 
                 if(similarTransitions.length == 0) {
                     var cmd = new jsflap.Board.Command.EditEdgeTransitionCommand(this.board, edge, transition, previousTransition);
                     if(onlyCurrentPart) {
+                        transition.pending = false;
+                        previousTransition.pending = false;
                         if(trackHistory) {
                             this.board.invocationStack.trackExecution(cmd);
                         } else {
@@ -717,6 +714,8 @@ module jsflap.Visualization {
                         }
                     } else { 
                         if(!trackHistory) {
+                            transition.pending = false;
+                            previousTransition.pending = false;
                             cmd.execute();
                         }   
                         if(wasNormalCompletion) {
@@ -727,9 +726,13 @@ module jsflap.Visualization {
                             if(newTarget !== null && d3.select(newTarget).data()[0] instanceof Transition.EditableTransitionPart) {
                                 setTimeout( () => this.editTransition(edge, <SVGTextElement> newTarget, trackHistory, false), 10);
                             } else if(trackHistory) {
+                                transition.pending = false;
+                                previousTransition.pending = false;
                                 this.board.invocationStack.trackExecution(cmd);
                             }
                         } else if(trackHistory) {
+                            transition.pending = false;
+                            previousTransition.pending = false;
                             this.board.invocationStack.trackExecution(cmd);
                         }
                     }

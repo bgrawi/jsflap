@@ -5,6 +5,11 @@ module jsflap.Board {
          * The actual svg element being used
          */
         private svg: D3.Selection;
+        
+        /**
+         * The container element
+         */
+        private container: Element;
 
         /**
          * The base of the board for the svg
@@ -20,6 +25,11 @@ module jsflap.Board {
          * The current state of the board
          */
         public state: BoardState;
+        
+        public settings: BoardSettings = {
+            theme: "modern",
+            transitionStyle: TransitionStyle.PERPENDICULAR
+        };
 
         /**
          * The visualizations
@@ -48,12 +58,14 @@ module jsflap.Board {
          * @param graph
          * @param $rootScope The scope to broadcast events on
          */
-        constructor(svg: Element, graph: Graph.IGraph, $rootScope) {
+        constructor(svg: Element, container: Element, graph: Graph.IGraph, $rootScope) {
             this.svg = d3.select(svg);
+            this.container = container;
             this.boardBase = this.svg.select('g.background').append("rect")
-                .attr("fill", "#FFFFFF")
-                .attr("width", svg.getBoundingClientRect().width)
-                .attr("height", svg.getBoundingClientRect().height);
+                .attr("fill", "url(#grid)")
+                .attr("opacity", 1)
+                .attr("width","100%")
+                .attr("height", "100%");
             this.setNewGraph(graph);
             this.registerBindings($rootScope);
         }
@@ -71,6 +83,10 @@ module jsflap.Board {
         
         public getSvg(): D3.Selection {
             return this.svg;
+        }
+        
+        public getContainer(): Element {
+            return this.container;
         }
 
         public reindexNodeNames() {
@@ -150,12 +166,16 @@ module jsflap.Board {
                 d3.event.preventDefault();
             });
             document.addEventListener('keydown', function (event) {
+                // Do not track modifier keys if the event was in an input field
+                // TODO: Better input field detection (e.g. textarea/select lists w/o multiple compares)
+                if ((<HTMLElement> event.target).tagName.toLowerCase() === 'input') {
+                    return;
+                }
                 
-                // Always monitor modifier keys regardless of context
                 switch(event.which) {
                    case 16:
                        _this.state.shiftKeyPressed = true;
-                       _this.boardBase.attr("fill", "url(#grid)");
+                       _this.boardBase.transition().duration(250).attr("opacity", 0);
                        break;
                    case 17:
                        _this.state.ctrlKeyPressed = true;
@@ -179,7 +199,7 @@ module jsflap.Board {
                 switch(event.which) {
                    case 16:
                        _this.state.shiftKeyPressed = false;
-                       _this.boardBase.attr("fill", "#FFFFFF");
+                       _this.boardBase.transition().duration(250).attr("opacity", 1);
                        break;
                    case 17:
                        _this.state.ctrlKeyPressed = false;
@@ -250,8 +270,8 @@ module jsflap.Board {
          * @param transition
          * @param index
          */
-        public addEdge(existingEdgeV: Visualization.EdgeVisualization, from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition, index?: number) {
-            var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA),
+        public addEdge(existingEdgeV: Visualization.EdgeVisualization, from: Visualization.NodeVisualization, to: Visualization.NodeVisualization, transition?: Transition.ITransition, index?: number, pending?: boolean) {
+            var edge = this.graph.addEdge(from.model, to.model, transition || LAMBDA, pending),
                 foundEdgeV;
 
             foundEdgeV =  this.visualizations.getEdgeVisualizationByNodes(from.model, to.model);
@@ -387,7 +407,7 @@ module jsflap.Board {
                     } else {
                         
                         var snappedPoint = event.point.getMPoint();
-                        if(this.state.shiftKeyPressed) {
+                        if(!this.state.shiftKeyPressed) {
                             snappedPoint.round(20);
                         }
     
@@ -433,27 +453,8 @@ module jsflap.Board {
             if(this.state.mode === BoardMode.DRAW) {
 
                 if (this.state.futureEdge !== null) {
-                    if (this.state.shiftKeyPressed) {
-                        var x1 = this.state.futureEdge.start.x,
-                            x2 = point.x,
-                            y1 = this.state.futureEdge.start.y,
-                            y2 = point.y,
-                            dx = x2 - x1,
-                            dy = y2 - y1,
-                            theta = Math.atan2(dy, dx),
-                            dTheta = Math.round(theta / (Math.PI / 4)) * (Math.PI / 4),
-                            distance = Math.sqrt(
-                                Math.pow(y2 - y1, 2) +
-                                Math.pow(x2 - x1, 2)
-                            ); 
-                        if (dx !== 0) {
-                            point.x = x1 + distance * Math.cos(dTheta);
-                            point.y = y1 + distance * Math.sin(dTheta);
-                            
-                            // Also snap to a 20-pixel gid disabled for now
-                            //point.x = (Math.round(point.x / 20) * 20);
-                            //point.y = (Math.round(point.y / 20) * 20);
-                        }
+                    if (!this.state.shiftKeyPressed) {
+                        point.round(20);
                     }
 
                     var nearestNode = this.visualizations.getNearestNode(point);
@@ -480,7 +481,7 @@ module jsflap.Board {
                 }
             } else if(this.state.mode === BoardMode.MOVE && (this.state.draggingNode || this.state.modifyEdgeControl || this.state.isDraggingBoard)) {
                 var snappedPoint = point.getMPoint();
-                if(this.state.shiftKeyPressed) {
+                if(!this.state.shiftKeyPressed) {
                     snappedPoint.round(20);
                 }
 
@@ -560,7 +561,7 @@ module jsflap.Board {
                     // Move all the elements of the board
                     // Gets the delta between the points   
                     
-                    if(this.state.shiftKeyPressed) {
+                    if(!this.state.shiftKeyPressed) {
                         point.round(20);
                     }                 
                     point.subtract(this.state.lastMousePoint);
@@ -585,7 +586,7 @@ module jsflap.Board {
             
             var snappedMousePoint = event.point.getMPoint();
             
-            if(this.state.shiftKeyPressed) {
+            if(!this.state.shiftKeyPressed) {
                 snappedMousePoint.round(20);
             }
 
@@ -707,6 +708,10 @@ module jsflap.Board {
          * @param event
          */
         private keydown(event) {
+            // Do not alow any undo/redo, mode changes, or node settings while drawing new edge
+            if(this.state.futureEdgeFrom !== null) {
+                return;
+            }
             switch(event.which) {
 
                 // QUICK EDIT
@@ -747,7 +752,6 @@ module jsflap.Board {
                         this.visualizations.update();
                     }
                     break;
-
                 case 89: // Y (For CTRL-Y)
                     if(this.isModifierKeyPressed()) {
                         this.invocationStack.redo();

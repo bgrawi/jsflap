@@ -4,6 +4,11 @@ module jsflap.Transition {
      * A Transition of a single character in an NFA
      */
     export class CharacterTransition implements ITransition {
+        
+        /**
+         * Whether or not this transition is pending editing
+         */
+        public pending: boolean = false;
 
         /**
          * The character transition
@@ -14,7 +19,10 @@ module jsflap.Transition {
          * Creates a new single char transition
          * @param character
          */
-        constructor(character: string) {
+        constructor(character: string, pending?: boolean) {
+            if(pending !== null) {
+                this.pending = pending;
+            }
             if(character.length > 1) {
                 throw new Error("Character Transition length must be less than or equal to 1");
             } else {
@@ -27,7 +35,7 @@ module jsflap.Transition {
          * @returns {string}
          */
         toString(): string {
-            return this.character;
+            return !this.pending? this.character: UNKNOWN;
         }
 
         /**
@@ -36,6 +44,9 @@ module jsflap.Transition {
          * @returns {boolean}
          */
         canFollowOn(input: string): boolean {
+            if(this.pending) {
+                return false;
+            }
             return this.character === LAMBDA? true: (input.charAt(0) === this.character);
         }
         
@@ -46,7 +57,7 @@ module jsflap.Transition {
         }
         
         clone(): ITransition {
-            return new CharacterTransition(this.character);
+            return new CharacterTransition(this.character, this.pending);
         }
     }
 }

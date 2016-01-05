@@ -4,11 +4,20 @@
 
     angular.module('jsflap', ['mm.foundation']);
     angular.module('jsflap')
+        .directive('jsflapBoardContainer', function($rootScope) {
+            return {
+                controller: function($element) {
+                    this.element = $element[0];
+                }
+            };
+        })
         .directive('jsflapBoard', function($rootScope) {
             return {
-                require:'^jsflapApp',
-                link: function (scope, elm, attrs, jsflapApp) {
-                    jsflapApp.setBoard(new jsflap.Board.Board(elm[0], jsflapApp.graph, $rootScope));
+                require:['^jsflapApp','^jsflapBoardContainer'],
+                link: function (scope, elm, attrs, requires) {
+                    var jsflapApp = requires[0],
+                        jsflapBoardContainer = requires[1];
+                    jsflapApp.setBoard(new jsflap.Board.Board(elm[0], jsflapBoardContainer.element, jsflapApp.graph, $rootScope));
                     jsflapApp.board.onBoardUpdateFn = jsflapApp.onBoardUpdate;
                 }
             };
@@ -224,6 +233,8 @@
                 'modern': 'Modern Theme',
                 'classic': 'Classic Theme'
             };
+            
+            $scope.availableTransitionStyles = ["Upright", "Perpendicular"];
 
             $scope.availableTypes = {
                 'FA': 'Finite Automation',  
@@ -231,7 +242,7 @@
             };
 
             $scope.graphMeta = {
-                title: '',
+                title: 'Untitled Graph 1',
                 type: 'FA'
             };
             
@@ -251,10 +262,6 @@
                         break;
                 }
             });
-
-            $scope.settings = {
-                theme: 'modern'
-            };
 
             $scope.openHelpModal = function () {
                 var modalInstance = $modal.open({

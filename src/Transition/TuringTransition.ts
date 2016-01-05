@@ -9,6 +9,11 @@ module jsflap.Transition {
      * A Transition of a single character in an NFA
      */
     export class TuringTransition implements ITransition {
+        
+        /**
+         * Whether or not this transition is pending editing
+         */
+        public pending: boolean = false;
 
         /**
          * The the read string
@@ -26,7 +31,10 @@ module jsflap.Transition {
          * Creates a new single char transition
          * @param character
          */
-        constructor(read: string, write: string, direction: TuringTransitionDirection) {
+        constructor(read: string, write: string, direction: TuringTransitionDirection, pending?: boolean) {
+            if(pending !== null) {
+                this.pending = pending;
+            }
             if(read.length > 1 || write.length > 1) {
                 throw new Error("Turing Transition read and write length must be less than or equal to 1");
             } else {
@@ -67,6 +75,9 @@ module jsflap.Transition {
          * @returns {string}
          */
         toString(): string {
+            if(this.pending) {
+                return UNKNOWN;
+            }
             return this.read + '/' + this.write + '; ' + this.getDirectionString();
         }
 
@@ -76,6 +87,9 @@ module jsflap.Transition {
          * @returns {boolean}
          */
         canFollowOn(input: string): boolean {
+            if(this.pending) {
+                return false;
+            }
             if(this.read === BLANK || this.read === null || this.read === '') {
                 return input === BLANK || input === null || input === '';
             } else {

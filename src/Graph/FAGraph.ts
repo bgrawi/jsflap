@@ -166,9 +166,10 @@ module jsflap.Graph {
          * @param from
          * @param to
          * @param transition
+         * @param pending
          * @returns {jsflap.Edge|any}
          */
-        addEdge(from: any, to?: any, transition?: any): jsflap.Edge {
+        addEdge(from: any, to?: any, transition?: any, pending?: boolean): jsflap.Edge {
             var edge: Edge;
             if(from && to && transition) {
 
@@ -188,7 +189,7 @@ module jsflap.Graph {
                 }
 
                 if(typeof transition === 'string') {
-                    transitionObj = this.createTransitionFromString(transition);
+                    transitionObj = this.createTransitionFromString(transition, !!pending);
                 } else if(typeof transition === 'object') {
                     transitionObj = transition;
                 }
@@ -208,8 +209,8 @@ module jsflap.Graph {
             return this.edges.add(edge);
         }
         
-        createTransitionFromString(str: string): jsflap.Transition.ITransition {
-             return new jsflap.Transition.CharacterTransition(str);
+        createTransitionFromString(str: string, pending: boolean): jsflap.Transition.ITransition {
+             return new jsflap.Transition.CharacterTransition(str, pending);
         }
 
         /**

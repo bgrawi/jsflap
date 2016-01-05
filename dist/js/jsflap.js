@@ -4,11 +4,20 @@
 
     angular.module('jsflap', ['mm.foundation']);
     angular.module('jsflap')
+        .directive('jsflapBoardContainer', function($rootScope) {
+            return {
+                controller: function($element) {
+                    this.element = $element[0];
+                }
+            };
+        })
         .directive('jsflapBoard', function($rootScope) {
             return {
-                require:'^jsflapApp',
-                link: function (scope, elm, attrs, jsflapApp) {
-                    jsflapApp.setBoard(new jsflap.Board.Board(elm[0], jsflapApp.graph, $rootScope));
+                require:['^jsflapApp','^jsflapBoardContainer'],
+                link: function (scope, elm, attrs, requires) {
+                    var jsflapApp = requires[0],
+                        jsflapBoardContainer = requires[1];
+                    jsflapApp.setBoard(new jsflap.Board.Board(elm[0], jsflapBoardContainer.element, jsflapApp.graph, $rootScope));
                     jsflapApp.board.onBoardUpdateFn = jsflapApp.onBoardUpdate;
                 }
             };
@@ -806,10 +815,10 @@ var jsflap;
              * @param graph
              * @param $rootScope The scope to broadcast events on
              */
-            function Board(svg, graph, $rootScope) {
+            function Board(svg, container, graph, $rootScope) {
                 this.settings = {
                     theme: "modern",
-                    transitionStyle: 0 /* UPRIGHT */
+                    transitionStyle: 1 /* PERPENDICULAR */
                 };
                 /**
                  * The function to call after the board has been updated
@@ -820,6 +829,7 @@ var jsflap;
                  */
                 this.platformIsApple = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
                 this.svg = d3.select(svg);
+                this.container = container;
                 this.boardBase = this.svg.select('g.background').append("rect").attr("fill", "url(#grid)").attr("opacity", 1).attr("width", "100%").attr("height", "100%");
                 this.setNewGraph(graph);
                 this.registerBindings($rootScope);
@@ -836,6 +846,9 @@ var jsflap;
             };
             Board.prototype.getSvg = function () {
                 return this.svg;
+            };
+            Board.prototype.getContainer = function () {
+                return this.container;
             };
             Board.prototype.reindexNodeNames = function () {
                 var cmd = new _Board.Command.ReindexNodeLabelsCommand(this);
@@ -3065,6 +3078,7 @@ var jsflap;
                 this.onComplete = function () {
                 };
                 this.padding = 3;
+                this.offset = [3, 6];
                 this.backgroundColor = "#EEE";
                 this.board = board;
                 this.textNode = textNode;
@@ -3082,14 +3096,17 @@ var jsflap;
              * Renders the editable text box on the screen and sets up listeners
              */
             EditableTextNode.prototype.render = function () {
-                window.a = this.textNode;
+                //window.a = this.textNode;
+                //this.textNode.setAttribute("fill", "red");
                 // Setup params
                 var position = this.textNode.getClientRects()[0];
                 var bbox = this.textNode.getBBox();
                 var boundingClientRect = this.textNode.getBoundingClientRect();
                 var el = d3.select(this.textNode);
-                var frm = this.board.getSvg().append("foreignObject");
-                var _this = this;
+                var containerElm = document.createElement("div");
+                this.board.getContainer().appendChild(containerElm);
+                var container = d3.select(containerElm);
+                var self = this;
                 // Initalize styles
                 var fontSize = this.textNode.style.fontSize;
                 var fontWeight = this.textNode.style.fontWeight;
@@ -3099,40 +3116,43 @@ var jsflap;
                 if (width < 20) {
                     width = 20;
                 }
-                var x = position.left - (this.padding), y = position.top - (45 - this.padding);
+                var height = bbox.height + (2 * this.padding);
+                var x = position.left - this.padding + this.offset[0], y = position.top - this.padding - 45 + this.offset[1];
+                // 45 is the top padding the 'position: absolute' is off by and the offset is use for line-height issues
                 //x = boundingClientRect.left - this.padding;
-                //y = boundingClientRect.top - this.padding;
+                //y = boundingClientRect.top - this.padding - 45; 
                 var textContainer = this.textNode.parentNode;
                 var angle = 0;
                 if (textContainer.transform.baseVal.length > 0 && textContainer.transform.baseVal[0].angle != null) {
                     angle = textContainer.transform.baseVal[0].angle;
+                    // Adjust the offsets based on the angle from 0
+                    var xOffsetAdjust = this.offset[0] * Math.sin((angle * Math.PI) / 180);
+                    var yOffsetAdjust = this.offset[1] * Math.sin((angle * Math.PI) / 180);
+                    x += xOffsetAdjust;
+                    y += yOffsetAdjust;
                 }
                 //transform:rotate("+ angle +"deg);
-                var styleString = "width: " + width + "px; text-align: center; border: none; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight + ";";
-                var inp = frm.attr("x", x).attr("y", y).attr("width", width).attr("height", bbox.height + (2 * this.padding)).append("xhtml:form").append("input").attr("value", function () {
-                    _this.inputField = this;
+                var styleString = "transform:rotate(" + angle + "deg); width: " + width + "px; height: " + height + "; text-align: center; border: none; padding: " + this.padding + "px; outline: none; background-color: #fff; border-radius: 3px; font-size:" + fontSize + "; font-weight:" + fontWeight + "; line-height:" + lineHeight + "; position: absolute; left:" + x + "px; top: " + y + "px;";
+                var inp = container.append("form").append("input").attr("value", function () {
+                    self.inputField = this;
                     setTimeout(function () {
-                        _this.inputField.focus();
-                        _this.inputField.select();
+                        self.inputField.focus();
+                        self.inputField.select();
                     }, 5);
-                    _this.board.state.editableTextInputField = this;
-                    return _this.value;
+                    self.board.state.editableTextInputField = this;
+                    return self.value;
                 }).attr("style", styleString).attr("maxlength", this.maxLength);
                 inp.transition().style('background-color', this.backgroundColor);
                 var completed = false;
                 inp.on("blur", function (event) {
-                    _this.value = this.value;
-                    if (completed || _this.onComplete(false)) {
-                        completed = true;
-                        // TODO: Look into why the forigen object is removed here but not in the keyup function
-                        frm.remove();
-                        _this.board.state.editableTextInputField = null;
-                    }
-                    else {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        return false;
-                    }
+                    self.value = this.value;
+                    if (!completed)
+                        self.onComplete(false);
+                    completed = true;
+                    //debugger;
+                    // TODO: Look into why the forigen object is removed here but not in the keyup function
+                    container.remove();
+                    self.board.state.editableTextInputField = null;
                 }).on("keydown", function () {
                     var e = d3.event;
                     if (e.keyCode == 13 || e.keyCode == 27) {
@@ -3150,22 +3170,22 @@ var jsflap;
                         default:
                     }
                     // Enter/ Escape/ reached end of field
-                    if (e.keyCode == 13 || e.keyCode == 27 || this.value.length === _this.maxLength) {
+                    if (e.keyCode == 13 || e.keyCode == 27 || this.value.length === self.maxLength) {
                         if (e.stopPropagation)
                             e.stopPropagation();
                         e.preventDefault();
-                        inp.on("blur", null);
+                        //inp.on("blur", null);
                         // Set the object's model from the dom object's one.
-                        _this.value = this.value;
-                        if (completed || _this.onComplete(true)) {
+                        self.value = this.value;
+                        if (completed || self.onComplete(true)) {
                             completed = true;
                             // Leave the field up if the completion was invalid
                             this.remove();
-                            _this.board.state.editableTextInputField = null;
+                            self.board.state.editableTextInputField = null;
                         }
                         else {
                             // TODO: Show more error feedback
-                            _this.showError(inp);
+                            self.showError(inp);
                         }
                     }
                 });
@@ -3347,6 +3367,7 @@ var jsflap;
             function VisualizationCollection(svg, board) {
                 this.shouldAutoUpdateOnModify = true;
                 this.shouldForceUpdateAnimation = false;
+                this.shouldForceStandardAnimation = false;
                 this.svg = svg;
                 this.state = board.state;
                 this.board = board;
@@ -3401,7 +3422,7 @@ var jsflap;
              */
             VisualizationCollection.prototype.update = function () {
                 var _this = this;
-                var shouldAnimateMovement = this.state.shiftKeyPressed && this.state.mode === 1 /* MOVE */ || this.shouldForceUpdateAnimation;
+                var shouldAnimateMovement = !this.state.shiftKeyPressed && this.state.mode === 1 /* MOVE */ || this.shouldForceUpdateAnimation;
                 var nodesGroup = this.svg.select('g.nodes'), edgesGroup = this.svg.select('g.edges'), transitionsGroup = this.svg.select('g.transitions'), controlPointsGroup = this.svg.select('g.control-points');
                 var nodes = nodesGroup.selectAll("circle.node").data(this.nodes, function (node) { return node.model.toString(); });
                 nodes.attr("r", function (d) { return d.radius; });
@@ -3421,6 +3442,7 @@ var jsflap;
                         etn.value = node.model.label;
                         etn.maxLength = 3;
                         etn.padding = 4;
+                        etn.offset = [1, 1];
                         etn.onComplete = function () {
                             if (node.model.label !== etn.value) {
                                 if (etn.value === "" || etn.value === " " || etn.value === "  " || etn.value === "   ") {
@@ -3473,7 +3495,7 @@ var jsflap;
                 finalNodes.exit().attr('opacity', 1).transition().attr('opacity', 0).attr("r", function (d) { return d.radius + 10; }).remove();
                 var edgeKeyFn = function (edge) { return edge.models.items.map(function (edge) { return edge.toString(); }).join(','); };
                 var edgePaths = edgesGroup.selectAll("path.edge").data(this.edges, edgeKeyFn);
-                if (shouldAnimateMovement) {
+                if (shouldAnimateMovement && !this.shouldForceStandardAnimation) {
                     edgePaths.transition().ease('cubic-out').duration(50).attr('d', function (d) { return d.getPath(); });
                 }
                 else if (this.state.draggingNode === null && this.state.isDraggingBoard === false) {
@@ -3493,39 +3515,6 @@ var jsflap;
                 newEdgePaths.attr('style', "marker-end:url(#markerArrow)");
                 edgePaths.classed('rightAngle', function (edge) { return ((Math.abs(edge.start.x - edge.end.x) < .1) && (Math.abs(edge.start.x - edge.control.x) < .1)) || (Math.abs(edge.start.y - edge.end.y) < .1) && (Math.abs(edge.start.y - edge.control.y) < 1); });
                 edgePaths.exit().transition().attr("opacity", 0).remove();
-                controlPointsGroup.style('display', this.state.mode === 1 /* MOVE */ ? 'block' : '').transition().duration(200).attr("opacity", this.state.mode === 1 /* MOVE */ ? 1 : 0).each('end', function () {
-                    controlPointsGroup.style('display', _this.state.mode !== 1 /* MOVE */ ? 'none' : '');
-                });
-                var edgePathControlPoints = controlPointsGroup.selectAll("circle.control").data(this.edges);
-                edgePathControlPoints.enter().append('circle').classed('control', true).attr('r', 10).on('mousedown', function (edge) {
-                    if (_this.state.mode === 1 /* MOVE */) {
-                        _this.state.modifyEdgeControl = edge;
-                        _this.state.draggingCommand = new jsflap.Board.Command.MoveEdgeControlCommand(_this.board, edge);
-                    }
-                }).on('dblclick', function (edge) {
-                    if (_this.state.mode === 1 /* MOVE */) {
-                        edge.resetControlPoint();
-                        edge.recalculatePath();
-                        edgePaths.transition().duration(500).ease('elastic').attr('d', function (d) { return d.getPath(); });
-                        edgeTransitions.transition().duration(500).ease('elastic').attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; }).attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
-                        edgePathControlPoints.transition().ease('elastic').duration(500).attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; }).each('end', function () {
-                            _this.update();
-                        });
-                    }
-                }).on('mouseover', function (edge) {
-                    _this.state.hoveringEdge = edge;
-                }).on('mouseout', function (edge) {
-                    _this.state.hoveringEdge = null;
-                });
-                var edgePathControlPointsMovement;
-                if (shouldAnimateMovement) {
-                    edgePathControlPointsMovement = edgePathControlPoints.transition().ease('cubic-out').duration(50);
-                }
-                else {
-                    edgePathControlPointsMovement = edgePathControlPoints;
-                }
-                edgePathControlPointsMovement.attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; });
-                edgePathControlPoints.exit().remove();
                 var edgeTransitionGroup = transitionsGroup.selectAll('g.edgeTransitions').data(this.edges, edgeKeyFn);
                 edgeTransitionGroup.enter().append('g').classed('edgeTransitions', true);
                 edgeTransitionGroup.exit().transition().attr('opacity', 0).remove();
@@ -3546,7 +3535,7 @@ var jsflap;
                     }
                 });
                 var edgeTransitionsMovement;
-                if (shouldAnimateMovement) {
+                if (shouldAnimateMovement && !this.shouldForceStandardAnimation) {
                     edgeTransitionsMovement = edgeTransitions.transition().ease('cubic-out').duration(50);
                 }
                 else if (this.state.draggingNode === null && this.state.isDraggingBoard === false) {
@@ -3558,11 +3547,13 @@ var jsflap;
                 edgeTransitionsMovement.attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; }).attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
                 if (this.board.settings.transitionStyle == 1 /* PERPENDICULAR */) {
                     edgeTransitions.attr("transform", function (d) {
+                        // TODO: Minimize the expensiveness of calling this 3 times per point!
+                        var transitionPoint = d.visualization.getTransitionPoint(d.visualizationNumber);
                         var angle = (d.to.visualization.position.getAngleTo(d.from.visualization.position) * (180 / Math.PI));
                         if (angle < -90 || angle >= 90) {
                             angle += 180;
                         }
-                        return "rotate(" + angle + " " + this.attributes.x.textContent + ", " + this.attributes.y.textContent + ")";
+                        return "rotate(" + angle + " " + transitionPoint.x + ", " + transitionPoint.y + ")";
                     });
                 }
                 else {
@@ -3596,6 +3587,38 @@ var jsflap;
                 }).on('mouseout', function (edge) {
                     _this.state.hoveringTransition = null;
                 });
+                controlPointsGroup.style('display', this.state.mode === 1 /* MOVE */ ? 'block' : '').transition().duration(200).attr("opacity", this.state.mode === 1 /* MOVE */ ? 1 : 0).each('end', function () {
+                    controlPointsGroup.style('display', _this.state.mode !== 1 /* MOVE */ ? 'none' : '');
+                });
+                var edgePathControlPoints = controlPointsGroup.selectAll("circle.control").data(this.edges);
+                edgePathControlPoints.enter().append('circle').classed('control', true).attr('r', 10).on('mousedown', function (edge) {
+                    if (_this.state.mode === 1 /* MOVE */) {
+                        _this.state.modifyEdgeControl = edge;
+                        _this.state.draggingCommand = new jsflap.Board.Command.MoveEdgeControlCommand(_this.board, edge);
+                    }
+                }).on('dblclick', function (edge) {
+                    if (_this.state.mode === 1 /* MOVE */) {
+                        edge.resetControlPoint();
+                        edge.recalculatePath();
+                        edgeTransitions.attr('x', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).x; }).attr('y', function (d) { return d.visualization.getTransitionPoint(d.visualizationNumber).y; });
+                        _this.shouldForceStandardAnimation = true;
+                        _this.update();
+                        _this.shouldForceStandardAnimation = false;
+                    }
+                }).on('mouseover', function (edge) {
+                    _this.state.hoveringEdge = edge;
+                }).on('mouseout', function (edge) {
+                    _this.state.hoveringEdge = null;
+                });
+                var edgePathControlPointsMovement;
+                if (shouldAnimateMovement) {
+                    edgePathControlPointsMovement = edgePathControlPoints.transition().ease('cubic-out').duration(50);
+                }
+                else {
+                    edgePathControlPointsMovement = edgePathControlPoints;
+                }
+                edgePathControlPointsMovement.attr('cx', function (d) { return d.control.x; }).attr('cy', function (d) { return d.control.y; });
+                edgePathControlPoints.exit().remove();
                 // newEdgeTransitions
                 //     .attr('opacity', 0)
                 //     .transition()

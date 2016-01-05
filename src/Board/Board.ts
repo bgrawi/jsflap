@@ -5,6 +5,11 @@ module jsflap.Board {
          * The actual svg element being used
          */
         private svg: D3.Selection;
+        
+        /**
+         * The container element
+         */
+        private container: Element;
 
         /**
          * The base of the board for the svg
@@ -23,7 +28,7 @@ module jsflap.Board {
         
         public settings: BoardSettings = {
             theme: "modern",
-            transitionStyle: TransitionStyle.UPRIGHT
+            transitionStyle: TransitionStyle.PERPENDICULAR
         };
 
         /**
@@ -53,8 +58,9 @@ module jsflap.Board {
          * @param graph
          * @param $rootScope The scope to broadcast events on
          */
-        constructor(svg: Element, graph: Graph.IGraph, $rootScope) {
+        constructor(svg: Element, container: Element, graph: Graph.IGraph, $rootScope) {
             this.svg = d3.select(svg);
+            this.container = container;
             this.boardBase = this.svg.select('g.background').append("rect")
                 .attr("fill", "url(#grid)")
                 .attr("opacity", 1)
@@ -77,6 +83,10 @@ module jsflap.Board {
         
         public getSvg(): D3.Selection {
             return this.svg;
+        }
+        
+        public getContainer(): Element {
+            return this.container;
         }
 
         public reindexNodeNames() {

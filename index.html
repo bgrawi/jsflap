@@ -1,19 +1,20 @@
 <!DOCTYPE html>
-<html>
+<html ng-app="jsflap" ng-cloak="" ng-controller="AppController" jsflap-app>
 <head lang="en">
     <meta charset="UTF-8">
-    <title>jsflap</title>
+    <title ng-bind-template="JSFLAP - {{graphMeta.title}}">JSFLAP</title>
     <link rel="stylesheet" href="vendor/foundation-5.5.0/css/normalize.css">
     <link rel="stylesheet" href="vendor/foundation-5.5.0/css/foundation.min.css">
     <link href="vendor/font-awesome-4.2.0/css/font-awesome.min.css" rel="stylesheet">
     <link rel="stylesheet" href="dist/css/jsflap.css">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+    <link rel="apple-touch-icon" href="/assets/icon_iphone.png">
 </head>
-<body ng-app="jsflap" ng-cloak="" ng-controller="AppController" jsflap-app ng-class="'mode_' + board.state.mode">
+<body ng-class="'mode_' + board.state.mode">
 <top-bar role="navigation">
-    <ul class="title-area">
+    <ul class="title-area" tooltip-placement="bottom" tooltip-html-unsafe="<b>J</b>ava<b>S</b>cript <b>F</b>ormal <b>L</b>anguage and <b>A</b>utomatta <b>P</b>ackage, <i>inspired by JFLAP</i>">
         <li class="name">
-            <h1><a href="#"><i class="fa fa-flag"></i> JSFLAP <small>beta</small></a></h1>
+            <h1><a href="#"><i class="fa fa-caret-right"></i><i class="fa fa-circle"></i> JSFLAP <small>beta</small></a></h1>
         </li>
         <li toggle-top-bar class="menu-icon"><a href="#"><span>Menu</span></a></li>
     </ul>
@@ -42,49 +43,29 @@
                     </li>
                 </ul>
             </li>
-            <li ng-click="board.setMode(0)" class="mode_selector" ng-class="(board.state.mode === 0)?'active':''"><a href="#"><i class="fa fa-pencil"></i></a></li>
-            <li ng-click="board.setMode(1)" class="mode_selector" ng-class="(board.state.mode === 1)?'active':''"><a href="#"><i class="fa fa-arrows"></i></a></li>
-            <li ng-click="board.setMode(2)" class="mode_selector" ng-class="(board.state.mode === 2)?'active':''"><a href="#"><i class="fa fa-eraser"></i></a></li>
-        </ul>
-
-        <ul class="center">
-            <li class="has-form graph-title">
-                <input ng-model="graphMeta.title" type="text" placeholder="Untitled 1">
-            </li>
-        </ul>
-
-        <!-- Right Nav Section -->
-        <ul class="right">
-            <li><a ng-class="board.invocationStack.hasUndo()?'':'disabled'" href="#" ng-click="board.invocationStack.undo()"><i class="fa fa-undo"></i></a></li>
-            <li><a ng-class="board.invocationStack.hasRedo()?'':'disabled'" href="#" ng-click="board.invocationStack.redo()"><i class="fa fa-undo fa-flip-horizontal"></i></a></li>
-            <li><a href="#" ng-click="openHelpModal()"><i class="fa fa-question-circle"></i></a></li>
-            <li><a target="_blank" href="https://github.com/bgrawi/jsflap/issues" title="Report a Bug"><i class="fa fa-bug"></i></a></li>
             <li has-dropdown>
-                <a href="#"><i class="fa fa-cog"></i></a>
+                <a href="#">Edit</a>
                 <ul top-bar-dropdown>
-                    <li has-dropdown>
-                        <a href="#"><i class="fa fa-folder-open"></i> Theme</a>
-                        <ul top-bar-dropdown>
-                            <li ng-repeat="(themeKey, themeName) in availableThemes" ng-class="themeKey === board.settings.theme? 'active': ''"><a href="#" ng-click="board.settings.theme = themeKey">{{themeName}}</a></li>
-                        </ul>
-                    </li>
-                    <li has-dropdown>
-                        <a href="#"><i class="fa fa-font"></i> Transition Style</a>
-                        <ul top-bar-dropdown>
-                            <li ng-repeat="transitionStyleName in availableTransitionStyles" ng-class="$index === board.settings.transitionStyle? 'active': ''"><a href="#" ng-click="board.settings.transitionStyle = $index; board.visualizations.update()">{{transitionStyleName}}</a></li>
-                        </ul>
-                    </li>
-                    <li>
-                        <a href="#" ng-click="board.reindexNodeNames()">
-                            <i class="fa fa-fw fa-list-ol"></i> Re-index
-                        </a>
-                    </li>
+                    <li><a ng-class="board.invocationStack.hasUndo()?'':'disabled'" href="#" ng-click="board.invocationStack.undo()"><i class="fa fa-undo"></i> Undo <kbd>CTRL/&#8984; + Z</kbd></a></li>
+                    <li><a ng-class="board.invocationStack.hasRedo()?'':'disabled'" href="#" ng-click="board.invocationStack.redo()"><i class="fa fa-undo fa-flip-horizontal"></i> Redo <kbd>CTRL/&#8984; + Y</kbd></a></li>
+                </ul>
+            </li>
+            <li has-dropdown>
+                <a href="#">Help</a>
+                <ul top-bar-dropdown>
+                    <li><a href="#" ng-click="openHelpModal()"><i class="fa fa-question-circle"></i> Help</a></li>
+                    <li><a target="_blank" href="https://github.com/bgrawi/jsflap/issues" title="Report a Bug"><i class="fa fa-bug"></i> Repot a Bug</a></li>
                 </ul>
             </li>
         </ul>
     </top-bar-section>
 </top-bar>
 <div class="full main-row">
+    <div class="icon-bar vertical three-up mode_selectors">
+        <a href="#" ng-click="board.setMode(0)" class="item mode_selector" ng-class="(board.state.mode === 0)?'active':''" tooltip-placement="right"  tooltip-append-to-body="true" tooltip-popup-delay="1000" tooltip="Pencil tool: Click to create nodes, drag to create edges"><i class="fa fa-pencil"></i></a></li>
+        <a href="#" ng-click="board.setMode(1)" class="item mode_selector" ng-class="(board.state.mode === 1)?'active':''" tooltip-placement="right"  tooltip-append-to-body="true" tooltip-popup-delay="1000" tooltip="Move tool: Move nodes, control points, or the board around"><i class="fa fa-arrows"></i></a></li>
+        <a href="#"  ng-click="board.setMode(2)" class="item mode_selector" ng-class="(board.state.mode === 2)?'active':''" tooltip-placement="right" tooltip-append-to-body="true" tooltip-popup-delay="1000" tooltip="Eraser tool: Erase nodes, edges, or transitions when activated"><i class="fa fa-eraser"></i></a></li>
+    </div>
     <section class="board-container" jsflap-board-container>
         <svg tabindex="0" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" ng-class="'theme-' + board.settings.theme" jsflap-board>
             <marker id="markerArrow" markerWidth="13" markerHeight="13" refx="8" refy="7"
@@ -104,57 +85,142 @@
         </svg>
     </section>
     <section class="board-sidebar">
-        <div class="text-heading">
-            Graph Settings
-        </div>
-        <div class="text-subheading">
-            <div class="row full">
-                <div class="small-12 columns text-subheading-status" ng-class="{'bg-color-valid': graph.isValid(), 'bg-color-invalid': !graph.isValid()}">
-                    <div class="center">Graph is {{!graph.isValid()?'in':''}}valid</div>
+        <tabset>
+            <tab>
+                <tab-heading tooltip="Graph Settings" tooltip-placement="bottom" tooltip-append-to-body="true">
+                    <i class="fa fa-cog"></i>
+                </tab-heading>
+                <div class="text-heading">
+                    Graph Settings
                 </div>
-            </div>
-        </div>
-        <div style="margin-bottom: -20px">
-            <ul class="button-group even-2">
-                <li>
-                    <button type="button" class="button secondary" ng-model="graph.deterministic" btn-checkbox>
-                        <i class="fa fa-fw" ng-class="{'fa-check-square': graph.deterministic, 'fa-square-o': !graph.deterministic}"></i> Deterministic
-                    </button>
-                </li>
-                <li>
-                    <button type="button" class="button secondary dropdown" dropdown-toggle="#graph-settings-type">
-                        {{graphMeta.type}}
-                    </button>
-                    <ul id="graph-settings-type" class="f-dropdown">
-                        <li ng-repeat="(type, displayType) in availableTypes"><a href="#" ng-click="graphMeta.type = type">{{displayType}}</a></li>
-                    </ul>
-                </li>
-            </ul>
-        </div>
-        <div class="text-heading">
-            Test Machine
-        </div>
-        <form name="testInputsForm" jsflap-test-inputs="">
-            <div class="text-subheading">
+                <div class="text-subheading">
+                    Graph Title and Type
+                </div>
+                <input ng-model="graphMeta.title" type="text">
+                <ul class="button-group even-2">
+                    <li>
+                        <button type="button" class="small button secondary" ng-model="graph.deterministic" btn-checkbox>
+                            <i class="fa fa-fw" ng-class="{'fa-check-square': graph.deterministic, 'fa-square-o': !graph.deterministic}"></i> Deterministic
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="small button secondary dropdown" dropdown-toggle="#graph-settings-type">
+                            {{graphMeta.type == 'FA'? 'Finite Automatta': 'Turing Machine'}}
+                        </button>
+                        <ul id="graph-settings-type" class="f-dropdown">
+                            <li ng-repeat="(type, displayType) in availableTypes"><a href="#" ng-click="graphMeta.type = type">{{displayType}}</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="text-subheading">
+                    Display Options
+                </div>
+                <ul class="stack even-1 button-group">
+                    <li>
+                        <button type="button" class="small button expand secondary dropdown" dropdown-toggle="#graph-settings-themes">
+                            <i class="fa fa-paint-brush"></i> Theme</a>
+                        </button>
+                        <ul id="graph-settings-themes" class="f-dropdown">
+                            <li ng-repeat="(themeKey, themeName) in availableThemes" ng-class="themeKey === board.settings.theme? 'active': ''"><a href="#" ng-click="board.settings.theme = themeKey">{{themeName}}</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <button type="button" class="small button expand secondary dropdown" dropdown-toggle="#graph-settings-transitionStyles">
+                            <i class="fa fa-font"></i> Transition Style</a>
+                        </button>
+                        <ul id="graph-settings-transitionStyles" class="f-dropdown">
+                            <li ng-repeat="transitionStyleName in availableTransitionStyles" ng-class="$index === board.settings.transitionStyle? 'active': ''"><a href="#" ng-click="board.settings.transitionStyle = $index; board.visualizations.update()">{{transitionStyleName}}</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="text-subheading">
+                    Status
+                </div>
                 <div class="row full">
-                    <div class="small-4 columns bg-color-valid text-subheading-status">
-                        {{resultTotals[1]}} Accepted
-                    </div>
-                    <div class="small-4 columns bg-color-invalid text-subheading-status">
-                        {{resultTotals[0]}} Rejected
-                    </div>
-                    <div class="small-4 columns bg-color-gray1 text-subheading-status">
-                        {{resultTotals[2]}} Unknown
+                    <div class="small-12 columns text-subheading-status" ng-class="{'bg-color-valid': graph.isValid(), 'bg-color-invalid': !graph.isValid()}" style="text-align:center">
+                        Graph is {{!graph.isValid()?'in':''}}valid
                     </div>
                 </div>
-            </div>
-            <label ng-repeat="testInput in testInputs" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''">
-                <input type="text" name="{{$index}}" ng-model="testInput.inputString" ng-trim="false" jsflap-test-input="" placeholder="Enter test string here" autocomplete="off">
-                <div class="testInputInfo" ng-show="hasOutputString"><strong>&rarr;</strong> {{testInput.outputString}}</div>
-                <div class="testInputInfo" ng-show="testInput.error !== ''"><strong>Error:</strong> {{testInput.error}}</div>
-            </label>
-            <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
-        </form>
+                <div class="text-subheading-flush">
+                    <div class="row full">
+                        <div class="small-6 columns bg-color-gray1 text-subheading-status text">
+                             <ng-pluralize count="graph.getNodes().items.length"
+                                            when="{'0': 'No nodes',
+                                                'one': '1 node',
+                                                'other': '{} nodes'}">
+                            </ng-pluralize>
+                        </div>
+                        <div class="small-6 columns bg-color-gray1 text-subheading-status">
+                            <ng-pluralize count="graph.getEdges().items.length"
+                                            when="{'0': 'No edges',
+                                                'one': '1 edge',
+                                                'other': '{} edges'}">
+                            </ng-pluralize>
+                        </div>
+                    </div>
+                </div>
+            </tab>
+            <tab>
+                <tab-heading tooltip="Quick Input Test" tooltip-placement="bottom" tooltip-append-to-body="true">
+                    <i class="fa fa-list"></i>
+                </tab-heading>
+                <div class="text-heading">
+                    Quick Input Test
+                </div>
+                <div class="content">
+                    <form name="testInputsForm" jsflap-test-inputs="">
+                        <div class="text-subheading-flush">
+                            <div class="row full">
+                                <div class="small-4 columns bg-color-valid text-subheading-status">
+                                    {{resultTotals[1]}} Accepted
+                                </div>
+                                <div class="small-4 columns bg-color-invalid text-subheading-status">
+                                    {{resultTotals[0]}} Rejected
+                                </div>
+                                <div class="small-4 columns bg-color-gray1 text-subheading-status">
+                                    {{resultTotals[2]}} Unknown
+                                </div>
+                            </div>
+                        </div>
+                        <label ng-repeat="testInput in testInputs" ng-class="(testInput.result === true || testInput.result === false) ?(testInput.result?'accepted':'rejected'):''">
+                            <input type="text" name="{{$index}}" ng-model="testInput.inputString" ng-trim="false" jsflap-test-input="" placeholder="Enter test string here" autocomplete="off">
+                            <div class="testInputInfo" ng-show="hasOutputString"><strong>&rarr;</strong> {{testInput.outputString}}</div>
+                            <div class="testInputInfo" ng-show="testInput.error !== ''"><strong>Error:</strong> {{testInput.error}}</div>
+                        </label>
+                        <a class="newTestInput" href="#" ng-click="addTestInput()">Enter test string here</a>
+                    </form>
+                </div>
+            </tab>
+            <tab>
+                <tab-heading tooltip="Tools" tooltip-placement="bottom" tooltip-append-to-body="true">
+                    <i class="fa fa-wrench"></i>
+                </tab-heading>
+                <div class="text-heading">
+                    Tools
+                </div>
+                <div class="text-subheading">
+                    General Tools
+                </div>
+                <ul class="stack even-1 button-group">
+                    <li>
+                        <button type="button" class="small button expand secondary" ng-click="board.reindexNodeNames()">
+                            <i class="fa fa-fw fa-list-ol"></i> Re-index node labels
+                        </button>
+                    </li>
+                </ul>
+            </tab>
+            <tab>
+                <tab-heading tooltip="Simulate" tooltip-placement="bottom" tooltip-append-to-body="true">
+                    <i class="fa fa-play"></i>
+                </tab-heading>
+                <div class="text-heading">
+                    Simulate
+                </div>
+                <div class="text-subheading">
+                    Coming Soon!
+                </div>
+            </tab>
+        </tabset>  
     </section>
 </div>
 

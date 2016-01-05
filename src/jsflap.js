@@ -242,7 +242,7 @@
             };
 
             $scope.graphMeta = {
-                title: '',
+                title: 'Untitled Graph 1',
                 type: 'FA'
             };
             

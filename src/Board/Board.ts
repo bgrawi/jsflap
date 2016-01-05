@@ -752,7 +752,6 @@ module jsflap.Board {
                         this.visualizations.update();
                     }
                     break;
-
                 case 89: // Y (For CTRL-Y)
                     if(this.isModifierKeyPressed()) {
                         this.invocationStack.redo();

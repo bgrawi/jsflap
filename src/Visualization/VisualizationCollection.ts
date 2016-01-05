@@ -79,36 +79,24 @@ module jsflap.Visualization {
             if(node.model.initial) {
                 initialOption = {
                     display: 'Remove Initial',
-                    callback: () => {
-                        this.board.setInitialNode(null, true);
-                        this.update();
-                    }
+                    callback: () => this.board.setInitialNode(null, true)
                 };
             } else {
                 initialOption = {
                     display: 'Make Initial',
-                    callback: () => {
-                        this.board.setInitialNode(node, true);
-                        this.update();
-                    }
+                    callback: () => this.board.setInitialNode(node, true)
                 };
             }
 
             if(node.model.final) {
                 finalOption = {
                     display: 'Remove Final',
-                    callback: () => {
-                        this.board.unmarkFinalNode(node, true);
-                        this.update();
-                    }
+                    callback: () => this.board.unmarkFinalNode(node, true)
                 };
             } else {
                 finalOption = {
                     display: 'Make Final',
-                    callback: () => {
-                        this.board.markFinalNode(node, true);
-                        this.update();
-                    }
+                    callback: () => this.board.markFinalNode(node, true)
                 };
             }
 
@@ -173,6 +161,12 @@ module jsflap.Visualization {
             newNodeLabels.on('contextmenu', (node: NodeVisualization) => this.nodeContextMenu(node));
             
             newNodeLabels.on("mouseup", (node: NodeVisualization) => {
+                    var event = <any> d3.event; // Cast to any to allow which access below
+                    
+                    // Only respond to left clicks
+                    if(event.which != 1) {
+                        return;
+                    }
                     if(this.state.mode === Board.BoardMode.DRAW && !this.state.futureEdgeFromValid && !this.state.futureEdgeFromCreated) {
                         
                         // Clicked just on the node and did not drag

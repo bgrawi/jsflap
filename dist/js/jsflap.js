@@ -242,7 +242,7 @@
             };
 
             $scope.graphMeta = {
-                title: '',
+                title: 'Untitled Graph 1',
                 type: 'FA'
             };
             
@@ -2868,32 +2868,6 @@ var jsflap;
 
 var jsflap;
 (function (jsflap) {
-    var Utils;
-    (function (Utils) {
-        /**
-         * ADAPTED FROM:
-         * Fast UUID generator, RFC4122 version 4 compliant.
-         * @author Jeff Ward (jcward.com).
-         * @license MIT license
-         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
-         **/
-        var lut = [];
-        for (var i = 0; i < 256; i++) {
-            lut[i] = (i < 16 ? '0' : '') + (i).toString(16);
-        }
-        function getUUID() {
-            var d0 = Math.random() * 0xffffffff | 0;
-            var d1 = Math.random() * 0xffffffff | 0;
-            var d2 = Math.random() * 0xffffffff | 0;
-            var d3 = Math.random() * 0xffffffff | 0;
-            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
-        }
-        Utils.getUUID = getUUID;
-    })(Utils = jsflap.Utils || (jsflap.Utils = {}));
-})(jsflap || (jsflap = {}));
-
-var jsflap;
-(function (jsflap) {
     var Visualization;
     (function (Visualization) {
         (function (EdgeVisualizationPathMode) {
@@ -3382,37 +3356,25 @@ var jsflap;
                 if (node.model.initial) {
                     initialOption = {
                         display: 'Remove Initial',
-                        callback: function () {
-                            _this.board.setInitialNode(null, true);
-                            _this.update();
-                        }
+                        callback: function () { return _this.board.setInitialNode(null, true); }
                     };
                 }
                 else {
                     initialOption = {
                         display: 'Make Initial',
-                        callback: function () {
-                            _this.board.setInitialNode(node, true);
-                            _this.update();
-                        }
+                        callback: function () { return _this.board.setInitialNode(node, true); }
                     };
                 }
                 if (node.model.final) {
                     finalOption = {
                         display: 'Remove Final',
-                        callback: function () {
-                            _this.board.unmarkFinalNode(node, true);
-                            _this.update();
-                        }
+                        callback: function () { return _this.board.unmarkFinalNode(node, true); }
                     };
                 }
                 else {
                     finalOption = {
                         display: 'Make Final',
-                        callback: function () {
-                            _this.board.markFinalNode(node, true);
-                            _this.update();
-                        }
+                        callback: function () { return _this.board.markFinalNode(node, true); }
                     };
                 }
                 this.state.contextMenuOptions = [finalOption, initialOption];
@@ -3436,6 +3398,11 @@ var jsflap;
                 var newNodeLabels = nodeLabels.enter().append('text').classed('nodeLabel', true).attr('text-anchor', 'middle').text(function (d) { return d.model.label; }).attr('opacity', 0);
                 newNodeLabels.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
                 newNodeLabels.on("mouseup", function (node) {
+                    var event = d3.event; // Cast to any to allow which access below
+                    // Only respond to left clicks
+                    if (event.which != 1) {
+                        return;
+                    }
                     if (_this.state.mode === 0 /* DRAW */ && !_this.state.futureEdgeFromValid && !_this.state.futureEdgeFromCreated) {
                         // Clicked just on the node and did not drag
                         var etn = new Visualization.EditableTextNode(_this.board, d3.event.target);
@@ -3820,6 +3787,32 @@ var jsflap;
         })();
         Visualization.VisualizationCollection = VisualizationCollection;
     })(Visualization = jsflap.Visualization || (jsflap.Visualization = {}));
+})(jsflap || (jsflap = {}));
+
+var jsflap;
+(function (jsflap) {
+    var Utils;
+    (function (Utils) {
+        /**
+         * ADAPTED FROM:
+         * Fast UUID generator, RFC4122 version 4 compliant.
+         * @author Jeff Ward (jcward.com).
+         * @license MIT license
+         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
+         **/
+        var lut = [];
+        for (var i = 0; i < 256; i++) {
+            lut[i] = (i < 16 ? '0' : '') + (i).toString(16);
+        }
+        function getUUID() {
+            var d0 = Math.random() * 0xffffffff | 0;
+            var d1 = Math.random() * 0xffffffff | 0;
+            var d2 = Math.random() * 0xffffffff | 0;
+            var d3 = Math.random() * 0xffffffff | 0;
+            return lut[d0 & 0xff] + lut[d0 >> 8 & 0xff] + lut[d0 >> 16 & 0xff] + lut[d0 >> 24 & 0xff] + '-' + lut[d1 & 0xff] + lut[d1 >> 8 & 0xff] + '-' + lut[d1 >> 16 & 0x0f | 0x40] + lut[d1 >> 24 & 0xff] + '-' + lut[d2 & 0x3f | 0x80] + lut[d2 >> 8 & 0xff] + '-' + lut[d2 >> 16 & 0xff] + lut[d2 >> 24 & 0xff] + lut[d3 & 0xff] + lut[d3 >> 8 & 0xff] + lut[d3 >> 16 & 0xff] + lut[d3 >> 24 & 0xff];
+        }
+        Utils.getUUID = getUUID;
+    })(Utils = jsflap.Utils || (jsflap.Utils = {}));
 })(jsflap || (jsflap = {}));
 
 var jsflap;

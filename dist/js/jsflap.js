@@ -111,20 +111,16 @@
 
                             //console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
                         }
-                        scope.uploadGraph = function(nodeL, edgeL) {
-                            alert('yo')
-                        }
-
                         scope.testInputs = [];
 
                         scope.loadNewGraph = function() {
-                            console.log("new:")
+                            //console.log("new:")
                             newNodeL = []
                             testNodeL = ["q0", "q1", "q2"]
                             testNodeL.forEach( function (node) {
                                 newNodeL.push(new jsflap.Node(node))
                             });
-                            alert(self.board)
+                            //alert(self.board)
                             setGraph(new jsflap.Graph.FAGraph(false))
                         }
                         scope.addTestInput = function() {
@@ -851,8 +847,8 @@ var jsflap;
                     theme: "modern",
                     transitionStyle: 1 /* PERPENDICULAR */
                 };
-                console.log(graph)
-                console.log($rootScope)
+                //console.log(graph)
+                //console.log($rootScope)
                 /**
                  * The function to call after the board has been updated
                  */
@@ -1561,7 +1557,7 @@ var jsflap;
                 this.visualizations.edges.forEach(function (edgeV) {
                     this.removeEdge(edgeV);
                 });
-                alert("Done")
+                //alert("Done")
             }
             Board.prototype.toLaTeX = function () {
                 var texData = '';
@@ -1741,7 +1737,7 @@ var jsflap;
                             edgeData += '\t\t\t<read>' + edgeReadVal + '</read>\n'
                             }
                         } else {
-                            alert()
+                            //alert()
                             edgeRead = edgeReadVal.splice(0,1);
                             edgeWrite = edgeReadVal.splice(2,3);
                             edgeMove = edgeReadVal.splice(4,5);

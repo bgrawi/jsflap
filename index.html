@@ -8,7 +8,32 @@
     <link href="vendor/font-awesome-4.2.0/css/font-awesome.min.css" rel="stylesheet">
     <link rel="stylesheet" href="dist/css/jsflap.css">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="//cdn.jsdelivr.net/highlight.js/9.4.0/highlight.min.js"></script>
     <link rel="apple-touch-icon" href="/assets/icon_iphone.png">
+
+    <style >
+        .inputfile {
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            position: relative;
+            z-index: -1;
+        }
+        .inputfile + label {
+            font-size: 1.25em;
+            font-weight: 700;
+            color: white;
+            background-color: black;
+            display: inline-block;
+        }
+
+        .inputfile:focus + label,
+        .inputfile + label:hover {
+            background-color: red;
+        }
+    </style>
 </head>
 <body ng-class="'mode_' + board.state.mode">
 <top-bar role="navigation">
@@ -26,7 +51,7 @@
             <li has-dropdown>
                 <a href="#">File</a>
                 <ul top-bar-dropdown>
-                    <li><a href="/" target="_blank"><i class="fa fa-file fa-fw"></i> New</a></li>
+                    <li><a href="#" target="_blank" ng-click="loadNewGraph()"><i class="fa fa-file fa-fw"></i> New</a></li>
                     <!--<li has-dropdown>-->
                         <!--<a href="#"><i class="fa fa-folder-open fa-fw"></i> Open...</a>-->
                         <!--<ul top-bar-dropdown>-->
@@ -36,11 +61,26 @@
                     <li has-dropdown>
                         <a href="#"><i class="fa fa-share-square-o fa-fw"></i> Export...</a>
                         <ul top-bar-dropdown>
-                            <li><a ng-click="saveToImage()" href=""><i class="fa fa-picture-o fa-fw"></i> PNG Image</a></li>
-                            <li><a ng-click="saveToLaTeX()" href=""><i class="fa fa-file-code-o fa-fw"></i> LaTeX</a></li>
-                            <li><a ng-click="saveToAutomatonDefinition()" href=""><i class="fa fa-file-text-o fa-fw"></i> Automaton Definition</a></li>
+                            <li><a ng-click="saveToImage()" href=""><i class="fa fa-picture-o fa-fw"></i>  PNG Image</a></li>
+                            <li><a ng-click="saveToLaTeX()" href=""><i class="fa fa-file-code-o fa-fw"></i>  LaTeX</a></li>
+                            <li><a ng-click="saveToAutomatonDefinition()" href=""><i class="fa fa-file-text-o fa-fw"></i>  Automaton Definition</a></li>
+                            <!-- Added by Jason Ma. Calls functions to output a file in a specified format -->
+                            <li><a ng-click="saveToJSON()" href=""><i class="fa fa-file-text-o fa-fw"></i>  JSON</a></li>
+                            <li><a ng-click="saveToJFLAP()" href=""><i class = "fa fa-caret-right"></i><i class = "fa fa-circle-thin"></i> JFLAP</a></li>
                         </ul>
                     </li>
+                    <!-- <li has-dropdown>
+                        <a href="#"><i class = "fa fa-upload fa-fw"></i> Import...</a>
+                        <ul top-bar-dropdown>
+                                <li>
+                                    Creates a fancy-ish ui for file upload using the input tag
+                                         Clicking this button triggers the file input button
+                                    <a onclick="$('#fileinput').click()" href="">
+                                    <i class = "fa fa-file-text-o fa-fw"></i> JSON</a>
+                                </li>
+                        </ul>
+                    </li> -->
+
                 </ul>
             </li>
             <li has-dropdown>
@@ -54,9 +94,68 @@
                 <a href="#">Help</a>
                 <ul top-bar-dropdown>
                     <li><a href="#" ng-click="openHelpModal()"><i class="fa fa-question-circle"></i> Help</a></li>
-                    <li><a target="_blank" href="https://github.com/bgrawi/jsflap/issues" title="Report a Bug"><i class="fa fa-bug"></i> Repot a Bug</a></li>
+                    <li><a target="_blank" href="https://github.com/bgrawi/jsflap/issues" title="Report a Bug"><i class="fa fa-bug"></i> Report a Bug</a></li>
                 </ul>
+            <!-- </li> -->
+            <!--
+            First attemt at file input. Can ignore. This script is now located at the end
+            <li>
+
+            <form action='index.html' method="post" enctype="multipart/form-data">
+                <input id="myInput" type="file" style="visibility:hidden" accept=".json" onchange="javascript:this.form.submit"/>
+            </form>
+            <script type="text/javascript">
+                  function readSingleFile(evt) {
+                    //Retrieve the first (and only!) File from the FileList object
+                    var f = evt.target.files[0];
+
+                    if (f) {
+                      var r = new FileReader();
+                      r.onload = function(e) {
+                          var contents = e.target.result;
+                        alert( "Got the file.\n"
+                              +"name: " + f.name + "\n"
+                              +"type: " + f.type + "\n"
+                              +"size: " + f.size + " bytes\n"
+                              + "starts with: " + contents
+                        );
+                      }
+                      r.readAsText(f);
+                    } else {
+                      alert("Failed to load file");
+                    }
+                  }
+
+                document.getElementById('myInput').addEventListener('change', readSingleFile);
+            </script>
             </li>
+            -->
+            <!-- <li> -->
+            <!-- This is the button that the import JSON button triggers. Is invisibile because it clashes with the aesthetic -->
+            <!--     <input type="file" id="fileinput" accept='.json' style='visibility: hidden;'/>
+                <script type="text/javascript">
+                  function readSingleFile(evt) {
+                    //Retrieve the first (and only!) File from the FileList object
+                    var f = evt.target.files[0];
+
+                    if (f) {
+                        var r = new FileReader();
+                        // Calls parseGraph which reads the file for nodes/edges and rerenders it on the screen
+                        r.onload = function(e) {
+                            //alert("Hello");
+                            var contents = e.target.result;
+                            parseGraph(contents);
+                        }
+                        r.readAsText(f);
+                    } else {
+                        alert("Failed to load file");
+                    }
+                  }
+                // Attaches event listener to the file input button. This is so that the correct
+                // scripts are triggered when the field is changed(ie someone uploads a file)
+                document.getElementById('fileinput').addEventListener('change', readSingleFile);
+                </script> -->
+            <!-- </li> -->
         </ul>
     </top-bar-section>
 </top-bar>
@@ -220,7 +319,7 @@
                     Coming Soon!
                 </div>
             </tab>
-        </tabset>  
+        </tabset>
     </section>
 </div>
 
@@ -230,15 +329,89 @@
 <script src="bower_components/angular/angular.min.js"></script>
 <script src="vendor/mm-foundation-tpls-0.5.1.min.js"></script>
 <script src="dist/js/jsflap.js"></script>
-<script>
+<!-- <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
   m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
   })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
-  ga('create', 'UA-67654300-1', 'auto');
-  ga('send', 'pageview');
+  //ga('create', 'UA-67654300-1', 'auto');
+  //ga('send', 'pageview');
 
+</script> -->
+<!-- <script type="text/javascript">
+function parseGraph(contents) {
+    // Currently hard coded to parse a JSON file. Will later be remade to intuitively parse files
+    console.log("Parse Graph Start");
+    contentL = contents.split('\n');
+    if (contentL[0].includes('board') && contentL.length >= 4) {
+        var numNodeFound = false;
+        var numEdgeFound = false;
+        if (contentL[1].includes("numNodes")) {
+            var numNode = contentL[1].split(':');
+            numNode = numNode[1].replace(';', '');
+            numNode = parseInt(numNode);
+            numNodeFound = true;
+            console.log(numNode);
+        }
+        if (contentL[2].includes("numEdges")) {
+            var numEdge = contentL[2].split(':');
+            numEdge = numEdge[1].replace(';', '');
+            numEdge = parseInt(numEdge);
+            numEdgeFound = true;
+            console.log(numEdge);
+        }
+        var currNode = 0;
+        var endIndex = 4;
+        while( numNodeFound && currNode < numNode) {
+            nodeName = contentL[endIndex + 1].split(':')[1].replace(',', '');
+            nodeXCoor = contentL[endIndex + 2].split(':')[1].replace(',', '');
+            nodeYCoor = contentL[endIndex + 3].split(':')[1].replace(',', '');
+            nodeFinal = contentL[endIndex + 4].split(':')[1].replace(',', '');
+            nodeInitial = contentL[endIndex + 5].split(':')[1].replace(',', '');
+            endIndex += 7
+            // alert(nodeName)
+            // alert(nodeXCoor)
+            // alert(nodeYCoor)
+            // alert(nodeFinal)
+            // alert(nodeInitial)
+            currNode++;
+        }
+
+        var currEdge = 0;
+        if (endIndex > 4) {
+            var startIndex = endIndex + 2;
+        } else {
+            var startIndex = endIndex;
+        }
+        while ( numNodeFound &&  numEdgeFound && currEdge < numEdge ) {
+            //alert("Yo")
+            edgeStartNode = contentL[startIndex + 1].split(':')[1].replace(',', '');
+            edgeEndNode = contentL[startIndex + 2].split(':')[1].replace(',', '');
+            edgeReadVal = contentL[startIndex + 3].split(':')[1].replace(',', '');
+            startIndex += 5
+            // alert(edgeStartNode);
+            // alert(edgeEndNode);
+            // alert(edgeReadVal);
+            currEdge++;
+        }
+        console.log("Parsed Graph")
+        console.log("Heck Yeah")
+        console.log()
+        console.log(loadNewGraph())
+
+        alert("Hell yeah");
+    }
+}
+</script> -->
+<script>
+    // Check for the various File API support.
+    if (window.File && window.FileReader && window.FileList && window.Blob) {
+      //do your stuff!
+    } else {
+      alert('The File APIs are not fully supported by your browser.');
+    }
 </script>
+
 </body>
 </html>

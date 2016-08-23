@@ -81,7 +81,7 @@
                             } else {
                                 scope.hasOutputString = false;
                             }
-                            //console.log('STARTING TESTS');
+                            ////console.log('STARTING TESTS');
                             scope.resultTotals[0] = 0;
                             scope.resultTotals[1] = 0;
                             scope.resultTotals[2] = 0;
@@ -109,7 +109,7 @@
                             });
                             //var t1 = performance.now();
 
-                            //console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
+                            ////console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
                         }
                         scope.uploadGraph = function(nodeL, edgeL) {
                             ////alert('yo')
@@ -118,7 +118,7 @@
                         scope.testInputs = [];
 
                         scope.loadNewGraph = function() {
-                            console.log("new:")
+                            //console.log("new:")
                             newNodeL = []
                             testNodeL = ["q0", "q1", "q2"]
                             testNodeL.forEach( function (node) {
@@ -851,8 +851,8 @@ var jsflap;
                     theme: "modern",
                     transitionStyle: 1 /* PERPENDICULAR */
                 };
-                console.log(graph)
-                console.log($rootScope)
+                //console.log(graph)
+                //console.log($rootScope)
                 /**
                  * The function to call after the board has been updated
                  */

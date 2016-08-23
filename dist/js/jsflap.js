@@ -112,7 +112,7 @@
                             //console.log("ENDED IN " + Math.round((t1 - t0) * 1000) / 1000 + " ms");
                         }
                         scope.uploadGraph = function(nodeL, edgeL) {
-                            alert('yo')
+                            ////alert('yo')
                         }
 
                         scope.testInputs = [];
@@ -124,7 +124,7 @@
                             testNodeL.forEach( function (node) {
                                 newNodeL.push(new jsflap.Node(node))
                             });
-                            alert(self.board)
+                            //alert(self.board)
                             setGraph(new jsflap.Graph.FAGraph(false))
                         }
                         scope.addTestInput = function() {
@@ -1395,7 +1395,7 @@ var jsflap;
              */
             Board.prototype.removeNode = function (nodeV) {
                 // Need to copy the edges because when the edges are deleted, the indexing gets messed up
-                //alert("Hi")
+                ////alert("Hi")
                 var _this = this;
                 var toEdges = nodeV.model.toEdges.items.slice(0), fromEdges = nodeV.model.fromEdges.items.slice(0), deleteFn = function (edgeModel) {
                     _this.graph.removeEdge(edgeModel);
@@ -1561,7 +1561,7 @@ var jsflap;
                 this.visualizations.edges.forEach(function (edgeV) {
                     this.removeEdge(edgeV);
                 });
-                alert("Done")
+                //alert("Done")
             }
             Board.prototype.toLaTeX = function () {
                 var texData = '';
@@ -1705,7 +1705,7 @@ var jsflap;
                         stateData += '\t\t</state>\n';
                     } else  {
                         stateData += '\t\t<block id="' + nodeCounter + '" name="' + node.model.label + '">\n'
-                        stateData += '\t\t\t<tag>Machine' + nodeCounter + '</tag>' 
+                        stateData += '\t\t\t<tag>Machine' + nodeCounter + '</tag>\n' 
                         stateData += '\t\t\t<x>' + pos.x + '</x>\n'
                         stateData += '\t\t\t<y>' + pos.y + '</y>\n'
 
@@ -1727,12 +1727,13 @@ var jsflap;
 
                 var edgeData = '';
                 this.visualizations.edges.forEach(function (edge) {
-                    edgeData += '\t\t<transition>\n'
-                    edgeData += '\t\t\t<from>' + dictionary[edge.fromModel.label] + '</from>\n'
-                    edgeData += '\t\t\t<to>' + dictionary[edge.toModel.label] + '</to>\n'
 
 
                     edge.models.items.forEach(function (edgeModel) {
+
+                        edgeData += '\t\t<transition>\n'
+                        edgeData += '\t\t\t<from>' + dictionary[edge.fromModel.label] + '</from>\n'
+                        edgeData += '\t\t\t<to>' + dictionary[edge.toModel.label] + '</to>\n'
                         edgeReadVal = edgeModel.transition.toString();
                         if (this.graph.shortName === 'FA') {
                             if (edgeReadVal === jsflap.LAMBDA) {
@@ -1741,22 +1742,29 @@ var jsflap;
                             edgeData += '\t\t\t<read>' + edgeReadVal + '</read>\n'
                             }
                         } else {
-                            alert()
+                            ////alert()
+                            //edgeData += '\t\t\t<!-- ' + edgeReadVal + '-->'
                             edgeRead = edgeReadVal.split('/')[0];
-                            edgeWrite = edgeRead.split(';')[0];
-                            edgeMove = edgeRead.split(';')[1];
+                            edgeWrite = edgeReadVal.split('/')[1];
+                            edgeMove = edgeReadVal.charAt(edgeReadVal.length - 1);
+                            edgeWrite = edgeWrite[0];
 
                             if (edgeRead === jsflap.BLANK) {
                                 edgeData += '\t\t\t<read/>\n'
                             } else {
                                 edgeData += '\t\t\t<read>' + edgeRead + '</read>\n'
                             }
-                            edgeData += '\t\t\t<write>' + edgeWrite + '</write>\n'
+                            if (edgeWrite == jsflap.BLANK) {
+                                edgeData += '\t\t\t<write/>\n'
+                            } else {
+                                edgeData += '\t\t\t<write>' + edgeWrite + '</write>\n'
+                            }
                             edgeData += '\t\t\t<move>' + edgeMove + '</move>\n'
                         }
+
+                        edgeData += '\t\t</transition>\n'
                     });
 
-                    edgeData += '\t\t<transition>\n'
                 });
 
                 jffData = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
@@ -1781,7 +1789,7 @@ var jsflap;
                     }
                 }
 
-                jffData += '\t<automaton>\n';
+                jffData += '\t</automaton>\n';
                 jffData += '</structure>';
 
                 return jffData;
@@ -3641,7 +3649,7 @@ var jsflap;
                 newNodeLabels.on('contextmenu', function (node) { return _this.nodeContextMenu(node); });
                 newNodeLabels.on("mouseup", function (node) {
                     var event = d3.event; // Cast to any to allow which access below
-                    //alert(event.which)
+                    ////alert(event.which)
                     // Only respond to left clicks
                     if (event.which != 1) {
                         return;
